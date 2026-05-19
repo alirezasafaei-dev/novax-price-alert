@@ -10,7 +10,7 @@ class PricePoint(BaseModel):
     symbol: str
     price: Decimal
     observed_at: datetime
-    raw_payload: dict[str, Any] | None = None
+    raw_data: dict[str, Any] | None = None
 
 
 class BasePriceProvider(ABC):

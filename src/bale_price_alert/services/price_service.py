@@ -22,7 +22,7 @@ class PriceService:
             provider_id=provider_id,
             price=price_point.price,
             observed_at=price_point.observed_at,
-            raw_payload=price_point.raw_payload,
+            raw_data=price_point.raw_data,
         )
         self.session.add(snapshot)
 

@@ -11,7 +11,7 @@ def test_price_models_creation() -> None:
         provider_id="provider1",
         price=Decimal("100"),
         observed_at=datetime.now(UTC),
-        raw_payload=None,
+        raw_data=None,
     )
 
     latest = LatestPrice(

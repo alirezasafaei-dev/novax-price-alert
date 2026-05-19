@@ -7,11 +7,9 @@ from bale_price_alert.domain.enums import AlertCondition
 from bale_price_alert.domain.latest_price import LatestPrice
 from bale_price_alert.services.alert_evaluator import AlertEvaluatorService
 
-
 @pytest.mark.anyio
 async def test_evaluator_does_not_duplicate_event_for_same_timestamp(db_session) -> None:
     session = db_session
-
     observed_at = datetime.now(UTC)
 
     latest = LatestPrice(
@@ -20,7 +18,6 @@ async def test_evaluator_does_not_duplicate_event_for_same_timestamp(db_session)
         price=Decimal("150"),
         observed_at=observed_at,
     )
-
     rule = AlertRule(
         user_id="user-1",
         asset_id="asset-1",
@@ -29,7 +26,6 @@ async def test_evaluator_does_not_duplicate_event_for_same_timestamp(db_session)
         cooldown_minutes=0,
         last_triggered_at=None,
     )
-
     session.add_all([latest, rule])
     await session.commit()
 

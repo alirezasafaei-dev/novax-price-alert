@@ -19,5 +19,5 @@ class MockPriceProvider(BasePriceProvider):
             symbol=symbol,
             price=Decimal(f"{base_price + variation:.2f}"),
             observed_at=datetime.now(UTC),
-            raw_payload={"source": "mock_generator", "version": "1.0"}
+            raw_data={"source": "mock_generator", "version": "1.0"}
         )
