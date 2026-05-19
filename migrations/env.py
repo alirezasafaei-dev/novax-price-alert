@@ -8,31 +8,35 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-# 2. Import Models
-from bale_price_alert.db.base import Base
-from bale_price_alert.db.models import *  # noqa
-
-# 1. Setup Path
+# ---- add src to path ----
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_PATH = os.path.join(PROJECT_ROOT, "src")
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
+sys.path.insert(0, SRC_PATH)
 
-# 3. Standard Alembic Config
+# ---- project imports ----
+import bale_price_alert.db.models  # noqa: E402,F401
+from bale_price_alert.core.settings import settings  # noqa: E402
+from bale_price_alert.db.base import Base  # noqa: E402
+
+# ---- alembic config ----
 config = context.config
+
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+config.set_main_option("sqlalchemy.url", settings.database_url)
+
 target_metadata = Base.metadata
+
 
 def do_run_migrations(connection: Connection) -> None:
     context.configure(connection=connection, target_metadata=target_metadata)
+
     with context.begin_transaction():
         context.run_migrations()
 
+
 async def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
-    # این بخش تضمین می‌کند که آلمبیک از تنظیمات فایل ini یا تنظیمات پاس داده شده استفاده کند
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -44,16 +48,20 @@ async def run_migrations_online() -> None:
 
     await connectable.dispose()
 
+
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
+
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
+
     with context.begin_transaction():
         context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()
