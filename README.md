@@ -11,3 +11,8 @@ Phase 2 started:
 - User model
 - Asset model
 - migrations
+
+Phase 2 progress:
+
+- Added User, Asset, and Alert domain models
+- Alert condition enum and initial alert persistence are ready
