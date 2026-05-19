@@ -1,0 +1,13 @@
+from fastapi.testclient import TestClient
+
+from bale_price_alert.main import create_app
+
+
+def test_health() -> None:
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
