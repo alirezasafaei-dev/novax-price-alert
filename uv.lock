@@ -103,7 +103,7 @@ wheels = [
 [[package]]
 name = "bale-price-alert"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
     { name = "fastapi" },
@@ -124,6 +124,10 @@ dev = [
 [package.dev-dependencies]
 dev = [
     { name = "alembic" },
+    { name = "httpx" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -142,7 +146,13 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "alembic", specifier = ">=1.18.4" }]
+dev = [
+    { name = "alembic", specifier = ">=1.18.4" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pytest", specifier = ">=9.0.3" },
+    { name = "ruff", specifier = ">=0.15.13" },
+]
 
 [[package]]
 name = "certifi"

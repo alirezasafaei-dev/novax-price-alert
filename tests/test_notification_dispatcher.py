@@ -1,6 +1,7 @@
-import pytest
 from datetime import UTC, datetime
 from decimal import Decimal
+
+import pytest
 
 from bale_price_alert.domain.alert_event import AlertEvent
 from bale_price_alert.domain.enums import AlertEventStatus

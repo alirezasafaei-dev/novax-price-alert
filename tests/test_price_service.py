@@ -1,11 +1,12 @@
-import pytest
-from decimal import Decimal
 from datetime import UTC, datetime
+from decimal import Decimal
+
+import pytest
+from bale_price_alert.services.price_service import PriceService
 from sqlalchemy import select
 
-from bale_price_alert.services.price_service import PriceService
-from bale_price_alert.infra.providers.base import PricePoint
 from bale_price_alert.domain.latest_price import LatestPrice
+from bale_price_alert.infra.providers.base import PricePoint
 
 
 @pytest.mark.anyio

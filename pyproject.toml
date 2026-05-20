@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "bale-price-alert"
 version = "0.1.0"
@@ -23,9 +27,11 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+exclude = ["migrations"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]
+ignore = ["B008"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -40,5 +46,12 @@ pythonpath = ["src"]
 [dependency-groups]
 dev = [
     "alembic>=1.18.4",
+    "httpx>=0.28.1",
+    "mypy>=2.1.0",
+    "pytest>=9.0.3",
+    "ruff>=0.15.13",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 

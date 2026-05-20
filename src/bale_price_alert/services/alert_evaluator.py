@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import List
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,97 +15,66 @@ class AlertEvaluatorService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def evaluate_asset(self, asset_id: str) -> list[AlertEvent]:
-        latest_price = await self._get_latest_price(asset_id)
-        if latest_price is None:
+    async def evaluate_asset(self, asset_id: str) -> List[AlertEvent]:
+        latest_stmt = select(LatestPrice).where(LatestPrice.asset_id == asset_id)
+        latest_res = await self.session.execute(latest_stmt)
+        latest = latest_res.scalar_one_or_none()
+
+        if latest is None:
             return []
 
-        rules = await self._get_active_rules(asset_id)
-        created_events: list[AlertEvent] = []
-
-        for rule in rules:
-            if not self._cooldown_passed(rule):
-                continue
-
-            if not self._condition_matches(
-                rule.condition_type,
-                latest_price.price,
-                rule.target_price,
-            ):
-                continue
-
-            if await self._already_triggered_for_timestamp(rule.id, latest_price.observed_at):
-                continue
-
-            event = self._create_event(
-                rule=rule,
-                triggered_price=latest_price.price,
-                triggered_at=latest_price.observed_at,
-            )
-            self.session.add(event)
-            rule.last_triggered_at = latest_price.observed_at
-            created_events.append(event)
-
-        if created_events:
-            await self.session.commit()
-
-        return created_events
-
-    async def _get_latest_price(self, asset_id: str) -> LatestPrice | None:
-        stmt = select(LatestPrice).where(LatestPrice.asset_id == asset_id)
-        result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    async def _get_active_rules(self, asset_id: str) -> list[AlertRule]:
-        stmt = select(AlertRule).where(
+        rules_stmt = select(AlertRule).where(
             AlertRule.asset_id == asset_id,
             AlertRule.is_active.is_(True),
         )
-        result = await self.session.execute(stmt)
-        return list(result.scalars().all())
 
-    def _cooldown_passed(self, rule: AlertRule) -> bool:
-        if rule.last_triggered_at is None:
-            return True
+        rules_res = await self.session.execute(rules_stmt)
+        rules = rules_res.scalars().all()
 
-        next_allowed = rule.last_triggered_at + timedelta(
-            minutes=rule.cooldown_minutes,
-        )
-        return datetime.now(UTC) >= next_allowed
+        events: List[AlertEvent] = []
 
-    def _condition_matches(
-        self,
-        condition: AlertCondition,
-        current_price: Decimal,
-        target_price: Decimal,
-    ) -> bool:
-        if condition == AlertCondition.ABOVE:
-            return current_price > target_price
-        if condition == AlertCondition.BELOW:
-            return current_price < target_price
+        now = datetime.now(UTC)
+
+        for rule in rules:
+            if not self._condition_match(rule, latest.price):
+                continue
+
+            if self._cooldown_active(rule, now):
+                continue
+
+            if rule.last_triggered_at == latest.observed_at:
+                continue
+
+            event = AlertEvent(
+                alert_rule_id=rule.id,
+                triggered_price=latest.price,
+                triggered_at=latest.observed_at,
+                status=AlertEventStatus.PENDING,
+            )
+
+            self.session.add(event)
+
+            rule.last_triggered_at = latest.observed_at
+
+            events.append(event)
+
+        await self.session.commit()
+
+        return events
+
+    def _condition_match(self, rule: AlertRule, price: Decimal) -> bool:
+        if rule.condition_type == AlertCondition.ABOVE:
+            return price >= rule.target_price
+
+        if rule.condition_type == AlertCondition.BELOW:
+            return price <= rule.target_price
+
         return False
 
-    async def _already_triggered_for_timestamp(
-        self,
-        alert_rule_id: str,
-        triggered_at: datetime,
-    ) -> bool:
-        stmt = select(AlertEvent.id).where(
-            AlertEvent.alert_rule_id == alert_rule_id,
-            AlertEvent.triggered_at == triggered_at,
-        )
-        result = await self.session.execute(stmt)
-        return result.scalar_one_or_none() is not None
+    def _cooldown_active(self, rule: AlertRule, now: datetime) -> bool:
+        if rule.last_triggered_at is None:
+            return False
 
-    def _create_event(
-        self,
-        rule: AlertRule,
-        triggered_price: Decimal,
-        triggered_at: datetime,
-    ) -> AlertEvent:
-        return AlertEvent(
-            alert_rule_id=rule.id,
-            triggered_price=triggered_price,
-            triggered_at=triggered_at,
-            status=AlertEventStatus.PENDING,
-        )
+        cooldown = timedelta(minutes=rule.cooldown_minutes)
+
+        return now < rule.last_triggered_at + cooldown

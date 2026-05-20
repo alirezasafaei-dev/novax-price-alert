@@ -1,10 +1,10 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bale_price_alert.application.services.price_service import PriceService
 from bale_price_alert.domain.asset import Asset
 from bale_price_alert.domain.provider import Provider
 from bale_price_alert.infra.providers.base import BasePriceProvider
-from bale_price_alert.services.price_service import PriceService
 
 
 class PriceIngestionService:

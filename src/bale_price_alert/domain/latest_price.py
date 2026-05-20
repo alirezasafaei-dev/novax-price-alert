@@ -1,11 +1,15 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bale_price_alert.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
+if TYPE_CHECKING:
+    from bale_price_alert.domain.asset import Asset
+    from bale_price_alert.domain.provider import Provider
 
 class LatestPrice(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "latest_prices"
@@ -20,7 +24,7 @@ class LatestPrice(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         nullable=False,
     )
 
-    provider_id: Mapped[str] = mapped_column(
+    provider_id: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey("providers.id", ondelete="SET NULL"),
         nullable=True,
@@ -36,5 +40,6 @@ class LatestPrice(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         nullable=False,
     )
 
-    asset = relationship("Asset")
-    provider = relationship("Provider")
+    # اصلاح تایپ relationship
+    asset: Mapped["Asset"] = relationship("Asset")
+    provider: Mapped["Provider | None"] = relationship("Provider")

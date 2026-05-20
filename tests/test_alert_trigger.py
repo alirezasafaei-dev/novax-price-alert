@@ -1,6 +1,7 @@
-import pytest
 from datetime import UTC, datetime
 from decimal import Decimal
+
+import pytest
 from sqlalchemy import select
 
 from bale_price_alert.domain.alert_rule import AlertRule

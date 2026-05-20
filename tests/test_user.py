@@ -1,5 +1,6 @@
-import pytest
 import uuid
+
+import pytest
 
 from bale_price_alert.db.models import User
 

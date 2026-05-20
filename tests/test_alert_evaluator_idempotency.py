@@ -1,11 +1,13 @@
-import pytest
 from datetime import UTC, datetime
 from decimal import Decimal
+
+import pytest
 
 from bale_price_alert.domain.alert_rule import AlertRule
 from bale_price_alert.domain.enums import AlertCondition
 from bale_price_alert.domain.latest_price import LatestPrice
 from bale_price_alert.services.alert_evaluator import AlertEvaluatorService
+
 
 @pytest.mark.anyio
 async def test_evaluator_does_not_duplicate_event_for_same_timestamp(db_session) -> None:
