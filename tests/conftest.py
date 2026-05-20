@@ -1,5 +1,7 @@
+from typing import AsyncGenerator
+
 import pytest
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bale_price_alert.db.base import Base
 
@@ -7,7 +9,7 @@ TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
 @pytest.fixture(scope="function")
-async def db_session():
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
     engine = create_async_engine(TEST_DATABASE_URL, future=True)
 
     async with engine.begin() as conn:

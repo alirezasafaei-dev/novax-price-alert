@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bale_price_alert.domain.alert_rule import AlertRule
 from bale_price_alert.domain.enums import AlertCondition
@@ -11,22 +11,27 @@ from bale_price_alert.services.alert_evaluator import AlertEvaluatorService
 
 
 @pytest.mark.anyio
-async def test_alert_triggers_when_price_above(db_session) -> None:
+async def test_evaluator_does_not_duplicate_event_for_same_timestamp(
+    db_session: AsyncSession,
+) -> None:
     session = db_session
 
+    observed_at = datetime.now(UTC)
+
     latest = LatestPrice(
-        asset_id="asset1",
-        provider_id="provider1",
-        price=Decimal("120"),
-        observed_at=datetime.now(UTC),
+        asset_id="asset-1",
+        provider_id="provider-1",
+        price=Decimal("150"),
+        observed_at=observed_at,
     )
 
     rule = AlertRule(
-        user_id="user1",
-        asset_id="asset1",
+        user_id="user-1",
+        asset_id="asset-1",
         condition_type=AlertCondition.ABOVE,
         target_price=Decimal("100"),
-        cooldown_minutes=10,
+        cooldown_minutes=0,
+        last_triggered_at=None,
     )
 
     session.add_all([latest, rule])
@@ -34,12 +39,8 @@ async def test_alert_triggers_when_price_above(db_session) -> None:
 
     evaluator = AlertEvaluatorService(session)
 
-    events = await evaluator.evaluate_asset("asset1")
+    first_events = await evaluator.evaluate_asset("asset-1")
+    second_events = await evaluator.evaluate_asset("asset-1")
 
-    assert len(events) == 1
-
-    stmt = select(AlertRule)
-    res = await session.execute(stmt)
-    rule_db = res.scalar_one()
-
-    assert rule_db.last_triggered_at is not None
+    assert len(first_events) == 1
+    assert len(second_events) == 0

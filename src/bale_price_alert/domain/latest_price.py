@@ -11,12 +11,11 @@ if TYPE_CHECKING:
     from bale_price_alert.domain.asset import Asset
     from bale_price_alert.domain.provider import Provider
 
+
 class LatestPrice(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "latest_prices"
 
-    __table_args__ = (
-        UniqueConstraint("asset_id", name="uq_latest_price_asset"),
-    )
+    __table_args__ = (UniqueConstraint("asset_id", name="uq_latest_price_asset"),)
 
     asset_id: Mapped[str] = mapped_column(
         String(36),

@@ -10,6 +10,7 @@ from bale_price_alert.domain.alert_rule import AlertRule
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
+
 @router.post("", response_model=AlertOut, status_code=status.HTTP_201_CREATED)
 async def create_alert(
     payload: AlertCreateIn,

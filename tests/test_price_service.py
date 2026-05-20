@@ -2,15 +2,16 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from bale_price_alert.services.price_service import PriceService
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from bale_price_alert.application.services.price_service import PriceService
 from bale_price_alert.domain.latest_price import LatestPrice
 from bale_price_alert.infra.providers.base import PricePoint
 
 
 @pytest.mark.anyio
-async def test_save_price_updates_latest(db_session) -> None:
+async def test_save_price_updates_latest(db_session: AsyncSession) -> None:
     session = db_session
 
     service = PriceService(session)

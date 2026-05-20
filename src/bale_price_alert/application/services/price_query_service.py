@@ -31,16 +31,13 @@ class PriceQueryService:
         )
         """
 
-        stmt = (
-            select(
-                Asset.symbol,
-                Asset.name,
-                LatestPrice.price,
-                LatestPrice.provider_id,
-                LatestPrice.observed_at,
-            )
-            .join(LatestPrice, LatestPrice.asset_id == Asset.id)
-        )
+        stmt = select(
+            Asset.symbol,
+            Asset.name,
+            LatestPrice.price,
+            LatestPrice.provider_id,
+            LatestPrice.observed_at,
+        ).join(LatestPrice, LatestPrice.asset_id == Asset.id)
 
         if asset_symbol:
             stmt = stmt.where(Asset.symbol == asset_symbol)

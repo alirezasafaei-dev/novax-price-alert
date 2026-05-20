@@ -12,5 +12,6 @@ class LatestPriceItemOut(BaseModel):
     provider: str
     fetched_at: datetime
 
+
 class LatestPricesOut(BaseModel):
     items: list[LatestPriceItemOut]

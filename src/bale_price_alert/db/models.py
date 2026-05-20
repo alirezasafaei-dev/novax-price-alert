@@ -22,6 +22,7 @@ __all__ = [
     "LatestPrice",
 ]
 
+
 class HealthCheckLog(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "health_check_log"
 

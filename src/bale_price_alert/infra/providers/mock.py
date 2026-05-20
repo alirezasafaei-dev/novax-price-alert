@@ -14,10 +14,10 @@ class MockPriceProvider(BasePriceProvider):
         # ایجاد یک قیمت رندوم حول ۱۰۰ برای تست
         base_price = 100.0
         variation = random.uniform(-5, 5)
-        
+
         return PricePoint(
             symbol=symbol,
             price=Decimal(f"{base_price + variation:.2f}"),
             observed_at=datetime.now(UTC),
-            raw_data={"source": "mock_generator", "version": "1.0"}
+            raw_data={"source": "mock_generator", "version": "1.0"},
         )

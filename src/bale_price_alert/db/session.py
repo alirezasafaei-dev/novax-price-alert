@@ -27,5 +27,6 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         yield session
 
+
 # Log the database URL being used for debugging purposes
 print(f"DATABASE URL used by session.py: {settings.database_url}")
