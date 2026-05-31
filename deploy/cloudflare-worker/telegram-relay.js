@@ -5,13 +5,16 @@ const HELP_TEXT = `سلام، نواکس فعاله ✅
 /help - راهنما
 /prices - نمایش قیمت‌های لحظه‌ای بازار ایران
 
-هشدار قیمت از طریق مینی‌اپ/بک‌اند نواکس مدیریت می‌شود.`;
+هشدار قیمت:
+/alert USD 170000 above
+/alerts
+/delete <id>`;
 
 const TGJU_ASSETS = [
-  { symbol: "USD_IRT", label: "دلار آزاد", path: "/profile/price_dollar_rl", profile: true },
-  { symbol: "GOLD_18K_IRT", label: "طلای ۱۸ عیار", path: "/profile/geram18", profile: true },
-  { symbol: "SEKKEH_EMAMI_IRT", label: "سکه امامی", path: "/profile/sekee", profile: true },
-  { symbol: "USDT_IRT", label: "تتر", path: "/", usdt: true },
+  { symbol: "USD_IRT", aliases: ["USD", "DOLLAR"], label: "دلار آزاد", path: "/profile/price_dollar_rl", profile: true },
+  { symbol: "GOLD_18K_IRT", aliases: ["GOLD", "18K"], label: "طلای ۱۸ عیار", path: "/profile/geram18", profile: true },
+  { symbol: "SEKKEH_EMAMI_IRT", aliases: ["SEKKEH", "COIN"], label: "سکه امامی", path: "/profile/sekee", profile: true },
+  { symbol: "USDT_IRT", aliases: ["USDT", "TETHER"], label: "تتر", path: "/", usdt: true },
 ];
 
 function json(data, init = {}) {
@@ -138,6 +141,157 @@ async function buildPricesText(env) {
   return lines.join("\n");
 }
 
+
+function normalizeAsset(input) {
+  const wanted = String(input || "").trim().toUpperCase();
+  return TGJU_ASSETS.find((asset) => asset.symbol === wanted || asset.aliases.includes(wanted));
+}
+
+function normalizeCondition(input) {
+  const value = String(input || "").trim().toLowerCase();
+  if (["above", "over", "بالا", "بالاتر"].includes(value)) return "above";
+  if (["below", "under", "پایین", "کمتر"].includes(value)) return "below";
+  return null;
+}
+
+function parseToman(input) {
+  const value = Number(String(input || "").replaceAll(",", ""));
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return Math.round(value);
+}
+
+function alertKey(id) {
+  return `alert:${id}`;
+}
+
+function userKey(chatId) {
+  return `user:${chatId}:alerts`;
+}
+
+function makeAlertId() {
+  return crypto.randomUUID().split("-")[0];
+}
+
+function cacheRequest(key) {
+  return new Request(`https://novax-alerts.local/${key}`);
+}
+
+async function storageGet(env, key) {
+  if (env.ALERTS_KV) return env.ALERTS_KV.get(key, "json");
+  const response = await caches.default.match(cacheRequest(key));
+  return response ? response.json() : null;
+}
+
+async function storagePut(env, key, value) {
+  const body = JSON.stringify(value);
+  if (env.ALERTS_KV) {
+    await env.ALERTS_KV.put(key, body);
+    return;
+  }
+  await caches.default.put(cacheRequest(key), new Response(body, {
+    headers: { "Cache-Control": "public, max-age=31536000", "Content-Type": "application/json" },
+  }));
+}
+
+async function readUserAlertIds(env, chatId) {
+  return (await storageGet(env, userKey(chatId))) || [];
+}
+
+async function writeUserAlertIds(env, chatId, ids) {
+  await storagePut(env, userKey(chatId), [...new Set(ids)]);
+}
+
+async function readAllAlertIds(env) {
+  return (await storageGet(env, "alerts:index")) || [];
+}
+
+async function writeAllAlertIds(env, ids) {
+  await storagePut(env, "alerts:index", [...new Set(ids)]);
+}
+
+async function createAlert(env, chatId, args) {
+  const [assetInput, targetInput, conditionInput] = args;
+  const asset = normalizeAsset(assetInput);
+  const targetToman = parseToman(targetInput);
+  const condition = normalizeCondition(conditionInput);
+  if (!asset || !targetToman || !condition) {
+    return "فرمت هشدار درست نیست. نمونه:\n/alert USD 170000 above\nنمادها: USD, USDT, GOLD, SEKKEH\nشرط‌ها: above یا below";
+  }
+  const id = makeAlertId();
+  const alert = {
+    id,
+    chat_id: String(chatId),
+    asset_symbol: asset.symbol,
+    asset_label: asset.label,
+    target_toman: targetToman,
+    condition,
+    active: true,
+    created_at: new Date().toISOString(),
+    last_triggered_at: null,
+  };
+  const ids = await readUserAlertIds(env, chatId);
+  await storagePut(env, alertKey(id), alert);
+  await writeUserAlertIds(env, chatId, [...ids, id]);
+  await writeAllAlertIds(env, [...(await readAllAlertIds(env)), id]);
+  const sign = condition === "above" ? "بالاتر از" : "پایین‌تر از";
+  return `هشدار ساخته شد ✅\nID: ${id}\n${asset.label}: ${sign} ${new Intl.NumberFormat("fa-IR").format(targetToman)} تومان`;
+}
+
+async function listUserAlerts(env, chatId) {
+  const ids = await readUserAlertIds(env, chatId);
+  const alerts = (await Promise.all(ids.map((id) => storageGet(env, alertKey(id))))).filter(
+    (alert) => alert?.active,
+  );
+  if (alerts.length === 0) return "هنوز هشدار فعالی نداری. نمونه:\n/alert USD 170000 above";
+  const formatter = new Intl.NumberFormat("fa-IR");
+  return ["هشدارهای فعال شما:"].concat(alerts.map((alert) => {
+    const sign = alert.condition === "above" ? "بالاتر از" : "پایین‌تر از";
+    return `${alert.id} — ${alert.asset_label}: ${sign} ${formatter.format(alert.target_toman)} تومان`;
+  })).join("\n");
+}
+
+async function deleteAlert(env, chatId, args) {
+  const id = args[0];
+  if (!id) return "برای حذف بنویس: /delete <id>";
+  const ids = await readUserAlertIds(env, chatId);
+  if (!ids.includes(id)) return "هشداری با این ID برای شما پیدا نشد.";
+  const alert = await storageGet(env, alertKey(id));
+  if (alert) {
+    alert.active = false;
+    alert.deleted_at = new Date().toISOString();
+    await storagePut(env, alertKey(id), alert);
+  }
+  await writeUserAlertIds(env, chatId, ids.filter((item) => item !== id));
+  return "هشدار حذف شد ✅";
+}
+
+async function evaluateAlerts(env) {
+  const ids = await readAllAlertIds(env);
+  const alerts = (await Promise.all(ids.map((id) => storageGet(env, alertKey(id))))).filter(
+    (alert) => alert?.active,
+  );
+  if (alerts.length === 0) return { checked: 0, triggered: 0 };
+  const neededSymbols = [...new Set(alerts.map((alert) => alert.asset_symbol))];
+  const prices = new Map();
+  await Promise.all(neededSymbols.map(async (symbol) => {
+    const asset = TGJU_ASSETS.find((item) => item.symbol === symbol);
+    if (asset) prices.set(symbol, Math.round((await fetchTgjuPrice(asset, env)) / 10));
+  }));
+  let triggered = 0;
+  for (const alert of alerts) {
+    const current = prices.get(alert.asset_symbol);
+    if (!current) continue;
+    const matched = alert.condition === "above" ? current >= alert.target_toman : current <= alert.target_toman;
+    const last = alert.last_triggered_at ? Date.parse(alert.last_triggered_at) : 0;
+    if (!matched || Date.now() - last < 60 * 60 * 1000) continue;
+    triggered += 1;
+    alert.last_triggered_at = new Date().toISOString();
+    await storagePut(env, alertKey(alert.id), alert);
+    await sendMessage(env, { chat_id: alert.chat_id, text: `🔔 هشدار قیمت\n${alert.asset_label}: ${new Intl.NumberFormat("fa-IR").format(current)} تومان\nهدف شما: ${new Intl.NumberFormat("fa-IR").format(alert.target_toman)} تومان` });
+  }
+  return { checked: alerts.length, triggered };
+}
+
 async function sendPricesLater(env, chatId) {
   try {
     const reply = await buildPricesText(env);
@@ -157,7 +311,9 @@ async function handleTelegramWebhook(request, env, ctx) {
 
   const text = getMessageText(update).trim();
   let reply = HELP_TEXT;
-  if (text.startsWith("/prices")) {
+  const [command, ...args] = text.split(/\s+/);
+  const normalizedCommand = command.toLowerCase();
+  if (normalizedCommand === "/prices") {
     await sendMessage(env, { chat_id: chatId, text: "⏳ در حال دریافت قیمت‌های لحظه‌ای..." });
     if (ctx?.waitUntil) {
       ctx.waitUntil(sendPricesLater(env, chatId));
@@ -165,6 +321,12 @@ async function handleTelegramWebhook(request, env, ctx) {
       await sendPricesLater(env, chatId);
     }
     return json({ ok: true, queued: "prices" });
+  } else if (normalizedCommand === "/alert") {
+    reply = await createAlert(env, chatId, args);
+  } else if (normalizedCommand === "/alerts") {
+    reply = await listUserAlerts(env, chatId);
+  } else if (normalizedCommand === "/delete") {
+    reply = await deleteAlert(env, chatId, args);
   } else if (text && !text.startsWith("/start") && !text.startsWith("/help")) {
     reply = "دستور نامعتبره. /help رو بزن.";
   }
@@ -211,7 +373,7 @@ export default {
           status: "ok",
           service: "telegram-relay",
           webhook_path: "/webhook",
-          commands: ["/start", "/help", "/prices"],
+          commands: ["/start", "/help", "/prices", "/alert", "/alerts", "/delete"],
           price_source: "TGJU",
           display_unit: "Toman",
           source_unit: "Rial",
@@ -238,5 +400,9 @@ export default {
     } catch (error) {
       return json({ error: error.message || "internal error" }, { status: 500 });
     }
+  },
+
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil(evaluateAlerts(env));
   },
 };

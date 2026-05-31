@@ -7,6 +7,23 @@ async function readJson(response) {
   return response.json();
 }
 
+function createKv() {
+  const store = new Map();
+  return {
+    async get(key, type) {
+      const value = store.get(key);
+      if (value === undefined) return null;
+      return type === "json" ? JSON.parse(value) : value;
+    },
+    async put(key, value) {
+      store.set(key, value);
+    },
+    async list({ prefix = "" } = {}) {
+      return { keys: [...store.keys()].filter((name) => name.startsWith(prefix)).map((name) => ({ name })) };
+    },
+  };
+}
+
 try {
   const telegramRequests = [];
   globalThis.fetch = async (url, init) => {
@@ -20,7 +37,7 @@ try {
     return Response.json({ ok: true, result: { message_id: 99 } });
   };
 
-  const env = { RELAY_SECRET: "expected", TELEGRAM_BOT_TOKEN: "token" };
+  const env = { RELAY_SECRET: "expected", TELEGRAM_BOT_TOKEN: "token", ALERTS_KV: createKv() };
 
   const health = await worker.fetch(new Request("https://relay.example/health"), {});
   assert.equal(health.status, 200);
@@ -34,6 +51,7 @@ try {
   const debugPayload = await readJson(debug);
   assert.equal(debugPayload.display_unit, "Toman");
   assert.equal(debugPayload.timezone, "Asia/Tehran");
+  assert.deepEqual(debugPayload.commands, ["/start", "/help", "/prices", "/alert", "/alerts", "/delete"]);
 
   const unauthorized = await worker.fetch(
     new Request("https://relay.example/send", { method: "POST" }),
@@ -86,6 +104,45 @@ try {
   assert.match(pricesPayload.text, /تومان/);
   assert.match(pricesPayload.text, /وقت تهران/);
   assert.doesNotMatch(pricesPayload.text, /UTC/);
+
+
+  const createAlert = await worker.fetch(
+    new Request("https://relay.example/webhook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { chat: { id: 123 }, text: "/alert USD 170000 above" } }),
+    }),
+    env,
+  );
+  assert.equal(createAlert.status, 200);
+  const createAlertPayload = JSON.parse(telegramRequests.at(-1).init.body);
+  assert.match(createAlertPayload.text, /هشدار ساخته شد/);
+  const alertId = createAlertPayload.text.match(/ID: (?<id>[a-f0-9]+)/).groups.id;
+
+  const listAlerts = await worker.fetch(
+    new Request("https://relay.example/webhook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { chat: { id: 123 }, text: "/alerts" } }),
+    }),
+    env,
+  );
+  assert.equal(listAlerts.status, 200);
+  const listAlertsPayload = JSON.parse(telegramRequests.at(-1).init.body);
+  assert.match(listAlertsPayload.text, new RegExp(alertId));
+  assert.match(listAlertsPayload.text, /دلار آزاد/);
+
+  const deleteAlert = await worker.fetch(
+    new Request("https://relay.example/webhook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { chat: { id: 123 }, text: `/delete ${alertId}` } }),
+    }),
+    env,
+  );
+  assert.equal(deleteAlert.status, 200);
+  const deleteAlertPayload = JSON.parse(telegramRequests.at(-1).init.body);
+  assert.match(deleteAlertPayload.text, /حذف شد/);
 
   const setWebhook = await worker.fetch(
     new Request("https://relay.example/set-webhook", {

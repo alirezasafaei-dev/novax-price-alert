@@ -5,7 +5,7 @@
 - Bot username: `@novax_price_bot`
 - Cloudflare Worker: `https://novax-telegram-relay.asdevelooper.workers.dev`
 - Telegram webhook: `https://novax-telegram-relay.asdevelooper.workers.dev/webhook`
-- Runtime path: Cloudflare Worker handles `/start`, `/help`, `/prices`, and backend relay sends.
+- Runtime path: Cloudflare Worker handles `/start`, `/help`, `/prices`, `/alert`, `/alerts`, `/delete`, scheduled alert checks, and backend relay sends.
 - Current price source for `/prices`: TGJU HTML pages fetched from Cloudflare Worker.
 - User-facing unit: Toman. TGJU values are parsed as Rial and divided by `10` before display.
 - User-facing time zone: `Asia/Tehran`, Persian calendar formatting.
@@ -23,6 +23,23 @@ Sends the same command guide as `/start`.
 ### `/prices`
 
 Sends a quick loading message, queues price fetch with `ctx.waitUntil`, then sends live prices.
+
+
+### `/alert <symbol> <target_toman> <above|below>`
+
+Creates a Telegram price alert. Example: `/alert USD 170000 above`. Supported symbols are `USD`, `USDT`, `GOLD`, and `SEKKEH`. Targets are entered in toman.
+
+### `/alerts`
+
+Lists active alerts for the current Telegram chat.
+
+### `/delete <id>`
+
+Deactivates an alert created by the current Telegram chat.
+
+## Alert Evaluation
+
+Cloudflare Cron Triggers run every 10 minutes. The Worker fetches current TGJU prices, evaluates active alerts, sends matching Telegram notifications, and throttles repeat notifications for the same alert to once per hour. Alert data uses the `ALERTS_KV` binding when available and falls back to Worker Cache storage for the production relay.
 
 Displayed assets:
 
@@ -84,6 +101,7 @@ The deploy script uploads Worker secrets before deploying code.
 
 - Do not commit `.env`, Telegram tokens, Cloudflare tokens, relay secrets, or proxy lists.
 - If `/prices` is slow, users should still receive the loading message immediately.
+- If alert persistence needs stronger guarantees, create a Cloudflare KV namespace named `ALERTS_KV` and bind it in `wrangler.toml`; the current deployable fallback uses Worker Cache storage.
 - If TGJU blocks or slows Worker fetches, keep the bot responsive and send the friendly retry message.
 - `proxy-list.txt` is local-only and should not be committed.
 - Cloudflare Worker logs can be tailed from `deploy/cloudflare-worker/` using `npx wrangler tail`.
@@ -94,5 +112,6 @@ Last verified behavior:
 
 - `/start` responds in Telegram.
 - `/prices` sends Toman prices.
+- `/alert USD 170000 above`, `/alerts`, and `/delete <id>` respond from Telegram webhook.
 - Update timestamp is shown in Tehran time.
 - Worker webhook returns quickly with `queued: prices` for `/prices`.
