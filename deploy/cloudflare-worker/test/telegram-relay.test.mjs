@@ -74,6 +74,9 @@ try {
   const pricesPayload = JSON.parse(telegramRequests.at(-1).init.body);
   assert.match(pricesPayload.text, /قیمت‌های لحظه‌ای/);
   assert.match(pricesPayload.text, /دلار آزاد/);
+  assert.match(pricesPayload.text, /تومان/);
+  assert.match(pricesPayload.text, /وقت تهران/);
+  assert.doesNotMatch(pricesPayload.text, /UTC/);
 
   const setWebhook = await worker.fetch(
     new Request("https://relay.example/set-webhook", {

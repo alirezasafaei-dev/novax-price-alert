@@ -76,8 +76,21 @@ function extractPrice(asset, html) {
   return Number(match.groups.price.replaceAll(",", ""));
 }
 
-function formatIrt(value) {
-  return new Intl.NumberFormat("fa-IR").format(value);
+function formatTomanFromRial(value) {
+  return new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 }).format(value / 10);
+}
+
+function formatTehranTime(date) {
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+    timeZone: "Asia/Tehran",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
 }
 
 async function fetchTgjuPrice(asset, env) {
@@ -111,21 +124,33 @@ async function buildPricesText(env) {
   for (const result of results) {
     if (result.status === "fulfilled") {
       okCount += 1;
-      lines.push(`${result.value.label}: ${formatIrt(result.value.price)} تومان`);
+      lines.push(`${result.value.label}: ${formatTomanFromRial(result.value.price)} تومان`);
     }
   }
   if (okCount === 0) {
     throw new Error("all TGJU price fetches failed");
   }
   lines.push("");
-  lines.push(`به‌روزرسانی: ${now.toISOString().replace("T", " ").slice(0, 19)} UTC`);
+  lines.push(`به‌روزرسانی: ${formatTehranTime(now)} به وقت تهران`);
   if (okCount < TGJU_ASSETS.length) {
-    lines.push("برخی قیمت‌ها موقتاً در دسترس نبودند.");
+    lines.push("برخی قیمت‌ها موقتاً در دسترس نبودند؛ چند لحظه بعد دوباره /prices را بزن.");
   }
   return lines.join("\n");
 }
 
-async function handleTelegramWebhook(request, env) {
+async function sendPricesLater(env, chatId) {
+  try {
+    const reply = await buildPricesText(env);
+    await sendMessage(env, { chat_id: chatId, text: reply });
+  } catch (error) {
+    await sendMessage(env, {
+      chat_id: chatId,
+      text: "فعلاً دریافت قیمت‌ها از منبع بازار کند یا ناموفق بود. چند لحظه بعد دوباره /prices را بزن.",
+    });
+  }
+}
+
+async function handleTelegramWebhook(request, env, ctx) {
   const update = await request.json();
   const chatId = getChatId(update);
   if (!chatId) return json({ ok: true, ignored: true });
@@ -134,7 +159,12 @@ async function handleTelegramWebhook(request, env) {
   let reply = HELP_TEXT;
   if (text.startsWith("/prices")) {
     await sendMessage(env, { chat_id: chatId, text: "⏳ در حال دریافت قیمت‌های لحظه‌ای..." });
-    reply = await buildPricesText(env);
+    if (ctx?.waitUntil) {
+      ctx.waitUntil(sendPricesLater(env, chatId));
+    } else {
+      await sendPricesLater(env, chatId);
+    }
+    return json({ ok: true, queued: "prices" });
   } else if (text && !text.startsWith("/start") && !text.startsWith("/help")) {
     reply = "دستور نامعتبره. /help رو بزن.";
   }
@@ -168,14 +198,14 @@ async function getWebhookInfo(request, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
       if (url.pathname === "/health") {
         return json({ status: "ok", service: "telegram-relay" });
       }
       if (url.pathname === "/webhook" && request.method === "POST") {
-        return handleTelegramWebhook(request, env);
+        return handleTelegramWebhook(request, env, ctx);
       }
       if (url.pathname === "/set-webhook" && request.method === "POST") {
         return setWebhook(request, env);
