@@ -37,7 +37,17 @@ TELEGRAM_BOT_TOKEN=<bot token, still required by backend auth/config>
 
 ### Deploy Relay
 
-From `deploy/cloudflare-worker/`:
+Preferred non-interactive deploy from the project root:
+
+```bash
+export CLOUDFLARE_API_TOKEN=<workers edit token>
+export TELEGRAM_BOT_TOKEN=<telegram bot token>
+export TELEGRAM_RELAY_SECRET=<shared relay secret>
+./scripts/deploy-cloudflare-relay.sh
+curl -fsS https://novax-telegram-relay.<account>.workers.dev/health
+```
+
+Manual interactive deploy from `deploy/cloudflare-worker/`:
 
 ```bash
 npm install
@@ -45,10 +55,7 @@ npx wrangler login
 npx wrangler secret put TELEGRAM_BOT_TOKEN
 npx wrangler secret put RELAY_SECRET
 npx wrangler deploy
-curl -fsS https://novax-telegram-relay.<account>.workers.dev/health
 ```
-
-For non-interactive deploy, set `CLOUDFLARE_API_TOKEN` with Workers edit permission and run the same `wrangler` commands.
 
 ## Backend Setup
 
