@@ -3,9 +3,16 @@ const HELP_TEXT = `سلام، نواکس فعاله ✅
 دستورهای فعلی:
 /start - شروع و معرفی ربات
 /help - راهنما
-/prices - لینک مشاهده قیمت‌ها
+/prices - نمایش قیمت‌های لحظه‌ای بازار ایران
 
 هشدار قیمت از طریق مینی‌اپ/بک‌اند نواکس مدیریت می‌شود.`;
+
+const TGJU_ASSETS = [
+  { symbol: "USD_IRT", label: "دلار آزاد", path: "/profile/price_dollar_rl", profile: true },
+  { symbol: "GOLD_18K_IRT", label: "طلای ۱۸ عیار", path: "/profile/geram18", profile: true },
+  { symbol: "SEKKEH_EMAMI_IRT", label: "سکه امامی", path: "/profile/sekee", profile: true },
+  { symbol: "USDT_IRT", label: "تتر", path: "/", usdt: true },
+];
 
 function json(data, init = {}) {
   return Response.json(data, init);
@@ -58,6 +65,66 @@ function getChatId(update) {
   return update?.message?.chat?.id || update?.edited_message?.chat?.id || null;
 }
 
+function extractPrice(asset, html) {
+  const pattern = asset.usdt
+    ? /id="l-crypto-tether-irr"[\s\S]*?<span class="info-price">(?<price>[0-9,]+(?:\.[0-9]+)?)<\/span>/
+    : /<span class="price" data-col="info\.last_trade\.PDrCotVal">(?<price>[0-9,]+(?:\.[0-9]+)?)<\/span>/;
+  const match = html.match(pattern);
+  if (!match?.groups?.price) {
+    throw new Error(`TGJU price not found for ${asset.symbol}`);
+  }
+  return Number(match.groups.price.replaceAll(",", ""));
+}
+
+function formatIrt(value) {
+  return new Intl.NumberFormat("fa-IR").format(value);
+}
+
+async function fetchTgjuPrice(asset, env) {
+  const baseUrl = (env.TGJU_BASE_URL || "https://www.tgju.org").replace(/\/$/, "");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4500);
+  let response;
+  try {
+    response = await fetch(`${baseUrl}${asset.path}`, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NovaxPriceBot/1.0)" },
+      cf: { cacheTtl: 30, cacheEverything: false },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+  if (!response.ok) {
+    throw new Error(`TGJU HTTP ${response.status} for ${asset.symbol}`);
+  }
+  const html = await response.text();
+  return extractPrice(asset, html);
+}
+
+async function buildPricesText(env) {
+  const now = new Date();
+  const lines = ["💰 قیمت‌های لحظه‌ای بازار ایران", "منبع: TGJU", ""];
+  const results = await Promise.allSettled(
+    TGJU_ASSETS.map(async (asset) => ({ ...asset, price: await fetchTgjuPrice(asset, env) })),
+  );
+  let okCount = 0;
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      okCount += 1;
+      lines.push(`${result.value.label}: ${formatIrt(result.value.price)} تومان`);
+    }
+  }
+  if (okCount === 0) {
+    throw new Error("all TGJU price fetches failed");
+  }
+  lines.push("");
+  lines.push(`به‌روزرسانی: ${now.toISOString().replace("T", " ").slice(0, 19)} UTC`);
+  if (okCount < TGJU_ASSETS.length) {
+    lines.push("برخی قیمت‌ها موقتاً در دسترس نبودند.");
+  }
+  return lines.join("\n");
+}
+
 async function handleTelegramWebhook(request, env) {
   const update = await request.json();
   const chatId = getChatId(update);
@@ -66,7 +133,8 @@ async function handleTelegramWebhook(request, env) {
   const text = getMessageText(update).trim();
   let reply = HELP_TEXT;
   if (text.startsWith("/prices")) {
-    reply = "برای مشاهده قیمت‌ها از مینی‌اپ نواکس یا لینک بک‌اند قیمت استفاده کن. اگر لینک عمومی تنظیم نشده، فعلاً /start و هشدارها از backend فعال می‌شوند.";
+    await sendMessage(env, { chat_id: chatId, text: "⏳ در حال دریافت قیمت‌های لحظه‌ای..." });
+    reply = await buildPricesText(env);
   } else if (text && !text.startsWith("/start") && !text.startsWith("/help")) {
     reply = "دستور نامعتبره. /help رو بزن.";
   }

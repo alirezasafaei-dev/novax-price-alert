@@ -10,6 +10,12 @@ async function readJson(response) {
 try {
   const telegramRequests = [];
   globalThis.fetch = async (url, init) => {
+    if (String(url).includes("tgju.org/profile") || String(url) === "https://www.tgju.org/") {
+      const html = String(url).includes("/") && !String(url).includes("profile")
+        ? `<div id="l-crypto-tether-irr"><span class="info-price">1,709,920</span></div>`
+        : `<span class="price" data-col="info.last_trade.PDrCotVal">1,704,850</span>`;
+      return new Response(html, { status: 200 });
+    }
     telegramRequests.push({ url, init });
     return Response.json({ ok: true, result: { message_id: 99 } });
   };
@@ -55,6 +61,19 @@ try {
   const webhookPayload = JSON.parse(telegramRequests.at(-1).init.body);
   assert.equal(webhookPayload.chat_id, 123);
   assert.match(webhookPayload.text, /نواکس فعاله/);
+
+  const pricesWebhook = await worker.fetch(
+    new Request("https://relay.example/webhook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { chat: { id: 123 }, text: "/prices" } }),
+    }),
+    env,
+  );
+  assert.equal(pricesWebhook.status, 200);
+  const pricesPayload = JSON.parse(telegramRequests.at(-1).init.body);
+  assert.match(pricesPayload.text, /قیمت‌های لحظه‌ای/);
+  assert.match(pricesPayload.text, /دلار آزاد/);
 
   const setWebhook = await worker.fetch(
     new Request("https://relay.example/set-webhook", {
