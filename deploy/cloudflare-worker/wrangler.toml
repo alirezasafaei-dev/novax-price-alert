@@ -8,3 +8,7 @@ enabled = true
 
 [triggers]
 crons = ["*/10 * * * *"]
+
+[[kv_namespaces]]
+binding = "ALERTS_KV"
+id = "9bfa7672e25d446aa0a24165cbd1848a"
