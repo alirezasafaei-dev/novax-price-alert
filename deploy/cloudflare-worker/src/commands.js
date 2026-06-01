@@ -1,8 +1,13 @@
-import { MAIN_KEYBOARD, MARKET_KEYBOARD } from "./keyboards.js";
+import { MAIN_KEYBOARD, MARKET_KEYBOARD, alertActionsKeyboard } from "./keyboards.js";
 import { sendMessage } from "./telegram.js";
 import { setUser, clearSession } from "./sessions.js";
-import { getCryptoPrices, getIranMarketPrices, formatCryptoPricesMessage, formatIranMarketPricesMessage } from "./prices.js";
-import { getUserAlerts, formatAlertsList } from "./alerts.js";
+import {
+  getCryptoPrices,
+  getIranMarketPrices,
+  formatPrice,
+  unitForMarket,
+} from "./prices.js";
+import { getUserAlerts, formatAlertLine } from "./alerts.js";
 
 export async function handleStart(env, chatId, from) {
   if (from) {
@@ -33,13 +38,13 @@ export async function handleStart(env, chatId, from) {
 export async function handleHelp(env, chatId) {
   const text = `❓ راهنمای استفاده:
 
-💰 قیمت‌ها: مشاهده قیمت‌های لحظه‌ای کریپتو، ارز و طلا
+💰 قیمت‌ها: مشاهده قیمت‌های لحظه‌ای کریپتو (BTC/ETH/SOL/BNB از Binance)، ارز و طلا (از TGJU)
 
-🔔 تنظیم هشدار: ساخت هشدار قیمت برای دارایی‌های مختلف
+🔔 تنظیم هشدار: ساخت هشدار قیمت در ۵ مرحله (بازار → دارایی → شرط → قیمت هدف → تایید)
 
-📋 هشدارهای من: مشاهده و حذف هشدارهای ثبت شده
+📋 هشدارهای من: مشاهده هشدارها و حذف آن‌ها با دکمه‌ی 🗑
 
-هشدارها هر ۱۰ دقیقه بررسی می‌شوند و در صورت رسیدن به شرط، پیام دریافت می‌کنی.`;
+هشدارها هر ۱۰ دقیقه بررسی می‌شوند و هر هشدار فقط یک بار ارسال می‌شود.`;
   
   await sendMessage(env, chatId, text, { reply_markup: MAIN_KEYBOARD });
 }
@@ -49,24 +54,40 @@ export async function handlePricesMenu(env, chatId) {
   await sendMessage(env, chatId, text, { reply_markup: MARKET_KEYBOARD });
 }
 
-export async function handleShowCryptoPrices(env, chatId) {
-  await sendMessage(env, chatId, "⏳ در حال دریافت قیمت‌ها...");
-  const prices = await getCryptoPrices();
-  const text = formatCryptoPricesMessage(prices);
-  await sendMessage(env, chatId, text);
-}
-
-export async function handleShowIranPrices(env, chatId) {
-  await sendMessage(env, chatId, "⏳ در حال دریافت قیمت‌ها...");
-  const prices = await getIranMarketPrices();
-  const text = formatIranMarketPricesMessage(prices);
-  await sendMessage(env, chatId, text);
-}
-
 export async function handleMyAlerts(env, chatId) {
   const alerts = await getUserAlerts(env, chatId);
-  const text = formatAlertsList(alerts);
-  await sendMessage(env, chatId, text, { reply_markup: MAIN_KEYBOARD });
+
+  if (alerts.length === 0) {
+    await sendMessage(env, chatId, "هنوز هشدار فعالی نداری.\n\nبرای ساخت هشدار از «🔔 تنظیم هشدار» استفاده کن.", { reply_markup: MAIN_KEYBOARD });
+    return;
+  }
+
+  let cryptoPrices = null;
+  let iranPrices = null;
+  try {
+    [cryptoPrices, iranPrices] = await Promise.all([getCryptoPrices(), getIranMarketPrices()]);
+  } catch (error) {
+    console.error("Failed to load prices for alerts list:", error);
+  }
+
+  await sendMessage(env, chatId, "📋 هشدارهای فعال شما:", { reply_markup: MAIN_KEYBOARD });
+
+  for (let i = 0; i < alerts.length; i++) {
+    const alert = alerts[i];
+    const current = alert.market === "crypto"
+      ? cryptoPrices?.[alert.symbol]
+      : iranPrices?.[alert.symbol];
+
+    let currentText = null;
+    if (current !== undefined && current !== null) {
+      const decimals = alert.market === "crypto" && current < 100 ? 2 : 0;
+      currentText = `${formatPrice(current, decimals)} ${unitForMarket(alert.market)}`;
+    }
+
+    const line = formatAlertLine(alert, i, currentText);
+    const status = alert.triggered_at ? "\n   وضعیت: ✅ ارسال‌شده" : "";
+    await sendMessage(env, chatId, line + status, { reply_markup: alertActionsKeyboard(alert.id) });
+  }
 }
 
 export async function handleCreateAlertStart(env, chatId) {

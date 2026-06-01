@@ -1,3 +1,5 @@
+import { formatPrice, unitForMarket } from "./prices.js";
+
 export async function getUserAlerts(env, chatId) {
   const key = `alerts:user:${chatId}`;
   const data = await env.ALERTS_KV.get(key, "json");
@@ -61,40 +63,47 @@ export async function markAlertTriggered(env, chatId, alertId) {
   }
 }
 
-export function formatAlertsList(alerts) {
-  if (alerts.length === 0) {
-    return "هنوز هشدار فعالی نداری.";
-  }
-  
-  const lines = ["📋 هشدارهای فعال:\n"];
-  
-  for (const alert of alerts) {
-    const op = alert.operator === "above" ? "بالاتر از" : "پایین‌تر از";
-    const status = alert.triggered_at ? "✅ ارسال شده" : "⏳ در انتظار";
-    lines.push(`🔔 ${alert.symbol} ${op} ${alert.target}`);
-    lines.push(`   ID: ${alert.id} | ${status}\n`);
-  }
-  
-  return lines.join("\n");
+function opLabel(operator) {
+  return operator === "above" ? "بالاتر از" : "پایین‌تر از";
 }
 
-export function formatAlertConfirmation(alert, currentPrice) {
-  const op = alert.operator === "above" ? "بالاتر از" : "پایین‌تر از";
+function targetText(alert) {
+  const unit = unitForMarket(alert.market);
+  return `${formatPrice(alert.target)} ${unit}`;
+}
+
+export function formatAlertConfirmation(alert, currentPrice, unit = "") {
+  const op = opLabel(alert.operator);
+  const target = `${formatPrice(alert.target)}${unit ? " " + unit : ""}`;
+  const current = currentPrice ? `${currentPrice}${unit ? " " + unit : ""}` : "نامشخص";
   return `لطفاً هشدار را تایید کن:
 
 دارایی: ${alert.symbol}
-شرط: ${op} ${alert.target}
-قیمت فعلی: ${currentPrice || "نامشخص"}
+شرط: ${op} ${target}
+قیمت فعلی: ${current}
 
-اگر قیمت ${alert.symbol} ${op} ${alert.target} شد، به تو پیام می‌دهم.`;
+اگر قیمت ${alert.symbol} ${op} ${target} شد، به تو پیام می‌دهم.`;
+}
+
+// متن تک‌خطی هر هشدار برای لیست (همراه دکمه‌ی حذف)
+export function formatAlertLine(alert, index, currentPriceText) {
+  const op = opLabel(alert.operator);
+  const num = `${index + 1}️⃣`;
+  const lines = [`${num} ${alert.symbol} ${op} ${targetText(alert)}`];
+  if (currentPriceText) {
+    lines.push(`   قیمت فعلی: ${currentPriceText}`);
+  }
+  return lines.join("\n");
 }
 
 export function formatAlertNotification(alert, currentPrice) {
-  const op = alert.operator === "above" ? "بالاتر از" : "پایین‌تر از";
+  const op = opLabel(alert.operator);
+  const unit = unitForMarket(alert.market);
+  const current = `${currentPrice}${unit ? " " + unit : ""}`;
   return `🔔 هشدار قیمت!
 
-${alert.symbol} ${op} ${alert.target} شد.
-قیمت فعلی: ${currentPrice}
+${alert.symbol} به ${current} رسید
+شرط شما: ${op} ${targetText(alert)}
 
 این هشدار غیرفعال شد.`;
 }
