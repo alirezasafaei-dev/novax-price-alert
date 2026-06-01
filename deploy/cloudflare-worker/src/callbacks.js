@@ -2,13 +2,19 @@ import { CRYPTO_ASSETS, FIAT_ASSETS, GOLD_ASSETS, OPERATOR_KEYBOARD, confirmAler
 import { editMessageText, answerCallbackQuery, sendMessage } from "./telegram.js";
 import { getSession, setSession, clearSession } from "./sessions.js";
 import { createAlert, deleteAlert, formatAlertConfirmation, getUserAlerts } from "./alerts.js";
-import { getCryptoPrices, getIranMarketPrices, formatPrice } from "./prices.js";
+import { getCryptoPrices, getIranMarketPrices, formatPrice, formatCryptoPricesMessage, formatIranMarketPricesMessage } from "./prices.js";
 import { handleStart, handleShowCryptoPrices, handleShowIranPrices, handleMyAlerts, handleCreateAlertStart } from "./commands.js";
 
 export async function handleCallback(env, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
   const messageId = callbackQuery.message.message_id;
-  const data = callbackQuery.callback_data;
+  const data = callbackQuery.data || callbackQuery.callback_data;
+  
+  if (!data) {
+    console.error("No callback_data found:", JSON.stringify(callbackQuery));
+    await answerCallbackQuery(env, callbackQuery.id);
+    return;
+  }
   
   await answerCallbackQuery(env, callbackQuery.id);
   
@@ -36,14 +42,28 @@ export async function handleCallback(env, callbackQuery) {
       } else if (market === "gold") {
         keyboard = GOLD_ASSETS;
         text = "کدوم دارایی رو می‌خوای؟";
+      } else {
+        await editMessageText(env, chatId, messageId, "بازار نامعتبر.");
+        return;
       }
       
       await editMessageText(env, chatId, messageId, text, { reply_markup: keyboard });
     } else {
+      // مشاهده قیمت‌ها (بدون session)
+      await editMessageText(env, chatId, messageId, "⏳ در حال دریافت قیمت‌ها...");
+      
       if (market === "crypto") {
-        await handleShowCryptoPrices(env, chatId);
-      } else if (market === "fiat" || market === "gold") {
-        await handleShowIranPrices(env, chatId);
+        const prices = await getCryptoPrices();
+        const text = formatCryptoPricesMessage(prices);
+        await sendMessage(env, chatId, text);
+      } else if (market === "fiat") {
+        const prices = await getIranMarketPrices();
+        const text = formatIranMarketPricesMessage(prices);
+        await sendMessage(env, chatId, text);
+      } else if (market === "gold") {
+        const prices = await getIranMarketPrices();
+        const text = formatIranMarketPricesMessage(prices);
+        await sendMessage(env, chatId, text);
       }
     }
     return;
@@ -119,7 +139,28 @@ export async function handleCallback(env, callbackQuery) {
 export async function handleTextInSession(env, chatId, text) {
   const session = await getSession(env, chatId);
   
-  if (!session || session.step !== "awaiting_target") {
+  if (!session) {
+    return false;
+  }
+  
+  // اگر در مراحل قبل از awaiting_target هستیم، راهنمایی کن
+  if (session.step === "select_market") {
+    await sendMessage(env, chatId, "لطفاً از دکمه‌های زیر یک بازار انتخاب کن:");
+    await handleCreateAlertStart(env, chatId);
+    return true;
+  }
+  
+  if (session.step === "select_asset") {
+    await sendMessage(env, chatId, "لطفاً از دکمه‌های زیر یک دارایی انتخاب کن.");
+    return true;
+  }
+  
+  if (session.step === "select_operator") {
+    await sendMessage(env, chatId, "لطفاً از دکمه‌های زیر یک شرط انتخاب کن.");
+    return true;
+  }
+  
+  if (session.step !== "awaiting_target") {
     return false;
   }
   

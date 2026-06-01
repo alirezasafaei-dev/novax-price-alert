@@ -10,11 +10,7 @@ export const MAIN_KEYBOARD = {
 export const MARKET_KEYBOARD = {
   inline_keyboard: [
     [
-      { text: "₿ کریپتو", callback_data: "market:crypto" },
-      { text: "💵 ارز", callback_data: "market:fiat" }
-    ],
-    [
-      { text: "🪙 طلا", callback_data: "market:gold" }
+      { text: "₿ کریپتو", callback_data: "market:crypto" }
     ],
     [
       { text: "🔙 بازگشت", callback_data: "menu:main" }
@@ -25,12 +21,16 @@ export const MARKET_KEYBOARD = {
 export const CRYPTO_ASSETS = {
   inline_keyboard: [
     [
-      { text: "BTC", callback_data: "asset:BTC" },
-      { text: "ETH", callback_data: "asset:ETH" }
+      { text: "💵 تتر (USDT)", callback_data: "asset:USDT" },
+      { text: "🐕 دوج (DOGE)", callback_data: "asset:DOGE" }
     ],
     [
-      { text: "SOL", callback_data: "asset:SOL" },
-      { text: "BNB", callback_data: "asset:BNB" }
+      { text: "🐶 شیبا (SHIB)", callback_data: "asset:SHIB" },
+      { text: "⚡ ترون (TRX)", callback_data: "asset:TRX" }
+    ],
+    [
+      { text: "🔷 کاردانو (ADA)", callback_data: "asset:ADA" },
+      { text: "🔴 پولکادات (DOT)", callback_data: "asset:DOT" }
     ],
     [
       { text: "🔙 بازگشت", callback_data: "back:market" }

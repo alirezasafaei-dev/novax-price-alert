@@ -1,0 +1,13 @@
+{
+  "name": "price-proxy",
+  "version": "1.0.0",
+  "description": "Simple proxy for fetching crypto prices from Iranian exchanges",
+  "main": "price-proxy.js",
+  "scripts": {
+    "start": "node price-proxy.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0"
+  }
+}

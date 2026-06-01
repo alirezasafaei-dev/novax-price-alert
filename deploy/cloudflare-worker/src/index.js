@@ -1,7 +1,8 @@
 import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage } from "./commands.js";
 import { handleCallback, handleTextInSession } from "./callbacks.js";
-import { isUpdateProcessed, markUpdateProcessed, setSession } from "./sessions.js";
+import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession } from "./sessions.js";
 import { runCronJob } from "./cron.js";
+import { sendMessage } from "./telegram.js";
 
 function requireSecret(request, env) {
   const secret = env.TELEGRAM_SECRET_TOKEN;
@@ -22,6 +23,32 @@ export default {
       return Response.json({ status: "ok", service: "telegram-bot" });
     }
     
+    if (url.pathname === "/setup-webhook" && request.method === "GET") {
+      const botToken = env.TELEGRAM_BOT_TOKEN;
+      const webhookUrl = "https://novax-telegram-relay.asdevelooper.workers.dev/webhook";
+      const secretToken = env.TELEGRAM_SECRET_TOKEN;
+      
+      try {
+        const setResponse = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            url: webhookUrl, 
+            secret_token: secretToken,
+            allowed_updates: ["message", "edited_message", "callback_query"]
+          })
+        });
+        const setResult = await setResponse.json();
+        
+        const infoResponse = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
+        const infoResult = await infoResponse.json();
+        
+        return Response.json({ setWebhook: setResult, webhookInfo: infoResult });
+      } catch (error) {
+        return Response.json({ error: error.message }, { status: 500 });
+      }
+    }
+    
     if (url.pathname === "/webhook" && request.method === "POST") {
       const unauthorized = requireSecret(request, env);
       if (unauthorized) return unauthorized;
@@ -37,7 +64,13 @@ export default {
       }
       
       if (update.callback_query) {
-        await handleCallback(env, update.callback_query);
+        try {
+          await handleCallback(env, update.callback_query);
+        } catch (error) {
+          console.error("Callback error:", error.message, error.stack);
+          await sendMessage(env, update.callback_query.message.chat.id, 
+            "خطایی رخ داد. لطفاً دوباره تلاش کنید.");
+        }
         return Response.json({ ok: true });
       }
       
@@ -60,6 +93,7 @@ export default {
       }
       
       if (text === "💰 قیمت‌ها") {
+        await clearSession(env, chatId);
         await handlePricesMenu(env, chatId);
         return Response.json({ ok: true });
       }
