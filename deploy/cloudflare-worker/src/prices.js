@@ -33,11 +33,22 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
   throw lastError;
 }
 
+// نمادهای کریپتوی پشتیبانی‌شده و جفت معاملاتی Binance آن‌ها
+const CRYPTO_BINANCE_SYMBOLS = {
+  BTC: "BTCUSDT",
+  ETH: "ETHUSDT",
+  SOL: "SOLUSDT",
+  BNB: "BNBUSDT",
+};
+
 export async function getCryptoPrices() {
   try {
-    // دریافت قیمت از CoinGecko (به دلار)
+    // قیمت لحظه‌ای از Binance (واحد: USDT)
+    // از endpoint داده‌های عمومی Binance استفاده می‌کنیم که محدودیت جغرافیایی ندارد.
+    const pairs = Object.values(CRYPTO_BINANCE_SYMBOLS);
+    const symbolsParam = encodeURIComponent(JSON.stringify(pairs));
     const response = await fetchWithRetry(
-      "https://api.coingecko.com/api/v3/simple/price?ids=tether,dogecoin,shiba-inu,tron,cardano,polkadot&vs_currencies=usd",
+      `https://data-api.binance.vision/api/v3/ticker/price?symbols=${symbolsParam}`,
       {
         headers: {
           'User-Agent': 'Novax-Price-Bot/1.0'
@@ -45,41 +56,25 @@ export async function getCryptoPrices() {
       }
     );
     const data = await response.json();
-    console.log("CoinGecko response:", JSON.stringify(data));
-    
+
+    // نقشه‌برداری از جفت معاملاتی به نماد ساده
+    const pairToSymbol = {};
+    for (const [symbol, pair] of Object.entries(CRYPTO_BINANCE_SYMBOLS)) {
+      pairToSymbol[pair] = symbol;
+    }
+
     const prices = {};
-    
-    // نقشه‌برداری از نام CoinGecko به نماد
-    const mapping = {
-      "tether": "USDT",
-      "dogecoin": "DOGE",
-      "shiba-inu": "SHIB",
-      "tron": "TRX",
-      "cardano": "ADA",
-      "polkadot": "DOT"
-    };
-    
-    // دریافت نرخ دلار از TGJU API
-    let USD_TO_TOMAN = 175000; // نرخ پیش‌فرض
-    try {
-      const iranPrices = await getIranMarketPrices();
-      if (iranPrices?.USD) {
-        USD_TO_TOMAN = iranPrices.USD;
-        console.log("Using real-time USD rate from TGJU:", USD_TO_TOMAN);
-      }
-    } catch (error) {
-      console.error("Failed to fetch USD rate from TGJU, using default:", error);
-    }
-    
-    for (const [coinId, symbol] of Object.entries(mapping)) {
-      if (data[coinId]?.usd) {
-        prices[symbol] = Math.round(data[coinId].usd * USD_TO_TOMAN);
+    if (Array.isArray(data)) {
+      for (const item of data) {
+        const symbol = pairToSymbol[item?.symbol];
+        const price = Number(item?.price);
+        if (symbol && Number.isFinite(price)) {
+          prices[symbol] = price;
+        }
       }
     }
-    
-    console.log("Processed prices:", JSON.stringify(prices));
-    prices._currency = "تومان";
-    
+
+    prices._currency = "USDT";
     return prices;
   } catch (error) {
     console.error("Failed to fetch crypto prices:", error);
@@ -87,28 +82,51 @@ export async function getCryptoPrices() {
   }
 }
 
+// مقدار خام TGJU ممکن است رشته‌ای با کاما (ریال) باشد یا عدد؛ هر دو را به عدد تبدیل می‌کنیم.
+function parseTgjuRial(raw) {
+  if (raw === undefined || raw === null) return null;
+  const num = typeof raw === "number" ? raw : Number(String(raw).replace(/,/g, ""));
+  return Number.isFinite(num) ? num : null;
+}
+
 export async function getIranMarketPrices() {
   const prices = {};
-  
-  try {
-    const response = await fetchWithRetry("https://api.tgju.org/v1/market/indicator/summary-table-data/global-market");
-    const data = await response.json();
-    
-    if (data?.price_dollar_rl?.p) {
-      prices.USD = Math.round(data.price_dollar_rl.p / 10);
+
+  // endpointهای آینه‌ای TGJU؛ به ترتیب امتحان می‌شوند تا یکی پاسخ بدهد.
+  const endpoints = [
+    "https://call2.tgju.org/ajax.json",
+    "https://call3.tgju.org/ajax.json",
+    "https://call1.tgju.org/ajax.json",
+  ];
+
+  let data = null;
+  for (const url of endpoints) {
+    try {
+      const response = await fetchWithRetry(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; Novax-Price-Bot/1.0)" },
+      });
+      data = await response.json();
+      if (data) break;
+    } catch (error) {
+      console.error(`Failed to fetch Iran market prices from ${url}:`, error.message);
     }
-    
-    if (data?.geram18?.p) {
-      prices.GOLD_18K = Math.round(data.geram18.p / 10);
-    }
-    
-    if (data?.sekee?.p) {
-      prices.SEKKEH_EMAMI = Math.round(data.sekee.p / 10);
-    }
-  } catch (error) {
-    console.error("Failed to fetch Iran market prices:", error);
   }
-  
+
+  if (!data) return prices;
+
+  // ساختار جدید TGJU مقادیر را زیر کلید current قرار می‌دهد؛ نسخه‌ی قدیمی در سطح بالا بود.
+  const table = data.current && typeof data.current === "object" ? data.current : data;
+
+  const assign = (key, target) => {
+    const rial = parseTgjuRial(table?.[key]?.p);
+    if (rial !== null) prices[target] = Math.round(rial / 10);
+  };
+
+  assign("price_dollar_rl", "USD");
+  assign("price_eur", "EUR");
+  assign("geram18", "GOLD_18K");
+  assign("sekee", "SEKKEH_EMAMI");
+
   return prices;
 }
 
@@ -119,44 +137,69 @@ export function formatPrice(price, decimals = 0) {
   }).format(price);
 }
 
-export function formatCryptoPricesMessage(prices) {
-  if (!prices) return "خطا در دریافت قیمت‌ها";
-  
-  const currency = prices._currency || "USDT";
-  const lines = ["💰 قیمت‌های لحظه‌ای:\n"];
-  
-  if (prices.USDT) lines.push(`💵 تتر (USDT): ${formatPrice(prices.USDT, 0)} ${currency}`);
-  if (prices.DOGE) lines.push(`🐕 دوج‌کوین (DOGE): ${formatPrice(prices.DOGE, 0)} ${currency}`);
-  if (prices.SHIB) {
-    // SHIB خیلی کوچک است، نمایش به ازای ۱ میلیون واحد
-    const shibPer1M = prices.SHIB * 1000000;
-    lines.push(`🐶 شیبا (SHIB): ${formatPrice(shibPer1M, 0)} ${currency} / ۱M`);
-  }
-  if (prices.TRX) lines.push(`⚡ ترون (TRX): ${formatPrice(prices.TRX, 0)} ${currency}`);
-  if (prices.ADA) lines.push(`🔷 کاردانو (ADA): ${formatPrice(prices.ADA, 0)} ${currency}`);
-  if (prices.DOT) lines.push(`🔴 پولکادات (DOT): ${formatPrice(prices.DOT, 0)} ${currency}`);
-  
+// نام نمایشی دارایی‌ها
+export const ASSET_NAMES = {
+  BTC: "بیت‌کوین (BTC)",
+  ETH: "اتریوم (ETH)",
+  SOL: "سولانا (SOL)",
+  BNB: "بایننس کوین (BNB)",
+  USD: "دلار",
+  EUR: "یورو",
+  GOLD_18K: "طلای ۱۸ عیار",
+  SEKKEH_EMAMI: "سکه امامی",
+};
+
+export const CRYPTO_SYMBOLS = Object.keys(CRYPTO_BINANCE_SYMBOLS);
+
+// واحد نمایشی بر اساس بازار
+export function unitForMarket(market) {
+  return market === "crypto" ? "USDT" : "تومان";
+}
+
+export function assetLabel(symbol) {
+  return ASSET_NAMES[symbol] || symbol;
+}
+
+function updatedAtLine() {
   const now = new Date();
   const time = now.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tehran" });
-  const date = now.toLocaleDateString("fa-IR", { timeZone: "Asia/Tehran" });
-  lines.push(`\nآخرین بروزرسانی: ${date} ${time}`);
-  lines.push(`\n⚠️ قیمت‌ها تقریبی و بر اساس نرخ جهانی`);
-  
+  return `\nآخرین بروزرسانی: ${time}`;
+}
+
+export function formatCryptoPricesMessage(prices) {
+  if (!prices || Object.keys(prices).filter((k) => k !== "_currency").length === 0) {
+    return "خطا در دریافت قیمت‌ها. لطفاً دوباره تلاش کن.";
+  }
+
+  const lines = ["💰 قیمت‌های فعلی کریپتو\n"];
+  for (const symbol of CRYPTO_SYMBOLS) {
+    const price = prices[symbol];
+    if (price === undefined || price === null) continue;
+    const decimals = price >= 100 ? 0 : 2;
+    lines.push(`${symbol}: ${formatPrice(price, decimals)} USDT`);
+  }
+  lines.push(updatedAtLine());
   return lines.join("\n");
 }
 
-export function formatIranMarketPricesMessage(prices) {
-  if (!prices || Object.keys(prices).length === 0) return "خطا در دریافت قیمت‌ها";
-  
-  const lines = ["💰 قیمت‌های بازار ایران:\n"];
-  
-  if (prices.USD) lines.push(`دلار آزاد: ${formatPrice(prices.USD)} تومان`);
+export function formatFiatPricesMessage(prices) {
+  if (!prices || (!prices.USD && !prices.EUR)) {
+    return "خطا در دریافت قیمت‌ها. لطفاً دوباره تلاش کن.";
+  }
+  const lines = ["💵 قیمت ارز\n"];
+  if (prices.USD) lines.push(`دلار (USD): ${formatPrice(prices.USD)} تومان`);
+  if (prices.EUR) lines.push(`یورو (EUR): ${formatPrice(prices.EUR)} تومان`);
+  lines.push(updatedAtLine());
+  return lines.join("\n");
+}
+
+export function formatGoldPricesMessage(prices) {
+  if (!prices || (!prices.GOLD_18K && !prices.SEKKEH_EMAMI)) {
+    return "خطا در دریافت قیمت‌ها. لطفاً دوباره تلاش کن.";
+  }
+  const lines = ["🪙 قیمت طلا\n"];
   if (prices.GOLD_18K) lines.push(`طلای ۱۸ عیار: ${formatPrice(prices.GOLD_18K)} تومان`);
   if (prices.SEKKEH_EMAMI) lines.push(`سکه امامی: ${formatPrice(prices.SEKKEH_EMAMI)} تومان`);
-  
-  const now = new Date();
-  const time = now.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tehran" });
-  lines.push(`\nآخرین بروزرسانی: ${time}`);
-  
+  lines.push(updatedAtLine());
   return lines.join("\n");
 }
