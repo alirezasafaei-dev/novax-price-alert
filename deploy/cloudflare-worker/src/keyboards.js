@@ -10,7 +10,9 @@ export const MAIN_KEYBOARD = {
 export const MARKET_KEYBOARD = {
   inline_keyboard: [
     [
-      { text: "₿ کریپتو", callback_data: "market:crypto" }
+      { text: "₿ کریپتو", callback_data: "market:crypto" },
+      { text: "💵 ارز", callback_data: "market:fiat" },
+      { text: "🪙 طلا", callback_data: "market:gold" }
     ],
     [
       { text: "❌ لغو", callback_data: "cancel:alert" },
@@ -22,16 +24,12 @@ export const MARKET_KEYBOARD = {
 export const CRYPTO_ASSETS = {
   inline_keyboard: [
     [
-      { text: "💵 تتر (USDT)", callback_data: "asset:USDT" },
-      { text: "🐕 دوج (DOGE)", callback_data: "asset:DOGE" }
+      { text: "بیت‌کوین (BTC)", callback_data: "asset:BTC" },
+      { text: "اتریوم (ETH)", callback_data: "asset:ETH" }
     ],
     [
-      { text: "🐶 شیبا (SHIB)", callback_data: "asset:SHIB" },
-      { text: "⚡ ترون (TRX)", callback_data: "asset:TRX" }
-    ],
-    [
-      { text: "🔷 کاردانو (ADA)", callback_data: "asset:ADA" },
-      { text: "🔴 پولکادات (DOT)", callback_data: "asset:DOT" }
+      { text: "سولانا (SOL)", callback_data: "asset:SOL" },
+      { text: "بایننس کوین (BNB)", callback_data: "asset:BNB" }
     ],
     [
       { text: "❌ لغو", callback_data: "cancel:alert" },
@@ -97,9 +95,6 @@ export function alertActionsKeyboard(alertId) {
     inline_keyboard: [
       [
         { text: "🗑 حذف", callback_data: `delete:${alertId}` }
-      ],
-      [
-        { text: "🔙 بازگشت", callback_data: "menu:alerts" }
       ]
     ]
   };

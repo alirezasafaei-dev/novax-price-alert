@@ -1,9 +1,21 @@
-import { CRYPTO_ASSETS, FIAT_ASSETS, GOLD_ASSETS, OPERATOR_KEYBOARD, confirmAlertKeyboard } from "./keyboards.js";
+import { MARKET_KEYBOARD, CRYPTO_ASSETS, FIAT_ASSETS, GOLD_ASSETS, OPERATOR_KEYBOARD, confirmAlertKeyboard } from "./keyboards.js";
 import { editMessageText, answerCallbackQuery, sendMessage } from "./telegram.js";
 import { getSession, setSession, clearSession } from "./sessions.js";
-import { createAlert, deleteAlert, formatAlertConfirmation, getUserAlerts } from "./alerts.js";
-import { getCryptoPrices, getIranMarketPrices, formatPrice, formatCryptoPricesMessage, formatIranMarketPricesMessage } from "./prices.js";
-import { handleStart, handleShowCryptoPrices, handleShowIranPrices, handleMyAlerts, handleCreateAlertStart } from "./commands.js";
+import { createAlert, deleteAlert, formatAlertConfirmation } from "./alerts.js";
+import { getCryptoPrices, getIranMarketPrices, formatPrice, formatCryptoPricesMessage, formatFiatPricesMessage, formatGoldPricesMessage, unitForMarket } from "./prices.js";
+import { handleStart, handleMyAlerts, handleCreateAlertStart } from "./commands.js";
+
+const ASSET_KEYBOARDS = {
+  crypto: CRYPTO_ASSETS,
+  fiat: FIAT_ASSETS,
+  gold: GOLD_ASSETS,
+};
+
+const ASSET_PROMPTS = {
+  crypto: "کدوم ارز دیجیتال رو می‌خوای؟",
+  fiat: "کدوم ارز رو می‌خوای؟",
+  gold: "کدوم دارایی رو می‌خوای؟",
+};
 
 export async function handleCallback(env, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
@@ -54,16 +66,13 @@ export async function handleCallback(env, callbackQuery) {
       
       if (market === "crypto") {
         const prices = await getCryptoPrices();
-        const text = formatCryptoPricesMessage(prices);
-        await sendMessage(env, chatId, text);
+        await sendMessage(env, chatId, formatCryptoPricesMessage(prices));
       } else if (market === "fiat") {
         const prices = await getIranMarketPrices();
-        const text = formatIranMarketPricesMessage(prices);
-        await sendMessage(env, chatId, text);
+        await sendMessage(env, chatId, formatFiatPricesMessage(prices));
       } else if (market === "gold") {
         const prices = await getIranMarketPrices();
-        const text = formatIranMarketPricesMessage(prices);
-        await sendMessage(env, chatId, text);
+        await sendMessage(env, chatId, formatGoldPricesMessage(prices));
       }
     }
     return;
@@ -128,9 +137,18 @@ export async function handleCallback(env, callbackQuery) {
   
   if (data.startsWith("back:")) {
     const target = data.split(":")[1];
-    
+    const session = await getSession(env, chatId);
+
     if (target === "market") {
-      await handleCreateAlertStart(env, chatId);
+      await setSession(env, chatId, { flow: "create_alert", step: "select_market" });
+      await editMessageText(env, chatId, messageId, "کدوم بازار رو می‌خوای براش هشدار بسازی؟", { reply_markup: MARKET_KEYBOARD });
+    } else if (target === "asset" && session?.flow === "create_alert" && session.market) {
+      const keyboard = ASSET_KEYBOARDS[session.market];
+      const prompt = ASSET_PROMPTS[session.market] || "دارایی رو انتخاب کن:";
+      await setSession(env, chatId, { flow: "create_alert", step: "select_asset", market: session.market });
+      if (keyboard) {
+        await editMessageText(env, chatId, messageId, prompt, { reply_markup: keyboard });
+      }
     }
     return;
   }
@@ -191,7 +209,12 @@ export async function handleTextInSession(env, chatId, text) {
   const alertId = crypto.randomUUID().split("-")[0];
   await setSession(env, chatId, { ...session, step: "confirm", pending_alert: alertData });
   
-  const confirmText = formatAlertConfirmation({ ...alertData, id: alertId }, currentPrice ? formatPrice(currentPrice) : null);
+  const unit = unitForMarket(session.market);
+  const confirmText = formatAlertConfirmation(
+    { ...alertData, id: alertId },
+    currentPrice ? formatPrice(currentPrice, session.market === "crypto" && currentPrice < 100 ? 2 : 0) : null,
+    unit
+  );
   await sendMessage(env, chatId, confirmText, { reply_markup: confirmAlertKeyboard(alertId) });
   
   return true;
