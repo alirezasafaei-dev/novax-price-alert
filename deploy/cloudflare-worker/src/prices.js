@@ -1,7 +1,42 @@
+async function fetchWithRetry(url, options = {}, maxRetries = 3) {
+  let lastError;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error;
+      console.error(`Attempt ${attempt + 1}/${maxRetries} failed:`, error.message);
+      
+      if (attempt < maxRetries - 1) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.log(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError;
+}
+
 export async function getCryptoPrices() {
   try {
     // دریافت قیمت از CoinGecko (به دلار)
-    const response = await fetch(
+    const response = await fetchWithRetry(
       "https://api.coingecko.com/api/v3/simple/price?ids=tether,dogecoin,shiba-inu,tron,cardano,polkadot&vs_currencies=usd",
       {
         headers: {
@@ -24,8 +59,17 @@ export async function getCryptoPrices() {
       "polkadot": "DOT"
     };
     
-    // تبدیل دلار به تومان (نرخ تقریبی ۱ دلار = ۱۷۵,۰۰۰ تومان)
-    const USD_TO_TOMAN = 175000;
+    // دریافت نرخ دلار از TGJU API
+    let USD_TO_TOMAN = 175000; // نرخ پیش‌فرض
+    try {
+      const iranPrices = await getIranMarketPrices();
+      if (iranPrices?.USD) {
+        USD_TO_TOMAN = iranPrices.USD;
+        console.log("Using real-time USD rate from TGJU:", USD_TO_TOMAN);
+      }
+    } catch (error) {
+      console.error("Failed to fetch USD rate from TGJU, using default:", error);
+    }
     
     for (const [coinId, symbol] of Object.entries(mapping)) {
       if (data[coinId]?.usd) {
@@ -47,7 +91,7 @@ export async function getIranMarketPrices() {
   const prices = {};
   
   try {
-    const response = await fetch("https://api.tgju.org/v1/market/indicator/summary-table-data/global-market");
+    const response = await fetchWithRetry("https://api.tgju.org/v1/market/indicator/summary-table-data/global-market");
     const data = await response.json();
     
     if (data?.price_dollar_rl?.p) {
