@@ -2,6 +2,16 @@
 
 Self-hostable backend for an Iran-market Telegram Mini App price alert product.
 
+## 🚀 Live Telegram Bot
+
+The bot is live and ready to use: **[@novax_price_bot](https://t.me/novax_price_bot)**
+
+### Quick Start for Users
+
+- **Persian Guide**: See [`docs/QUICK_START_FA.md`](docs/QUICK_START_FA.md) for user instructions
+- **User Manual**: See [`docs/USER_GUIDE_FA.md`](docs/USER_GUIDE_FA.md) for detailed commands
+- **Production Status**: See [`docs/PRODUCTION_CHECKLIST_FA.md`](docs/PRODUCTION_CHECKLIST_FA.md) for verification
+
 ## Overview
 
 This service provides:
