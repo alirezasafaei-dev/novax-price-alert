@@ -97,13 +97,9 @@ Current verified public endpoints:
 - Cloudflare Worker: `https://novax-telegram-relay.asdevelooper.workers.dev`
 - Telegram webhook: `https://novax-telegram-relay.asdevelooper.workers.dev/webhook`
 
-Current verified bot commands:
+The live Worker is menu-driven. Slash commands are only `/start` and `/help`; everything else is via the reply keyboard (💰 قیمت‌ها / 🔔 تنظیم هشدار / 📋 هشدارهای من / ❓ راهنما).
 
-- `/start`
-- `/help`
-- `/prices`
-
-`/prices` displays TGJU prices as Toman and formats update time in `Asia/Tehran`.
+Prices: crypto BTC/ETH/SOL/BNB from Binance in USDT; fiat (USD/EUR) and gold (18K/Emami) from TGJU in Toman. Times formatted in `Asia/Tehran`.
 
 ## Monitoring
 

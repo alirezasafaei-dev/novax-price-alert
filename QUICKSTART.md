@@ -10,23 +10,21 @@
 - آخرین commit: `f946f68` - رفع باگ null
 
 **قابلیت‌های فعال:**
-- ✅ نمایش قیمت 6 ارز کوچک (USDT, DOGE, SHIB, TRX, ADA, DOT)
-- ✅ سیستم هشدار با cron هر 10 دقیقه
-- ✅ منوی کامل با 4 دکمه
-- ✅ رفع باگ نمایش "null" در دکمه‌ها
+- ✅ کریپتو BTC/ETH/SOL/BNB از **Binance** (واحد USDT)
+- ✅ ارز (USD/EUR) و طلا (۱۸ عیار/سکه) از **TGJU** (واحد تومان)
+- ✅ سیستم هشدار با cron هر 10 دقیقه (تست زنده تأیید شد)
+- ✅ منوی کامل با 4 دکمه + فلوی ۵مرحله‌ای هشدار + دکمه‌ی 🗑 حذف
 
 ---
 
 ## 🎯 مراحل بعدی (به ترتیب اولویت)
 
-### 1️⃣ بهبود نرخ تبدیل (اولویت بالا) ✅ انجام شد
-**مشکل**: نرخ دلار به تومان ثابت است (175,000)
+### 1️⃣ منبع زنده‌ی قیمت ✅ انجام شد
+**راه‌حل**: کریپتو از Binance (USDT) و ارز/طلا از TGJU (تومان)
+- کریپتو: `data-api.binance.vision/api/v3/ticker/price`
+- ارز/طلا: آینه‌های TGJU (`call2/call3/call1.tgju.org/ajax.json`) با fallback؛ ریال → تومان
 
-**راه‌حل**: استفاده از API واقعی TGJU با fallback
-- نرخ دلار از TGJU API دریافت می‌شود
-- در صورت خطا، نرخ پیش‌فرض 175,000 استفاده می‌شود
-
-**فایل**: `src/prices.js` - خط 27-37
+**فایل**: `src/prices.js`
 
 ### 2️⃣ اضافه کردن دکمه لغو در فلوی هشدار ✅ انجام شد
 **راه‌حل**: اضافه کردن دکمه لغو به تمام مراحل
@@ -40,7 +38,7 @@
 **راه‌حل**: اضافه کردن retry logic با exponential backoff
 - 3 بار تلاش با تاخیر نمایی (1s, 2s, 4s)
 - Timeout 10 ثانیه برای هر درخواست
-- Applied to CoinGecko و TGJU APIs
+- Applied to Binance و TGJU APIs
 
 **فایل**: `src/prices.js` - خط 1-34
 
@@ -52,7 +50,7 @@
 src/
 ├── index.js       → ورودی اصلی، routing
 ├── callbacks.js   → مدیریت دکمه‌ها و session
-├── prices.js      → دریافت قیمت از CoinGecko
+├── prices.js      → دریافت قیمت از Binance (کریپتو) و TGJU (ارز/طلا)
 ├── alerts.js      → مدیریت هشدارها
 ├── cron.js        → بررسی هشدارها هر 10 دقیقه
 └── keyboards.js   → تعریف دکمه‌ها
@@ -87,7 +85,7 @@ npx wrangler tail --format pretty
 | مشکل | راه‌حل |
 |------|--------|
 | دکمه کار نمی‌کند | بررسی لاگ، احتمالاً session قدیمی |
-| قیمت نمایش نمی‌دهد | بررسی CoinGecko API (نیاز به User-Agent) |
+| قیمت نمایش نمی‌دهد | بررسی Binance (کریپتو) و TGJU (ارز/طلا) |
 | هشدار کار نمی‌کند | بررسی cron log، KV storage |
 
 ---
@@ -120,4 +118,4 @@ npx wrangler tail --format pretty
 ---
 
 **آخرین به‌روزرسانی**: ۱۴۰۵/۰۳/۱۱
-**وضعیت**: ✅ Production (changes committed, pending deployment)
+**وضعیت**: ✅ Production — دیپلوی‌شده و تست‌شده (کریپتو Binance/USDT، ارز و طلا TGJU/تومان)
