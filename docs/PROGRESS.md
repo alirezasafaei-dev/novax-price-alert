@@ -84,3 +84,24 @@ proxy/                                     - فایل‌های proxy (آماده
 - KV Storage کار می‌کند و پایدار است
 - Webhook و Cron فعال و کار می‌کنند
 - Session management برای جلوگیری از conflict اضافه شد
+
+---
+
+## ۱۴۰۵/۰۳/۱۱ - ۲۱:۰۷
+
+### ✅ رفع باگ نمایش "null"
+
+**مشکل**: هنگام کلیک روی دکمه‌ها، متن "null" قبل از پاسخ نمایش داده می‌شد
+
+**علت**: `answerCallbackQuery` با `text: null` فراخوانی می‌شد و تلگرام آن را به صورت رشته "null" نمایش می‌داد
+
+**راه‌حل**:
+- اصلاح `src/telegram.js`: حذف پارامتر `text` از body اگر null باشد
+- اصلاح `src/callbacks.js`: ارسال string خالی به جای null
+
+**نتیجه**: ✅ دکمه‌ها بدون نمایش "null" کار می‌کنند
+
+**Commit**: `f946f68` - "fix: حذف نمایش null در callback query ها"
+
+**Deploy**: ✅ Version `de3c1302-01e3-4d5c-9a83-c180ccb6cfed`
+

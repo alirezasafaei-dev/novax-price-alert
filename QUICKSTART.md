@@ -5,53 +5,32 @@
 ## ✅ وضعیت فعلی
 
 **بات آماده و در حال کار است:**
-- بات: `@novax_price_bot`
+- بات: `@novax_price_bot` ✅ کار می‌کند
 - Worker: `https://novax-telegram-relay.asdevelooper.workers.dev`
-- آخرین commit: `5b865d7`
+- آخرین commit: `f946f68` - رفع باگ null
 
 **قابلیت‌های فعال:**
 - ✅ نمایش قیمت 6 ارز کوچک (USDT, DOGE, SHIB, TRX, ADA, DOT)
 - ✅ سیستم هشدار با cron هر 10 دقیقه
 - ✅ منوی کامل با 4 دکمه
+- ✅ رفع باگ نمایش "null" در دکمه‌ها
 
 ---
 
 ## 🎯 مراحل بعدی (به ترتیب اولویت)
 
-### 1️⃣ اصلاح فلوی هشدار (اولویت بالا)
-**مشکل**: کاربر می‌تواند بدون انتخاب کامل، عدد بفرستد
+### 1️⃣ بهبود نرخ تبدیل (اولویت بالا)
+**مشکل**: نرخ دلار به تومان ثابت است (175,000)
 
-**راه‌حل**:
-```javascript
-// در src/callbacks.js - handleTextInSession
-// اضافه کردن چک:
-if (!session.market || !session.asset || !session.operator) {
-  await sendMessage(env, chatId, "لطفاً ابتدا از منو انتخاب کن.");
-  return false;
-}
-```
+**گزینه‌ها**:
+- A: پیدا کردن API واقعی نرخ دلار (bonbast, tgju, ...)
+- B: به‌روزرسانی دستی هفتگی
+- C: راه‌اندازی proxy در VPS
 
-**فایل‌ها**: `src/callbacks.js`, `src/keyboards.js`
+**فایل**: `src/prices.js` - خط 23
 
-### 2️⃣ اضافه کردن دکمه لغو
-**راه‌حل**:
-```javascript
-// در src/keyboards.js
-// به هر keyboard اضافه کن:
-[{ text: "❌ لغو", callback_data: "cancel" }]
-
-// در src/callbacks.js
-if (callback_data === "cancel") {
-  await clearSession(env, chatId);
-  await sendMessage(env, chatId, "لغو شد.");
-}
-```
-
-### 3️⃣ بهبود نرخ تبدیل
-**گزینه A**: پیدا کردن API واقعی برای نرخ دلار
-**گزینه B**: راه‌اندازی proxy در VPS (فایل‌ها آماده در `proxy/`)
-
-**فایل**: `src/prices.js` - خط 23: `USD_TO_TOMAN`
+### 2️⃣ اضافه کردن دکمه لغو در فلوی هشدار
+### 3️⃣ بهبود مدیریت خطا و retry logic
 
 ---
 
