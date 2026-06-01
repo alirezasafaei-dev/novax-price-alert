@@ -16,7 +16,7 @@ export async function handleCallback(env, callbackQuery) {
     return;
   }
   
-  await answerCallbackQuery(env, callbackQuery.id);
+  await answerCallbackQuery(env, callbackQuery.id, "");
   
   if (data === "menu:main") {
     await handleStart(env, chatId, callbackQuery.from);

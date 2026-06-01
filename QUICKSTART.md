@@ -1,0 +1,132 @@
+# 🚀 راهنمای شروع سریع
+
+> برای ادامه کار بدون توکن‌سوزی - ابتدا این فایل را بخوانید
+
+## ✅ وضعیت فعلی
+
+**بات آماده و در حال کار است:**
+- بات: `@novax_price_bot`
+- Worker: `https://novax-telegram-relay.asdevelooper.workers.dev`
+- آخرین commit: `5b865d7`
+
+**قابلیت‌های فعال:**
+- ✅ نمایش قیمت 6 ارز کوچک (USDT, DOGE, SHIB, TRX, ADA, DOT)
+- ✅ سیستم هشدار با cron هر 10 دقیقه
+- ✅ منوی کامل با 4 دکمه
+
+---
+
+## 🎯 مراحل بعدی (به ترتیب اولویت)
+
+### 1️⃣ اصلاح فلوی هشدار (اولویت بالا)
+**مشکل**: کاربر می‌تواند بدون انتخاب کامل، عدد بفرستد
+
+**راه‌حل**:
+```javascript
+// در src/callbacks.js - handleTextInSession
+// اضافه کردن چک:
+if (!session.market || !session.asset || !session.operator) {
+  await sendMessage(env, chatId, "لطفاً ابتدا از منو انتخاب کن.");
+  return false;
+}
+```
+
+**فایل‌ها**: `src/callbacks.js`, `src/keyboards.js`
+
+### 2️⃣ اضافه کردن دکمه لغو
+**راه‌حل**:
+```javascript
+// در src/keyboards.js
+// به هر keyboard اضافه کن:
+[{ text: "❌ لغو", callback_data: "cancel" }]
+
+// در src/callbacks.js
+if (callback_data === "cancel") {
+  await clearSession(env, chatId);
+  await sendMessage(env, chatId, "لغو شد.");
+}
+```
+
+### 3️⃣ بهبود نرخ تبدیل
+**گزینه A**: پیدا کردن API واقعی برای نرخ دلار
+**گزینه B**: راه‌اندازی proxy در VPS (فایل‌ها آماده در `proxy/`)
+
+**فایل**: `src/prices.js` - خط 23: `USD_TO_TOMAN`
+
+---
+
+## 📂 فایل‌های کلیدی
+
+```
+src/
+├── index.js       → ورودی اصلی، routing
+├── callbacks.js   → مدیریت دکمه‌ها و session
+├── prices.js      → دریافت قیمت از CoinGecko
+├── alerts.js      → مدیریت هشدارها
+├── cron.js        → بررسی هشدارها هر 10 دقیقه
+└── keyboards.js   → تعریف دکمه‌ها
+```
+
+---
+
+## 🔧 دستورات ضروری
+
+### دیپلوی
+```bash
+cd deploy/cloudflare-worker
+export CLOUDFLARE_API_TOKEN=<YOUR_CLOUDFLARE_API_TOKEN>
+export CLOUDFLARE_ACCOUNT_ID=<YOUR_CLOUDFLARE_ACCOUNT_ID>
+npx wrangler deploy
+```
+
+### مشاهده لاگ
+```bash
+npx wrangler tail --format pretty
+```
+
+### تست بات
+1. باز کردن `@novax_price_bot` در تلگرام
+2. `/start`
+3. "💰 قیمت‌ها" → "₿ کریپتو"
+
+---
+
+## 🐛 مشکلات رایج
+
+| مشکل | راه‌حل |
+|------|--------|
+| دکمه کار نمی‌کند | بررسی لاگ، احتمالاً session قدیمی |
+| قیمت نمایش نمی‌دهد | بررسی CoinGecko API (نیاز به User-Agent) |
+| هشدار کار نمی‌کند | بررسی cron log، KV storage |
+
+---
+
+## 📝 قبل از شروع کار
+
+1. ✅ `git log -1` - بررسی آخرین commit
+2. ✅ خواندن `docs/PROGRESS.md` - وضعیت دقیق
+3. ✅ تست بات در تلگرام - آیا کار می‌کند؟
+4. ✅ خواندن `README.md` - اطلاعات کامل
+
+---
+
+## 💡 نکات مهم
+
+- **هرگز** `.env` را commit نکن
+- **همیشه** قبل از commit تست کن
+- **حتماً** لاگ را بررسی کن
+- **به‌روزرسانی** `docs/PROGRESS.md` بعد از هر تغییر
+
+---
+
+## 🔗 لینک‌های سریع
+
+- [README کامل](README.md)
+- [گزارش پیشرفت](docs/PROGRESS.md)
+- [بات تلگرام](https://t.me/novax_price_bot)
+- [Cloudflare Dashboard](https://dash.cloudflare.com/)
+
+---
+
+**آخرین به‌روزرسانی**: ۱۴۰۵/۰۳/۱۱
+**وضعیت**: ✅ Production

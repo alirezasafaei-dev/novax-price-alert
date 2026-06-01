@@ -33,8 +33,11 @@ export async function editMessageText(env, chatId, messageId, text, options = {}
 }
 
 export async function answerCallbackQuery(env, callbackQueryId, text = null) {
-  return telegramApi(env, "answerCallbackQuery", {
+  const params = {
     callback_query_id: callbackQueryId,
-    text,
-  });
+  };
+  if (text) {
+    params.text = text;
+  }
+  return telegramApi(env, "answerCallbackQuery", params);
 }
