@@ -3,9 +3,9 @@ set -euo pipefail
 
 # این اسکریپت را از خارج محیط (روی سیستم با دسترسی اینترنت) اجرا کنید
 
-WORKER_URL="https://novax-telegram-relay.asdevelooper.workers.dev"
-BOT_TOKEN="<YOUR_TELEGRAM_BOT_TOKEN>"
-SECRET_TOKEN="<YOUR_TELEGRAM_SECRET_TOKEN>"
+WORKER_URL="${WORKER_URL:-https://novax-telegram-relay.asdevelooper.workers.dev}"
+BOT_TOKEN="${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN (e.g. via 'source .env')}"
+SECRET_TOKEN="${TELEGRAM_SECRET_TOKEN:?set TELEGRAM_SECRET_TOKEN (e.g. via 'source .env')}"
 
 echo "Setting webhook..."
 curl -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \

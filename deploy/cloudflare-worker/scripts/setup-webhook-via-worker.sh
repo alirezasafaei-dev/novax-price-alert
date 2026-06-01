@@ -3,9 +3,9 @@ set -euo pipefail
 
 # این اسکریپت از طریق یک Cloudflare Worker دیگر webhook را تنظیم می‌کند
 
-WORKER_URL="https://novax-telegram-relay.asdevelooper.workers.dev/webhook"
-BOT_TOKEN="<YOUR_TELEGRAM_BOT_TOKEN>"
-SECRET_TOKEN="<YOUR_TELEGRAM_SECRET_TOKEN>"
+WORKER_URL="${WORKER_URL:-https://novax-telegram-relay.asdevelooper.workers.dev/webhook}"
+BOT_TOKEN="${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN (e.g. via 'source .env')}"
+SECRET_TOKEN="${TELEGRAM_SECRET_TOKEN:?set TELEGRAM_SECRET_TOKEN (e.g. via 'source .env')}"
 
 # استفاده از یک proxy عمومی یا worker دیگر
 TELEGRAM_API="https://api.telegram.org/bot${BOT_TOKEN}"
@@ -17,14 +17,15 @@ echo "Bot: @novax_price_bot"
 echo ""
 
 # ساخت worker موقت برای تنظیم webhook
-cat > /tmp/webhook-setter.js << 'WORKER_EOF'
+# توکن‌ها از محیط جایگذاری می‌شوند (هرگز در فایل هاردکد نکنید)
+cat > /tmp/webhook-setter.js << WORKER_EOF
 export default {
   async fetch(request) {
-    const botToken = "<YOUR_TELEGRAM_BOT_TOKEN>";
-    const webhookUrl = "https://novax-telegram-relay.asdevelooper.workers.dev/webhook";
-    const secretToken = "<YOUR_TELEGRAM_SECRET_TOKEN>";
+    const botToken = "${BOT_TOKEN}";
+    const webhookUrl = "${WORKER_URL}";
+    const secretToken = "${SECRET_TOKEN}";
     
-    const telegramUrl = `https://api.telegram.org/bot${botToken}/setWebhook`;
+    const telegramUrl = \`https://api.telegram.org/bot\${botToken}/setWebhook\`;
     
     const response = await fetch(telegramUrl, {
       method: 'POST',
