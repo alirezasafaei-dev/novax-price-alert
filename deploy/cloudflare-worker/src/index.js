@@ -25,7 +25,7 @@ export default {
     
     if (url.pathname === "/setup-webhook" && request.method === "GET") {
       const botToken = env.TELEGRAM_BOT_TOKEN;
-      const webhookUrl = "https://novax-telegram-relay.asdevelooper.workers.dev/webhook";
+      const webhookUrl = `${url.origin}/webhook`;
       const secretToken = env.TELEGRAM_SECRET_TOKEN;
       
       try {
