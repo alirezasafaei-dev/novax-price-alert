@@ -82,32 +82,51 @@ export async function getCryptoPrices() {
   }
 }
 
+// مقدار خام TGJU ممکن است رشته‌ای با کاما (ریال) باشد یا عدد؛ هر دو را به عدد تبدیل می‌کنیم.
+function parseTgjuRial(raw) {
+  if (raw === undefined || raw === null) return null;
+  const num = typeof raw === "number" ? raw : Number(String(raw).replace(/,/g, ""));
+  return Number.isFinite(num) ? num : null;
+}
+
 export async function getIranMarketPrices() {
   const prices = {};
-  
-  try {
-    const response = await fetchWithRetry("https://api.tgju.org/v1/market/indicator/summary-table-data/global-market");
-    const data = await response.json();
-    
-    if (data?.price_dollar_rl?.p) {
-      prices.USD = Math.round(data.price_dollar_rl.p / 10);
+
+  // endpointهای آینه‌ای TGJU؛ به ترتیب امتحان می‌شوند تا یکی پاسخ بدهد.
+  const endpoints = [
+    "https://call2.tgju.org/ajax.json",
+    "https://call3.tgju.org/ajax.json",
+    "https://call1.tgju.org/ajax.json",
+  ];
+
+  let data = null;
+  for (const url of endpoints) {
+    try {
+      const response = await fetchWithRetry(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; Novax-Price-Bot/1.0)" },
+      });
+      data = await response.json();
+      if (data) break;
+    } catch (error) {
+      console.error(`Failed to fetch Iran market prices from ${url}:`, error.message);
     }
-    
-    if (data?.price_eur?.p) {
-      prices.EUR = Math.round(data.price_eur.p / 10);
-    }
-    
-    if (data?.geram18?.p) {
-      prices.GOLD_18K = Math.round(data.geram18.p / 10);
-    }
-    
-    if (data?.sekee?.p) {
-      prices.SEKKEH_EMAMI = Math.round(data.sekee.p / 10);
-    }
-  } catch (error) {
-    console.error("Failed to fetch Iran market prices:", error);
   }
-  
+
+  if (!data) return prices;
+
+  // ساختار جدید TGJU مقادیر را زیر کلید current قرار می‌دهد؛ نسخه‌ی قدیمی در سطح بالا بود.
+  const table = data.current && typeof data.current === "object" ? data.current : data;
+
+  const assign = (key, target) => {
+    const rial = parseTgjuRial(table?.[key]?.p);
+    if (rial !== null) prices[target] = Math.round(rial / 10);
+  };
+
+  assign("price_dollar_rl", "USD");
+  assign("price_eur", "EUR");
+  assign("geram18", "GOLD_18K");
+  assign("sekee", "SEKKEH_EMAMI");
+
   return prices;
 }
 

@@ -57,13 +57,16 @@ global.fetch = async (url, options) => {
   }
 
   if (u.includes("tgju.org")) {
+    // ساختار واقعی TGJU: مقادیر زیر کلید current و به‌صورت رشته‌ی کاما-دار (ریال).
     return {
       ok: true,
       json: async () => ({
-        price_dollar_rl: { p: 1700000 }, // 170,000 toman
-        price_eur: { p: 1850000 }, // 185,000 toman
-        geram18: { p: 35000000 }, // 3,500,000 toman
-        sekee: { p: 400000000 }, // 40,000,000 toman
+        current: {
+          price_dollar_rl: { p: "1,700,000" }, // 170,000 toman
+          price_eur: { p: "1,850,000" }, // 185,000 toman
+          geram18: { p: "35,000,000" }, // 3,500,000 toman
+          sekee: { p: "400,000,000" }, // 40,000,000 toman
+        },
       }),
     };
   }
