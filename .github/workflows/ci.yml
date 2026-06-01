@@ -20,3 +20,9 @@ jobs:
       - run: uv run mypy src
 
       - run: uv run pytest
+
+      - run: npm ci
+        working-directory: deploy/cloudflare-worker
+
+      - run: npm test
+        working-directory: deploy/cloudflare-worker
