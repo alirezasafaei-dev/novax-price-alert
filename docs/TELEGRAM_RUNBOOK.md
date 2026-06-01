@@ -5,48 +5,56 @@
 - Bot username: `@novax_price_bot`
 - Cloudflare Worker: `https://novax-telegram-relay.asdevelooper.workers.dev`
 - Telegram webhook: `https://novax-telegram-relay.asdevelooper.workers.dev/webhook`
-- Runtime path: Cloudflare Worker handles `/start`, `/help`, `/prices`, `/alert`, `/alerts`, `/delete`, scheduled alert checks, and backend relay sends.
-- Current price source for `/prices`: TGJU HTML pages fetched from Cloudflare Worker.
-- User-facing unit: Toman. TGJU values are parsed as Rial and divided by `10` before display.
-- User-facing time zone: `Asia/Tehran`, Persian calendar formatting.
+- Runtime path: the Cloudflare Worker (`deploy/cloudflare-worker/src/index.js`) is a **menu-driven** bot. It handles the `/start` and `/help` slash commands, four reply-keyboard buttons, the 5-step alert wizard (session text), inline callback queries (back/delete/selection), and the scheduled (cron) alert check.
+- Price sources:
+  - **Crypto**: Binance public API (`data-api.binance.vision/api/v3/ticker/price`), unit **USDT** (BTC, ETH, SOL, BNB).
+  - **Fiat/Gold**: TGJU mirrors (`call2/call3/call1.tgju.org/ajax.json`), unit **Toman** (USD, EUR, 18K gold, Emami coin).
+- Unit conversion: TGJU values are parsed as Rial (comma-separated strings under the `current` key) and divided by `10` for Toman.
+- Time zone: `Asia/Tehran`, Persian calendar formatting.
 
-## Supported Commands
+## Bot Interaction Model (menu-driven)
+
+The bot is button-driven. The only slash commands are `/start` and `/help`; everything else is done via the reply keyboard.
 
 ### `/start`
+Registers/refreshes the user and shows the 4-button main menu:
 
-Sends the intro/help text and confirms the bot is active.
+```
+💰 قیمت‌ها        🔔 تنظیم هشدار
+📋 هشدارهای من   ❓ راهنما
+```
 
-### `/help`
+### `/help` (or `❓ راهنما`)
+Sends the usage guide (price sources + 5-step alert flow).
 
-Sends the same command guide as `/start`.
+### `💰 قیمت‌ها`
+Shows a market selection (کریپتو / ارز / طلا); after picking a market, live prices are sent (crypto in USDT, fiat/gold in Toman).
 
-### `/prices`
+### `🔔 تنظیم هشدار` (5-step wizard)
+Market → asset → condition (above/below) → target price → ✅ confirm. A `🔙 بازگشت` button is available at each step.
 
-Sends a quick loading message, queues price fetch with `ctx.waitUntil`, then sends live prices.
-
-
-### `/alert <symbol> <target_toman> <above|below>`
-
-Creates a Telegram price alert. Example: `/alert USD 170000 above`. Supported symbols are `USD`, `USDT`, `GOLD`, and `SEKKEH`. Targets are entered in toman.
-
-### `/alerts`
-
-Lists active alerts for the current Telegram chat.
-
-### `/delete <id>`
-
-Deactivates an alert created by the current Telegram chat.
+### `📋 هشدارهای من`
+Lists active alerts for the chat, each with the **current price** and a `🗑 حذف` (delete) button.
 
 ## Alert Evaluation
 
-Cloudflare Cron Triggers run every 10 minutes. The Worker fetches current TGJU prices, evaluates active alerts, sends matching Telegram notifications, and throttles repeat notifications for the same alert to once per hour. Alert data uses the `ALERTS_KV` binding when available and falls back to Worker Cache storage for the production relay.
+Cloudflare Cron Triggers run every 10 minutes (`*/10 * * * *`). The Worker fetches current prices (Binance for crypto, TGJU for fiat/gold), evaluates active alerts, sends matching Telegram notifications, and throttles repeat notifications for the same alert to once per hour. Alerts are stored in the `ALERTS_KV` binding.
 
-Displayed assets:
+> Note: because cron fires on fixed wall-clock minutes (:00, :10, :20, …), a freshly created alert may fire anywhere from 0 to 10 minutes after its condition becomes true. This is expected.
 
-- USD free market: `USD_IRT`
-- 18K gold: `GOLD_18K_IRT`
-- Emami coin: `SEKKEH_EMAMI_IRT`
-- Tether: `USDT_IRT`
+Supported assets:
+
+- Crypto (Binance, USDT): `BTC`, `ETH`, `SOL`, `BNB`
+- Fiat (TGJU, Toman): `USD`, `EUR`
+- Gold (TGJU, Toman): `GOLD_18K`, `SEKKEH_EMAMI`
+
+## Worker HTTP Endpoints
+
+The deployed Worker exposes exactly these routes:
+
+- `GET /health` → `{"status":"ok","service":"telegram-bot"}`
+- `GET /setup-webhook` → sets the Telegram webhook to `/webhook` (using the Worker's own token + secret) and returns `getWebhookInfo`.
+- `POST /webhook` → Telegram updates; requires the `X-Telegram-Bot-Api-Secret-Token` header to match `TELEGRAM_SECRET_TOKEN` (otherwise 401).
 
 ## Verification Commands
 
@@ -56,14 +64,18 @@ Run from the project root after loading `.env`.
 set -a
 . ./.env
 set +a
-curl -fsS "$TELEGRAM_RELAY_URL/health"
-curl -fsS -H "X-Relay-Secret: $TELEGRAM_RELAY_SECRET" "$TELEGRAM_RELAY_URL/webhook-info"
+
+# Worker health
+curl -fsS "https://novax-telegram-relay.asdevelooper.workers.dev/health"
+
+# Telegram webhook info (source of truth)
+curl -fsS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo" | jq .
 ```
 
 Expected health:
 
 ```json
-{"status":"ok","service":"telegram-relay"}
+{"status":"ok","service":"telegram-bot"}
 ```
 
 Expected webhook URL:
@@ -72,56 +84,42 @@ Expected webhook URL:
 https://novax-telegram-relay.asdevelooper.workers.dev/webhook
 ```
 
-## Manual Send Test
-
-Use this only with a known private chat ID.
-
-```bash
-curl -fsS -X POST \
-  -H "Content-Type: application/json" \
-  -H "X-Relay-Secret: $TELEGRAM_RELAY_SECRET" \
-  --data '{"chat_id":"<chat_id>","text":"Novax relay test"}' \
-  "$TELEGRAM_RELAY_URL/send"
-```
-
 ## Deploy Procedure
 
 ```bash
-set -a
-. ./.env
-set +a
-./scripts/deploy-cloudflare-relay.sh
-curl -fsS "$TELEGRAM_RELAY_URL/health"
-curl -fsS -X POST -H "X-Relay-Secret: $TELEGRAM_RELAY_SECRET" "$TELEGRAM_RELAY_URL/set-webhook"
+cd deploy/cloudflare-worker
+# requires CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID in env/.env
+bash scripts/deploy.sh
 ```
 
-The deploy script uploads Worker secrets before deploying code.
+`scripts/deploy.sh` reads `.env`, uploads the Worker secrets (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_SECRET_TOKEN`), runs `npx wrangler deploy`, and sets the Telegram webhook. Afterwards confirm with the verification commands above.
+
+To (re)set just the webhook without deploying, either open `GET /setup-webhook` in a browser/curl, or run `scripts/set-webhook.sh` (fill in the token/secret first).
 
 ## Operational Notes
 
-- Do not commit `.env`, Telegram tokens, Cloudflare tokens, relay secrets, or proxy lists.
-- If `/prices` is slow, users should still receive the loading message immediately.
-- If alert persistence needs stronger guarantees, create a Cloudflare KV namespace named `ALERTS_KV` and bind it in `wrangler.toml`; the current deployable fallback uses Worker Cache storage.
-- If TGJU blocks or slows Worker fetches, keep the bot responsive and send the friendly retry message.
-- `proxy-list.txt` is local-only and should not be committed.
+- Do not commit `.env`, Telegram tokens, Cloudflare tokens, or relay secrets.
+- If prices fail, check Worker logs for Binance (crypto) or TGJU (fiat/gold) errors. TGJU has a fallback across `call2 → call3 → call1` mirrors.
 - Cloudflare Worker logs can be tailed from `deploy/cloudflare-worker/` using `npx wrangler tail`.
+- If alert persistence needs stronger guarantees, ensure the `ALERTS_KV` namespace is bound in `wrangler.toml`.
 
 ## Known Good Validation
 
-Last verified behavior:
+Last verified behavior (live, end-to-end on `@novax_price_bot`):
 
-- `/start` responds in Telegram.
-- `/prices` sends Toman prices.
-- `/alert USD 170000 above`, `/alerts`, and `/delete <id>` respond from Telegram webhook.
-- Update timestamp is shown in Tehran time.
-- Worker webhook returns quickly with `queued: prices` for `/prices`.
+- `/start` shows the 4-button menu.
+- `💰 قیمت‌ها` → کریپتو shows BTC/ETH/SOL/BNB in USDT (Binance).
+- `💰 قیمت‌ها` → ارز/طلا shows USD+EUR and 18K gold/Emami coin in Toman (TGJU).
+- `🔔 تنظیم هشدار` completes the 5-step wizard (including `🔙 بازگشت`) and saves the alert.
+- `📋 هشدارهای من` lists alerts with current price and a `🗑 حذف` button; delete works.
+- Cron alert fired live within the 0–10 minute window.
 
-## یادداشت عملیاتی فارسی - پایداری هشدارها
+## یادداشت عملیاتی فارسی
 
 ### وضعیت معماری فعلی
 
-- Worker مسیر اصلی production است و webhook تلگرام، `/prices`، `/alert`، `/alerts`، `/delete` و cron ده‌دقیقه‌ای را اجرا می‌کند.
-- منبع قیمت فعلی TGJU است و فعلاً migration اجباری به AlanChand یا API.ir انجام نشده است.
+- Worker مسیر اصلی production است و **منو‌محور** است: `/start` و `/help` به‌علاوه‌ی چهار دکمه‌ی منو، ویزارد ۵مرحله‌ای هشدار، callbackها و cron ده‌دقیقه‌ای را اجرا می‌کند.
+- منبع قیمت: **Binance** برای کریپتو (واحد USDT) و **TGJU** برای ارز/طلا (واحد تومان).
 - storage فعلی production با binding `ALERTS_KV` روی Cloudflare KV است.
 
 ### چک‌های بعد از deploy
@@ -130,35 +128,8 @@ Last verified behavior:
 set -a
 . ./.env
 set +a
-curl -fsS "$TELEGRAM_RELAY_URL/health"
-curl -fsS -H "X-Relay-Secret: $TELEGRAM_RELAY_SECRET" "$TELEGRAM_RELAY_URL/debug"
-curl -fsS -H "X-Relay-Secret: $TELEGRAM_RELAY_SECRET" "$TELEGRAM_RELAY_URL/storage-check"
-curl -fsS -H "X-Relay-Secret: $TELEGRAM_RELAY_SECRET" "$TELEGRAM_RELAY_URL/webhook-info"
-curl -fsS -H "X-Relay-Secret: $TELEGRAM_RELAY_SECRET" "$TELEGRAM_RELAY_URL/cron-status"
+curl -fsS "https://novax-telegram-relay.asdevelooper.workers.dev/health"
+curl -fsS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo" | jq .
 ```
 
-اگر `cron_present` false بود یا نیاز به تست فوری بدون انتظار cron ده‌دقیقه‌ای داشتی:
-
-```bash
-curl -fsS -X POST -H "X-Relay-Secret: $TELEGRAM_RELAY_SECRET" "$TELEGRAM_RELAY_URL/run-cron"
-curl -fsS -H "X-Relay-Secret: $TELEGRAM_RELAY_SECRET" "$TELEGRAM_RELAY_URL/cron-status"
-```
-
-در محیط‌هایی که `curl` نصب نیست، همین چک‌ها با خروجی خلاصه و بدون چاپ secret:
-
-```bash
-node scripts/verify-telegram-production.mjs --run-cron
-```
-
-### رفتارهای پایدارسازی اضافه‌شده
-
-- cron نتیجه آخرین اجرا را در `cron:last` ذخیره می‌کند و از `/debug` قابل بررسی است.
-- اگر قیمت یک نماد از TGJU fail شود، بقیه نمادهای سالم همچنان بررسی می‌شوند.
-- ارسال هشدار idempotency سبک دارد: برای هر alert و بازه ده‌دقیقه‌ای کلید `alert_send:*` ساخته می‌شود تا ارسال تکراری معمولی کم شود.
-- اگر ارسال تلگرام fail شود، alert به عنوان sent ثبت نمی‌شود و خطا در وضعیت آخر cron دیده می‌شود.
-- `/storage-check` فقط با relay secret کار می‌کند و بدون چاپ secret، read/write storage را تست می‌کند.
-- `/cron-status` آخرین `cron:last` را امن نشان می‌دهد و `/run-cron` فقط با POST و relay secret یک اجرای دستی انجام می‌دهد.
-
-### نکته مهم
-
-برای production پایدار، قبل از هر تغییر مطمئن شو `/debug` مقدار `storage: kv` و `/storage-check` مقدار `ok: true` برمی‌گرداند.
+اگر webhook درست تنظیم نشده بود، `GET /setup-webhook` را صدا بزنید یا `scripts/deploy.sh` را دوباره اجرا کنید.

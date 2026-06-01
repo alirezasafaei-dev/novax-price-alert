@@ -16,16 +16,10 @@
    - ✅ 📋 هشدارهای من - لیست و حذف
    - ✅ ❓ راهنما - نمایش راهنما
 
-3. **نمایش قیمت کریپتو**
-   - ✅ دریافت قیمت از CoinGecko API
-   - ✅ نمایش ارزهای کوچک و قابل خرید:
-     - تتر (USDT): ~۱۷۴,۷۴۷ تومان
-     - دوج‌کوین (DOGE): ~۱۷,۴۸۸ تومان
-     - شیبا (SHIB): ~۱,۰۰۰,۰۰۰ تومان / ۱M
-     - ترون (TRX): ~۶۰,۴۵۰ تومان
-     - کاردانو (ADA): ~۴۰,۳۹۲ تومان
-     - پولکادات (DOT): ~۲۰۳,۰۰۰ تومان
-   - ✅ تبدیل به تومان (نرخ: ۱ دلار = ۱۷۵,۰۰۰ تومان)
+3. **نمایش قیمت (مطابق USER_GUIDE)**
+   - ✅ کریپتو از **Binance** با واحد **USDT**: BTC, ETH, SOL, BNB
+   - ✅ ارز از **TGJU** به **تومان**: دلار (USD)، یورو (EUR)
+   - ✅ طلا از **TGJU** به **تومان**: طلای ۱۸ عیار، سکه امامی
    - ✅ تاریخ و ساعت به وقت تهران
 
 4. **سیستم هشدار**
@@ -37,34 +31,27 @@
 ## مشکلات حل شده
 
 1. ✅ **Callback query error** - اصلاح `callback_data` به `data`
-2. ✅ **TGJU API block** - جایگزینی با CoinGecko
-3. ✅ **Nobitex API block** - استفاده از نرخ تقریبی
-4. ✅ **CoinGecko 403** - اضافه کردن User-Agent header
-5. ✅ **قیمت‌های نامناسب** - تغییر به ارزهای کوچک
+2. ✅ **منبع کریپتو** - تغییر به Binance (واحد USDT) مطابق USER_GUIDE
+3. ✅ **endpoint مرده‌ی TGJU** - endpoint قدیمی HTTP 500 می‌داد؛ به آینه‌های `call2/call3/call1.tgju.org/ajax.json` با fallback سوئیچ شد
+4. ✅ **ناوبری بازگشت** - دکمه‌ی بازگشت در مرحله‌ی شرط (`back:asset`) درست شد
+5. ✅ **حذف هشدار** - دکمه‌ی 🗑 حذف + قیمت فعلی برای هر هشدار
 6. ✅ **Session conflict** - clearSession قبل از نمایش قیمت
 7. ✅ **Import error** - اضافه کردن clearSession به imports
 
 ## مشکلات باقی‌مانده
 
-1. ⚠️ **فلوی هشدار ناقص**
-   - کاربر می‌تواند بدون انتخاب بازار/دارایی/شرط عدد بفرستد
-   - هشدارها با مقادیر نادرست ذخیره می‌شوند
-
-2. ⚠️ **نرخ تبدیل ثابت**
-   - نرخ دلار به تومان ثابت است (۱۷۵,۰۰۰)
-   - نیاز به API واقعی یا به‌روزرسانی دستی
-
-3. ⚠️ **Rate limit**
-   - گاهی دکمه‌ها کار نمی‌کنند (نیاز به چند بار تلاش)
-   - احتمالاً rate limit Telegram یا CoinGecko
+هیچ مورد باقی‌مانده‌ای نیست — موارد قبلی برطرف شدند:
+- ✅ فلوی هشدار کامل و مرحله‌ای شد (بازار → دارایی → شرط → قیمت → تایید).
+- ✅ نرخ ثابت حذف شد؛ ارز/طلا زنده از TGJU و کریپتو USDT از Binance.
+- ✅ retry/backoff برای کاهش خطای rate limit اضافه شد.
 
 ## فایل‌های تغییر یافته
 
 ```
 deploy/cloudflare-worker/src/callbacks.js  - اصلاح handleCallback و handleTextInSession
 deploy/cloudflare-worker/src/index.js      - اضافه کردن clearSession
-deploy/cloudflare-worker/src/keyboards.js  - تغییر به ارزهای کوچک
-deploy/cloudflare-worker/src/prices.js     - استفاده از CoinGecko + User-Agent
+deploy/cloudflare-worker/src/keyboards.js  - دکمه‌های بازار/دارایی (BTC/ETH/SOL/BNB، USD/EUR، طلا) + بازگشت/حذف
+deploy/cloudflare-worker/src/prices.js     - Binance (کریپتو) + TGJU آینه‌ای (ارز/طلا)
 docs/PROGRESS.md                           - مستندات پیشرفت
 proxy/                                     - فایل‌های proxy (آماده برای آینده)
 ```
@@ -72,14 +59,15 @@ proxy/                                     - فایل‌های proxy (آماده
 ## TODO بعدی
 
 1. [x] اصلاح فلوی هشدار (اجباری کردن انتخاب بازار/دارایی/شرط)
-2. [x] اضافه کردن دکمه "لغو" در هر مرحله
-3. [x] بهبود نرخ تبدیل (API واقعی یا proxy در VPS)
-4. [ ] تست کامل cron job
-5. [ ] بهینه‌سازی پیام‌ها و UX
+2. [x] اضافه کردن دکمه بازگشت در هر مرحله
+3. [x] منبع زنده‌ی قیمت (Binance برای کریپتو، TGJU برای ارز/طلا)
+4. [x] تست cron job (تست زنده تأیید شد — هشدار در بازه‌ی ۰ تا ۱۰ دقیقه ارسال شد)
+5. [ ] (اختیاری) metrics و تاریخچه‌ی قیمت
 
 ## نکات فنی
 
-- CoinGecko نیاز به User-Agent دارد
+- کریپتو: `data-api.binance.vision/api/v3/ticker/price?symbol=<COIN>USDT`
+- ارز/طلا: TGJU آینه‌ای (`call2/call3/call1.tgju.org/ajax.json`)؛ مقادیر زیر کلید `current` و به‌صورت رشته‌ی کامادار (ریال) → تقسیم بر ۱۰ برای تومان
 - Cloudflare Worker از IP خارجی است
 - KV Storage کار می‌کند و پایدار است
 - Webhook و Cron فعال و کار می‌کنند
