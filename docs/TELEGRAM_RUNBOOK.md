@@ -144,6 +144,12 @@ curl -fsS -X POST -H "X-Relay-Secret: $TELEGRAM_RELAY_SECRET" "$TELEGRAM_RELAY_U
 curl -fsS -H "X-Relay-Secret: $TELEGRAM_RELAY_SECRET" "$TELEGRAM_RELAY_URL/cron-status"
 ```
 
+در محیط‌هایی که `curl` نصب نیست، همین چک‌ها با خروجی خلاصه و بدون چاپ secret:
+
+```bash
+node scripts/verify-telegram-production.mjs --run-cron
+```
+
 ### رفتارهای پایدارسازی اضافه‌شده
 
 - cron نتیجه آخرین اجرا را در `cron:last` ذخیره می‌کند و از `/debug` قابل بررسی است.
