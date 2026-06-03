@@ -286,6 +286,7 @@ assert.equal(duplicateNotif, undefined, "cron should not resend a delivered aler
 const unavailableEnv = {
   ...mockEnv,
   ALERTS_KV: new MockKV(),
+  OPS_CHAT_ID: "-100999",
 };
 await unavailableEnv.ALERTS_KV.put(
   "alerts:user:1000",
@@ -304,6 +305,11 @@ assert.equal(
   sent.find((s) => s.method === "sendMessage" && String(s.text).includes("هشدار قیمت")),
   undefined,
   "provider unavailable should not send a notification",
+);
+// T-405: a provider outage raises an ops alert (to OPS_CHAT_ID), not a user notification.
+assert.ok(
+  sent.find((s) => s.method === "sendMessage" && String(s.chat_id) === "-100999" && String(s.text).includes("Provider outage")),
+  "provider outage should raise an ops alert when OPS_CHAT_ID is set",
 );
 
 // 10) A failing Telegram send is NOT recorded as delivered, and the alert is
@@ -346,6 +352,7 @@ assert.equal(afterFail.attempt_count, 2, "second attempt counted");
 const exhaustEnv = {
   ...mockEnv,
   ALERTS_KV: new MockKV(),
+  OPS_CHAT_ID: "-100999",
 };
 await exhaustEnv.ALERTS_KV.put(
   "alerts:user:1002",
@@ -364,6 +371,11 @@ telegramMode = "ok";
 const exhausted = (await exhaustEnv.ALERTS_KV.get("alerts:user:1002", "json"))[0];
 assert.equal(exhausted.lifecycle_state, "failed", "exhausted retries end in terminal failed state");
 assert.equal(exhausted.enabled, false, "terminal failed alert is disabled");
+// T-405: a permanent (non-retryable) delivery failure raises an ops alert.
+assert.ok(
+  sent.find((s) => s.method === "sendMessage" && String(s.chat_id) === "-100999" && String(s.text).includes("Alert delivery failed")),
+  "exhausted delivery should raise an ops alert when OPS_CHAT_ID is set",
+);
 
 // 12) Price-display step: current price + symbol shown at condition selection,
 //     and the price-entry prompt shows current price and an example (T-101/T-102/T-103).

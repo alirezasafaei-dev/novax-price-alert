@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node test/log.test.mjs && node test/telegram-relay.test.mjs && node test/new-bot.test.mjs",
+    "test": "node test/log.test.mjs && node test/metrics-alerting.test.mjs && node test/telegram-relay.test.mjs && node test/new-bot.test.mjs",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail"
   },

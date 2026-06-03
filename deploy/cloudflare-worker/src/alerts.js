@@ -2,6 +2,7 @@ import { ALERT_LIFECYCLE, formatNormalizedTarget, operatorLabel } from "./alert-
 import { getAssetByCanonicalId, getAssetByMarketSymbol } from "./asset-catalog.js";
 import { formatPrice, unitForMarket } from "./prices.js";
 import { logEvent } from "./log.js";
+import { recordMetric } from "./metrics.js";
 
 // Bounded retry policy for notification delivery (mirrors the backend retry
 // contract in docs/ALERT_HARDENING_CONTRACTS.md: 3 attempts with backoff).
@@ -59,6 +60,7 @@ export async function createAlert(env, chatId, alertData) {
     user_id: String(chatId),
     canonical_asset_id: newAlert.canonical_asset_id,
   });
+  recordMetric(env, "alert_created", { market: newAlert.market, asset: newAlert.canonical_asset_id });
   return newAlert;
 }
 

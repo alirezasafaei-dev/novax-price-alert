@@ -20,3 +20,13 @@ id = "9bfa7672e25d446aa0a24165cbd1848a"
 [[kv_namespaces]]
 binding = "USERS_KV"
 id = "9bfa7672e25d446aa0a24165cbd1848a"
+
+# متریک‌های پایه (T-403) روی Workers Analytics Engine.
+# کوئری با SQL API: SELECT blob1 AS metric, SUM(double1) FROM novax_bot_metrics GROUP BY metric
+[[analytics_engine_datasets]]
+binding = "METRICS"
+dataset = "novax_bot_metrics"
+
+# هشدار عملیاتی (T-405): chat id مقصد هشدارها به‌صورت سکرت تنظیم می‌شود (در repo ذخیره نمی‌شود):
+#   npx wrangler secret put OPS_CHAT_ID
+# اگر تنظیم نشود، کد هشدار به‌صورت بی‌خطر no-op می‌ماند.

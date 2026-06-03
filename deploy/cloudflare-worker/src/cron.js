@@ -9,6 +9,8 @@ import {
 import { getCryptoPrices, getIranMarketPrices, formatPrice } from "./prices.js";
 import { sendMessage } from "./telegram.js";
 import { logEvent, logWarn, logError } from "./log.js";
+import { recordMetric } from "./metrics.js";
+import { maybeOpsAlert } from "./alerting.js";
 
 function classifyPriceBatch(prices, providerId) {
   if (!prices || Object.keys(prices).filter((key) => !key.startsWith("_")).length === 0) {
@@ -39,6 +41,18 @@ export async function runCronJob(env) {
   const cryptoFreshness = classifyPriceBatch(cryptoPrices, "crypto");
   const iranFreshness = classifyPriceBatch(iranPrices, "iran_market");
 
+  // قطعی provider: متریک + هشدار عملیاتی (با cooldown تا اسپم نشود).
+  for (const [market, fresh] of [["crypto", cryptoFreshness], ["iran_market", iranFreshness]]) {
+    if (fresh.freshness !== "fresh") {
+      recordMetric(env, "provider_outage", { market });
+      await maybeOpsAlert(env, `provider_outage:${market}`, "Provider outage", {
+        provider: market,
+        reason: fresh.reason,
+        worker_run_id: workerRunId,
+      });
+    }
+  }
+
   let checked = 0;
   let triggered = 0;
 
@@ -56,6 +70,7 @@ export async function runCronJob(env) {
         freshness: freshness.freshness,
         reason: freshness.reason,
       });
+      recordMetric(env, "stale_data", { market: alert.market });
       continue;
     }
 
@@ -70,6 +85,7 @@ export async function runCronJob(env) {
         freshness: "unavailable",
         reason: "asset_price_missing",
       });
+      recordMetric(env, "stale_data", { market: alert.market });
       continue;
     }
 
@@ -85,6 +101,10 @@ export async function runCronJob(env) {
       price: currentPrice,
       freshness: freshness.freshness,
       condition_matched: conditionMatched,
+    });
+    recordMetric(env, "alert_evaluated", {
+      market: alert.market,
+      asset: alert.canonical_asset_id || `${alert.market}:${alert.symbol}`,
     });
 
     if (!conditionMatched) continue;
@@ -132,6 +152,7 @@ export async function runCronJob(env) {
         event_id: eventId,
         worker_run_id: workerRunId,
       });
+      recordMetric(env, "notification_sent", { market: alert.market });
     } catch (error) {
       const outcome = await markAlertDeliveryFailed(env, alert.chat_id, alert.id, eventId, error);
       logError("notification_send_failed", {
@@ -143,6 +164,16 @@ export async function runCronJob(env) {
         attempt: outcome?.attempts,
         max_attempts: outcome?.maxAttempts,
       });
+      recordMetric(env, "notification_failed", { market: alert.market });
+      // فقط شکست نهایی (غیرقابل‌retry / اتمام تلاش‌ها) را به ops هشدار بده تا اسپم نشود.
+      if (outcome?.retryable === false) {
+        await maybeOpsAlert(env, `delivery_failed:${alert.id}:${eventId}`, "Alert delivery failed", {
+          alert_id: alert.id,
+          market: alert.market,
+          attempts: outcome?.attempts,
+          error: String(error?.message || error),
+        });
+      }
     }
   }
 
