@@ -1,6 +1,7 @@
 import { ALERT_LIFECYCLE, formatNormalizedTarget, operatorLabel } from "./alert-flow.js";
 import { getAssetByCanonicalId, getAssetByMarketSymbol } from "./asset-catalog.js";
 import { formatPrice, unitForMarket } from "./prices.js";
+import { logEvent } from "./log.js";
 
 // Bounded retry policy for notification delivery (mirrors the backend retry
 // contract in docs/ALERT_HARDENING_CONTRACTS.md: 3 attempts with backoff).
@@ -53,7 +54,7 @@ export async function createAlert(env, chatId, alertData) {
   };
   alerts.push(newAlert);
   await saveUserAlerts(env, chatId, alerts);
-  console.log("alert_activated", {
+  logEvent("alert_activated", {
     alert_id: newAlert.id,
     user_id: String(chatId),
     canonical_asset_id: newAlert.canonical_asset_id,
@@ -66,7 +67,7 @@ export async function deleteAlert(env, chatId, alertId) {
   const filtered = alerts.filter((a) => a.id !== alertId);
   await saveUserAlerts(env, chatId, filtered);
   if (filtered.length < alerts.length) {
-    console.log("alert_cancelled", { alert_id: alertId, user_id: String(chatId) });
+    logEvent("alert_cancelled", { alert_id: alertId, user_id: String(chatId) });
   }
   return filtered.length < alerts.length;
 }

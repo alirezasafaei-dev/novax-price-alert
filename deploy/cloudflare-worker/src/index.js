@@ -4,6 +4,7 @@ import { handleCallback, handleTextInSession } from "./callbacks.js";
 import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession } from "./sessions.js";
 import { runCronJob } from "./cron.js";
 import { sendMessage } from "./telegram.js";
+import { logEvent, logError } from "./log.js";
 
 function requireSecret(request, env) {
   const secret = env.TELEGRAM_SECRET_TOKEN;
@@ -68,7 +69,7 @@ export default {
         try {
           await handleCallback(env, update.callback_query);
         } catch (error) {
-          console.error("Callback error:", error.message, error.stack);
+          logError("callback_handler_error", { error_message: error?.message, stack: error?.stack });
           await sendMessage(env, update.callback_query.message.chat.id, 
             "خطایی رخ داد. لطفاً دوباره تلاش کنید.");
         }
@@ -132,6 +133,6 @@ export default {
   
   async scheduled(event, env, ctx) {
     const result = await runCronJob(env);
-    console.log(`Cron completed: checked=${result.checked}, triggered=${result.triggered}`);
+    logEvent("cron_invocation_completed", { checked: result.checked, triggered: result.triggered });
   }
 };
