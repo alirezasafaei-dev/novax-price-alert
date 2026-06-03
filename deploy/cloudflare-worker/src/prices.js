@@ -156,6 +156,20 @@ export function unitForMarket(market) {
   return market === "crypto" ? "USDT" : "تومان";
 }
 
+// قیمت فعلی یک دارایی را از منبع مربوط به همان بازار می‌گیرد (یا null اگر در دسترس نبود).
+export async function getCurrentPrice(market, symbol) {
+  const prices = market === "crypto" ? await getCryptoPrices() : await getIranMarketPrices();
+  const price = prices?.[symbol];
+  return price === undefined || price === null ? null : price;
+}
+
+// قیمت فعلی را با واحد و تعداد رقم اعشار مناسبِ بازار قالب‌بندی می‌کند.
+export function formatCurrentPrice(price, market, unit = unitForMarket(market)) {
+  if (price === null || price === undefined) return "نامشخص";
+  const decimals = market === "crypto" && price < 100 ? 2 : 0;
+  return `${formatPrice(price, decimals)} ${unit}`;
+}
+
 export function assetLabel(symbol) {
   return ASSET_NAMES[symbol] || symbol;
 }

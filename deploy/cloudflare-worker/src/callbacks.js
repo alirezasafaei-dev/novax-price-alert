@@ -4,7 +4,7 @@ import { getAssetByMarketSymbol } from "./asset-catalog.js";
 import { editMessageText, answerCallbackQuery, sendMessage } from "./telegram.js";
 import { getSession, setSession, clearSession } from "./sessions.js";
 import { createAlert, deleteAlert } from "./alerts.js";
-import { getCryptoPrices, getIranMarketPrices, formatPrice, formatCryptoPricesMessage, formatFiatPricesMessage, formatGoldPricesMessage, unitForMarket } from "./prices.js";
+import { getCryptoPrices, getIranMarketPrices, formatPrice, formatCryptoPricesMessage, formatFiatPricesMessage, formatGoldPricesMessage, unitForMarket, getCurrentPrice, formatCurrentPrice } from "./prices.js";
 import { handleStart, handleMyAlerts, handleCreateAlertStart } from "./commands.js";
 
 const ASSET_KEYBOARDS = {
@@ -18,6 +18,22 @@ const ASSET_PROMPTS = {
   fiat: "کدوم ارز رو می‌خوای؟",
   gold: "کدوم دارایی رو می‌خوای؟",
 };
+
+// پیام ورود قیمت هدف: واحد صریح، قیمت فعلی (اگر موجود باشد) و مثال متناسب با دارایی.
+function priceEntryPrompt(session, { isEdit = false } = {}) {
+  const unit = session.target_price_display_unit || unitForMarket(session.market);
+  const priceLine =
+    session.current_price_text && session.current_price_text !== "نامشخص"
+      ? `قیمت فعلی: ${session.current_price_text}\n`
+      : "";
+  const example = session.current_price
+    ? String(Math.round(session.current_price))
+    : session.market === "crypto"
+      ? "70000"
+      : "180000";
+  const label = isEdit ? "قیمت هدف جدید" : "قیمت هدف";
+  return `${priceLine}${label} را با واحد ${unit} وارد کن:\n\nمثال: ${example}`;
+}
 
 export async function handleCallback(env, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
@@ -90,6 +106,8 @@ export async function handleCallback(env, callbackQuery) {
         await editMessageText(env, chatId, messageId, "دارایی نامعتبر است. لطفاً دوباره انتخاب کن.");
         return;
       }
+      const currentPrice = await getCurrentPrice(session.market, symbol);
+      const currentPriceText = formatCurrentPrice(currentPrice, session.market, asset.unit);
       await setSession(env, chatId, {
         ...session,
         step: FLOW_STATES.CHOOSING_CONDITION,
@@ -97,12 +115,14 @@ export async function handleCallback(env, callbackQuery) {
         canonical_asset_id: asset.canonical_asset_id,
         display_asset_name_at_creation: asset.display_name,
         target_price_display_unit: asset.unit,
+        current_price: currentPrice,
+        current_price_text: currentPriceText,
       });
       await editMessageText(
         env,
         chatId,
         messageId,
-        `دارایی انتخاب‌شده: ${asset.display_name}\nحالا شرط رو انتخاب کن:`,
+        `دارایی: ${asset.display_name} (${symbol})\nقیمت فعلی: ${currentPriceText}\n\nحالا شرط رو انتخاب کن:`,
         { reply_markup: OPERATOR_KEYBOARD },
       );
     }
@@ -115,7 +135,7 @@ export async function handleCallback(env, callbackQuery) {
 
     if (session?.flow === "create_alert") {
       await setSession(env, chatId, { ...session, step: FLOW_STATES.ENTERING_PRICE, operator });
-      await editMessageText(env, chatId, messageId, `قیمت هدف را با واحد ${session.target_price_display_unit || unitForMarket(session.market)} وارد کن:\n\nمثال: 70000`);
+      await editMessageText(env, chatId, messageId, priceEntryPrompt(session));
     }
     return;
   }
@@ -146,12 +166,7 @@ export async function handleCallback(env, callbackQuery) {
         step: FLOW_STATES.ENTERING_PRICE,
         pending_alert: null,
       });
-      await editMessageText(
-        env,
-        chatId,
-        messageId,
-        `قیمت هدف جدید را با واحد ${session.target_price_display_unit || unitForMarket(session.market)} وارد کن:`,
-      );
+      await editMessageText(env, chatId, messageId, priceEntryPrompt(session, { isEdit: true }));
     }
     return;
   }
@@ -229,7 +244,7 @@ export async function handleTextInSession(env, chatId, text) {
   const target = normalizeTargetPrice(text);
 
   if (!target || target <= 0) {
-    await sendMessage(env, chatId, `❌ قیمت نامعتبره. یک عدد مثبت با واحد ${session.target_price_display_unit || unitForMarket(session.market)} وارد کن:`);
+    await sendMessage(env, chatId, `❌ قیمت نامعتبره. لطفاً فقط یک عدد مثبت وارد کن (بدون حروف).\n\n${priceEntryPrompt(session)}`);
     return true;
   }
 
