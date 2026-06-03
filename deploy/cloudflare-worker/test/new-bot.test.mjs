@@ -365,4 +365,24 @@ const exhausted = (await exhaustEnv.ALERTS_KV.get("alerts:user:1002", "json"))[0
 assert.equal(exhausted.lifecycle_state, "failed", "exhausted retries end in terminal failed state");
 assert.equal(exhausted.enabled, false, "terminal failed alert is disabled");
 
+// 12) Price-display step: current price + symbol shown at condition selection,
+//     and the price-entry prompt shows current price and an example (T-101/T-102/T-103).
+sent = [];
+await sendMessageUpdate("🔔 تنظیم هشدار", 126);
+await sendCallback("market:crypto", 126);
+sent = [];
+await sendCallback("asset:BTC", 126);
+const condPrompt = lastText();
+assert.ok(
+  condPrompt.includes("قیمت فعلی") && condPrompt.includes("BTC") && condPrompt.includes("USDT"),
+  "condition step should show current price, symbol and unit",
+);
+sent = [];
+await sendCallback("op:above", 126);
+const pricePrompt = lastText();
+assert.ok(
+  pricePrompt.includes("قیمت فعلی") && pricePrompt.includes("مثال"),
+  "price-entry prompt should show current price and an example",
+);
+
 console.log("new bot full-flow tests passed");
