@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novax_price_alert.api.deps import get_current_telegram_user, get_db
@@ -14,7 +14,8 @@ from novax_price_alert.api.schemas.alert import (
 )
 from novax_price_alert.application.services.alert_crud_service import AlertCRUDService
 from novax_price_alert.application.services.user_resolver_service import UserResolverService
-from novax_price_alert.domain.alert_rule import AlertRule
+from novax_price_alert.domain.alert_rule import AlertRule, InvalidAlertTransitionError
+from novax_price_alert.domain.enums import AlertLifecycleState
 from novax_price_alert.domain.user import User
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
@@ -33,17 +34,41 @@ async def create_alert(
     if asset is None:
         raise NotFoundError("asset not found")
 
+    display_name = asset.display_name or asset.name or asset.symbol
     alert = AlertRule(
         user_id=current_user.id,
         asset_id=asset.id,
+        display_asset_name_at_creation=display_name,
         condition_type=payload.condition_type,
         target_price=payload.target_price,
+        target_price_display_unit=asset.unit,
         cooldown_minutes=payload.cooldown_minutes,
-        is_active=True,
+        lifecycle_state=AlertLifecycleState.PENDING_CONFIRMATION,
+        is_active=False,
     )
 
     created = await alerts.create(alert)
+    if payload.confirm:
+        confirmed = await alerts.confirm(created.id, current_user.id)
+        if confirmed is not None:
+            created = confirmed
     return AlertOut.model_validate(created)
+
+
+@router.post("/{alert_id}/confirm", response_model=AlertOut)
+async def confirm_alert(
+    alert_id: str,
+    current_user: Annotated[User, Depends(get_current_telegram_user)],
+    db: AsyncSession = Depends(get_db),
+) -> AlertOut:
+    alerts = AlertCRUDService(db)
+    try:
+        confirmed = await alerts.confirm(alert_id, current_user.id)
+    except InvalidAlertTransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if confirmed is None:
+        raise NotFoundError("alert not found")
+    return AlertOut.model_validate(confirmed)
 
 
 @router.get("", response_model=AlertListOut)

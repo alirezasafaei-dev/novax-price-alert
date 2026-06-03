@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novax_price_alert.domain.alert_rule import AlertRule
-from novax_price_alert.domain.enums import AlertCondition
+from novax_price_alert.domain.enums import AlertCondition, AlertLifecycleState
 from novax_price_alert.domain.latest_price import LatestPrice
 from novax_price_alert.services.alert_evaluator import AlertEvaluatorService
 
@@ -32,6 +32,8 @@ async def test_evaluator_does_not_duplicate_event_for_same_timestamp(
         target_price=Decimal("100"),
         cooldown_minutes=0,
         last_triggered_at=None,
+        lifecycle_state=AlertLifecycleState.ACTIVE,
+        is_active=True,
     )
 
     session.add_all([latest, rule])
