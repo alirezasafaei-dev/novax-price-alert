@@ -119,3 +119,13 @@ Post-MVP opportunities:
 - quorum/consensus strategies
 - fallback provider activation
 - historical provider accuracy analysis
+
+## Freshness Contract for Alerts
+
+Alert evaluation must be freshness-aware. A provider response is usable for triggering only when the runtime can identify it as fresh for the current evaluation window. If a provider batch is unavailable, empty, malformed, or missing the requested asset price, the evaluator/Worker must skip the alert and log `stale_data_detected` with a reason such as:
+
+- `crypto_prices_unavailable`
+- `iran_market_prices_unavailable`
+- `asset_price_missing`
+
+Operators should verify that no notification is sent after `stale_data_detected` for the same `alert_id` and run. Existing latest prices should not be overwritten with empty/fabricated provider values, and stale values should not be used to satisfy alert conditions during rollout.

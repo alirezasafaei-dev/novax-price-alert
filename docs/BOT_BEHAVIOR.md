@@ -8,7 +8,7 @@ Its role is intentionally simple:
 - identify users
 - provide basic help
 - show latest prices
-- support simple onboarding to alerts
+- support hardened, confirmation-based alert onboarding
 - deliver triggered alert notifications
 
 ## Webhook Responsibility
@@ -60,13 +60,14 @@ Expected content:
 - how alerts work in MVP
 - support for mock/simple flows
 
-### `/prices`
+### `💰 قیمت‌ها`
 Purpose:
-- show latest prices for a small set of core assets
+- show latest prices for supported market groups in the current Telegram Worker
 
 Expected behavior:
+- user selects crypto, fiat, or gold from the menu
 - load latest known prices
-- format compact readable output
+- format compact readable output with explicit units
 - send or return a message
 
 Suggested assets:
@@ -78,13 +79,15 @@ Suggested assets:
 - GOLD18
 - EMAMI_COIN
 
-### `/alert`
+### `🔔 تنظیم هشدار`
 Purpose:
-- provide alert creation guidance in MVP
+- start the hardened alert wizard in the Telegram Worker
 
 Expected behavior:
-- explain how alert rules are created
-- if no conversational flow exists yet, return instructions rather than pretending full automation exists
+- guide the user through market → asset → condition → target → summary → confirm
+- keep pending alert data in session storage until confirmation
+- allow editing the target and cancelling before activation
+- persist an active alert only after explicit confirmation
 
 ## Malformed Payload Handling
 
@@ -133,8 +136,8 @@ Should include:
 Should include:
 - `/start`
 - `/help`
-- `/prices`
-- `/alert`
+- the menu buttons `💰 قیمت‌ها`, `🔔 تنظیم هشدار`, `📋 هشدارهای من`, and `❓ راهنما`
+- the confirmation requirement before any alert becomes active
 
 ### Prices Message
 Should include:
@@ -185,3 +188,8 @@ Runtime rules:
 Worker alert records include lifecycle fields such as `lifecycle_state`, `confirmed_at`, `triggered_at`, and `delivered_at`. The cron path evaluates only active alerts, claims a matching alert before sending, records a deterministic trigger event ID, finalizes delivered alerts, and avoids re-sending delivered alerts.
 
 Freshness behavior in the worker is intentionally conservative: each cron run treats prices fetched during that run as fresh, and blocks alert evaluation for unavailable provider batches or missing asset prices while logging `stale_data_detected` with a reason.
+
+
+## Current Source of Truth
+
+For the production Telegram bot, Cloudflare Worker KV is the short-term source of truth for bot-created alerts. The backend alert API is hardened and ready for migration, but the Worker currently owns Telegram alert create/confirm/list/delete and cron delivery. See `docs/adr/0001-alert-source-of-truth.md` for tradeoffs and migration path.

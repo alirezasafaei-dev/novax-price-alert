@@ -6,85 +6,77 @@ All public business endpoints are versioned under:
 
 ```text
 /api/v1
+```
 
-This document covers the intended MVP API.
+The backend alert API now follows the post-hardening lifecycle contract: alert creation is staged, activation requires explicit confirmation, asset identity is canonicalized through the backend asset catalog, price units are explicit, stale prices do not trigger notifications, and delivered alert events are idempotent.
+
+> Authentication note: the current API uses the Telegram/Bale user dependency configured in the app runtime. Examples below focus on request/response shape and omit auth headers.
 
 ---
 
 ## Health
 
-### GET /health
+### `GET /health`
 
-#### Purpose
 Basic liveness check.
 
-#### Request
-http
+```http
 GET /health
+```
 
-#### Response Example
-json
+```json
 {
   "status": "ok"
 }
-
-#### Notes
-Should not require database or Redis dependency checks.
+```
 
 ---
 
 ## Readiness
 
-### GET /ready
+### `GET /ready`
 
-#### Purpose
 Dependency readiness check.
 
-#### Request
-http
+```http
 GET /ready
+```
 
-#### Response Example
-json
+```json
 {
   "status": "ready",
   "database": "ok",
   "redis": "ok"
 }
+```
 
-#### Failure Example
-json
+Failure example:
+
+```json
 {
   "status": "not_ready",
   "database": "ok",
   "redis": "error"
 }
-
-#### Notes
-Should reflect actual dependency availability.
+```
 
 ---
 
 ## Prices
 
-### GET /api/v1/prices/latest
+### `GET /api/v1/prices/latest`
 
-#### Purpose
-Return latest known prices.
+Return latest known prices. These are not guaranteed to be real-time market prices.
 
-#### Query Params
-- `asset_code` (optional)
+Query params:
 
-#### Request Example
-http
-GET /api/v1/prices/latest
+- `asset_code` (optional): filter to one asset code when available.
 
-#### Request Example with Filter
-http
+```http
 GET /api/v1/prices/latest?asset_code=USDT
+```
 
-#### Response Example
-json
+```json
 {
   "items": [
     {
@@ -93,40 +85,28 @@ json
       "price_value": "652000",
       "currency_code": "IRT",
       "provider": "mock",
-      "fetched_at": "2026-05-18T10:00:00Z"
-    },
-    {
-      "asset_code": "BTC",
-      "asset_name": "Bitcoin",
-      "price_value": "4200000000",
-      "currency_code": "IRT",
-      "provider": "mock",
-      "fetched_at": "2026-05-18T10:00:00Z"
+      "fetched_at": "2026-05-18T10:00:00Z",
+      "is_stale": false
     }
   ]
 }
-
-#### Notes
-- returns latest known values, not guaranteed real-time market prices
-- if `asset_code` is provided, return only the matching asset when available
+```
 
 ---
 
 ## Users
 
-### GET /api/v1/users/{bale_user_id}
+### `GET /api/v1/users/{bale_user_id}`
 
-#### Purpose
 Fetch a user by Bale user id for debug/admin MVP usage.
 
-#### Request Example
-http
+```http
 GET /api/v1/users/123456789
+```
 
-#### Response Example
-json
+```json
 {
-  "id": 12,
+  "id": "12",
   "bale_user_id": "123456789",
   "username": "ali_dev",
   "first_name": "Ali",
@@ -135,190 +115,253 @@ json
   "created_at": "2026-05-18T10:00:00Z",
   "updated_at": "2026-05-18T10:00:00Z"
 }
+```
 
-#### Error Cases
-- `404` if user not found
+Error cases:
+
+- `404` if user not found.
 
 ---
 
 ## Alerts
 
-### POST /api/v1/alerts
+### Lifecycle summary
 
-#### Purpose
-Create a new alert rule.
+Alert lifecycle states exposed by the API include:
 
-#### Request Example
-json
+- `pending_confirmation`: created/staged, not active, not evaluated.
+- `active`: explicitly confirmed and eligible for evaluation.
+- `paused`: intentionally not evaluated.
+- `triggered` / `delivery_in_progress` / `delivered`: one-shot delivery path states.
+- `cancelled`: deleted/cancelled by user and not evaluated.
+- `failed`: delivery failed and requires operator review or a future retry policy.
+
+Runtime invariants:
+
+- `POST /alerts` creates `pending_confirmation` by default with `is_active=false`.
+- `POST /alerts/{alert_id}/confirm` is the preferred activation path.
+- Asset input is resolved to the canonical backend asset id; responses expose `asset_id` and preserve `display_asset_name_at_creation`.
+- `target_price` is normalized and `target_price_display_unit` is snapshotted at creation.
+- Freshness-aware evaluation skips stale/missing provider data.
+- Delivered one-shot alerts/events are finalized and must not be re-sent by later evaluation/dispatch cycles.
+
+### Alert response fields
+
+All alert response objects use this shape:
+
+| Field | Meaning |
+|---|---|
+| `id` | Alert id. |
+| `user_id` | Owner user id from the authenticated Telegram/Bale user context. |
+| `asset_id` | Canonical backend asset id resolved from the submitted `asset_code`. |
+| `display_asset_name_at_creation` | User-facing asset label snapshotted when the alert was created. |
+| `condition_type` | `above` or `below`. |
+| `target_price` | Normalized positive threshold value. |
+| `target_price_display_unit` | Explicit display/comparison unit snapshotted from the asset, for example `IRT`, `Toman`, or `USDT` depending on runtime catalog. |
+| `lifecycle_state` | Current lifecycle state. |
+| `is_active` | Compatibility flag; authoritative activation is still `lifecycle_state=active`. |
+| `cooldown_minutes` | Cooldown setting retained for compatibility/future recurring policies. |
+| `last_triggered_at` | Legacy/compatibility trigger timestamp. |
+| `confirmed_at` | Set when the alert is explicitly activated. |
+| `triggered_at` | Set when evaluation claims/triggers the alert. |
+| `delivered_at` | Set when notification delivery succeeds. |
+| `cancelled_at` | Set when the alert is cancelled/deleted. |
+| `created_at` / `updated_at` | Persistence timestamps. |
+
+### `POST /api/v1/alerts`
+
+Create a new staged alert rule. By default the alert is **not active** until confirmed.
+
+Request body:
+
+```json
 {
-  "bale_user_id": "123456789",
   "asset_code": "USDT",
   "condition_type": "above",
   "target_price": "700000",
   "cooldown_minutes": 60
 }
+```
 
-#### Response Example
-json
+Response example (`201 Created`):
+
+```json
 {
-  "id": 21,
-  "user_id": 12,
-  "asset_code": "USDT",
+  "id": "21",
+  "user_id": "12",
+  "asset_id": "asset-usdt",
+  "display_asset_name_at_creation": "Tether",
   "condition_type": "above",
   "target_price": "700000",
-  "is_active": true,
+  "target_price_display_unit": "IRT",
+  "lifecycle_state": "pending_confirmation",
+  "is_active": false,
   "cooldown_minutes": 60,
   "last_triggered_at": null,
+  "confirmed_at": null,
+  "triggered_at": null,
+  "delivered_at": null,
+  "cancelled_at": null,
   "created_at": "2026-05-18T10:00:00Z",
   "updated_at": "2026-05-18T10:00:00Z"
 }
+```
 
-#### Error Cases
-- `400` invalid request
-- `404` unknown user or asset
-- `422` schema validation failure
+#### Backward compatibility: `confirm=true`
 
----
+`confirm` is accepted in the create payload for legacy callers:
 
-### GET /api/v1/alerts?bale_user_id=...
+```json
+{
+  "asset_code": "USDT",
+  "condition_type": "above",
+  "target_price": "700000",
+  "cooldown_minutes": 60,
+  "confirm": true
+}
+```
 
-#### Purpose
-List alerts for a user.
+When `confirm=true`, the backend creates the alert and immediately runs the confirmation transition, returning `lifecycle_state="active"`, `is_active=true`, and `confirmed_at` set.
 
-#### Request Example
-http
-GET /api/v1/alerts?bale_user_id=123456789
+> Warning: new clients should not rely on `confirm=true` for normal UX. Use a two-step create → review → `POST /confirm` flow so the user explicitly sees the asset, condition, normalized target, and unit before activation.
 
-#### Response Example
-json
+Error cases:
+
+- `400` invalid lifecycle transition or request.
+- `404` unknown asset.
+- `422` schema validation failure, for example non-positive target price.
+
+### `POST /api/v1/alerts/{alert_id}/confirm`
+
+Confirm and activate a staged alert owned by the current user.
+
+```http
+POST /api/v1/alerts/21/confirm
+```
+
+Response example:
+
+```json
+{
+  "id": "21",
+  "user_id": "12",
+  "asset_id": "asset-usdt",
+  "display_asset_name_at_creation": "Tether",
+  "condition_type": "above",
+  "target_price": "700000",
+  "target_price_display_unit": "IRT",
+  "lifecycle_state": "active",
+  "is_active": true,
+  "cooldown_minutes": 60,
+  "last_triggered_at": null,
+  "confirmed_at": "2026-05-18T10:02:00Z",
+  "triggered_at": null,
+  "delivered_at": null,
+  "cancelled_at": null,
+  "created_at": "2026-05-18T10:00:00Z",
+  "updated_at": "2026-05-18T10:02:00Z"
+}
+```
+
+Error cases:
+
+- `404` alert not found for the current user.
+- `409` invalid transition, for example confirming an already delivered/cancelled alert.
+
+### `GET /api/v1/alerts`
+
+List alerts owned by the current user.
+
+```http
+GET /api/v1/alerts
+```
+
+```json
 {
   "items": [
     {
-      "id": 21,
-      "asset_code": "USDT",
+      "id": "21",
+      "user_id": "12",
+      "asset_id": "asset-usdt",
+      "display_asset_name_at_creation": "Tether",
       "condition_type": "above",
       "target_price": "700000",
+      "target_price_display_unit": "IRT",
+      "lifecycle_state": "active",
       "is_active": true,
       "cooldown_minutes": 60,
-      "last_triggered_at": null
+      "last_triggered_at": null,
+      "confirmed_at": "2026-05-18T10:02:00Z",
+      "triggered_at": null,
+      "delivered_at": null,
+      "cancelled_at": null,
+      "created_at": "2026-05-18T10:00:00Z",
+      "updated_at": "2026-05-18T10:02:00Z"
     }
   ]
 }
+```
 
-#### Notes
-`bale_user_id` is required in MVP.
+### `PATCH /api/v1/alerts/{alert_id}`
 
----
+Update an alert rule. Target price updates are normalized. Updating the target of an active alert pauses it so it cannot silently continue with a changed threshold without operator/client awareness.
 
-### PATCH /api/v1/alerts/{alert_id}
+Request body:
 
-#### Purpose
-Update an alert rule.
-
-#### Request Example
-json
+```json
 {
   "target_price": "710000",
-  "is_active": true,
-  "cooldown_minutes": 120
+  "cooldown_minutes": 120,
+  "is_active": false
 }
+```
 
-#### Response Example
-json
+Response example:
+
+```json
 {
-  "id": 21,
-  "asset_code": "USDT",
+  "id": "21",
+  "user_id": "12",
+  "asset_id": "asset-usdt",
+  "display_asset_name_at_creation": "Tether",
   "condition_type": "above",
   "target_price": "710000",
-  "is_active": true,
+  "target_price_display_unit": "IRT",
+  "lifecycle_state": "paused",
+  "is_active": false,
   "cooldown_minutes": 120,
   "last_triggered_at": null,
+  "confirmed_at": "2026-05-18T10:02:00Z",
+  "triggered_at": null,
+  "delivered_at": null,
+  "cancelled_at": null,
+  "created_at": "2026-05-18T10:00:00Z",
   "updated_at": "2026-05-18T10:30:00Z"
 }
+```
 
----
+Compatibility note: `is_active=true` is still accepted by the runtime and maps to an activation transition. Prefer `POST /confirm` for user-facing activation flows.
 
-### DELETE /api/v1/alerts/{alert_id}
+Error cases:
 
-#### Purpose
-Delete or deactivate an alert rule.
+- `404` alert not found for the current user.
+- `409` or `400` if the requested lifecycle transition is invalid.
+- `422` schema validation failure.
 
-#### Request Example
-http
+### `DELETE /api/v1/alerts/{alert_id}`
+
+Cancel/delete an alert for the current user. The backend marks the alert lifecycle as `cancelled`, sets `cancelled_at`, and excludes it from future evaluation.
+
+```http
 DELETE /api/v1/alerts/21
+```
 
-#### Response Example
-json
+```json
 {
   "success": true
 }
-
-#### Notes
-Implementation may choose hard delete or soft delete.  
-For MVP, deactivation is often operationally safer.
-
----
-
-## Bale Bot Webhook
-
-### POST /api/v1/bot/webhook
-
-#### Purpose
-Receive Bale webhook updates and process supported commands.
-
-#### Supported Commands
-- `/start`
-- `/help`
-- `/prices`
-- `/alert`
-
-#### Request Example
-json
-{
-  "message": {
-    "text": "/start",
-    "from": {
-      "id": "123456789",
-      "username": "ali_dev",
-      "first_name": "Ali",
-      "last_name": "Safaei"
-    },
-    "chat": {
-      "id": "123456789"
-    }
-  }
-}
-
-#### Response Example
-json
-{
-  "success": true,
-  "handled": true,
-  "command": "/start"
-}
-
-#### Notes
-- webhook handler must be defensive
-- malformed payloads should not crash the app
-- safe response behavior is preferred over exception bubbling
-
-#### Failure Example
-json
-{
-  "success": true,
-  "handled": false
-}
-
-This may be used for malformed or unsupported payloads when the system chooses safe no-op handling.
 ```
----
 
-## Future API Candidates
+Error cases:
 
-Not part of MVP unless later approved:
-
-- provider management endpoints
-- price history endpoints
-- notification history endpoints
-- admin/system metrics endpoints
-- alert analytics endpoints
+- `404` alert not found for the current user.
