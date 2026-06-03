@@ -33,6 +33,7 @@ const ctx = { waitUntil() {} };
 
 // Records outgoing Telegram API calls so we can assert on bot behavior.
 let sent = [];
+let providerMode = "healthy";
 
 global.fetch = async (url, options) => {
   const u = String(url);
@@ -45,6 +46,9 @@ global.fetch = async (url, options) => {
   }
 
   if (u.includes("binance")) {
+    if (providerMode === "crypto-unavailable") {
+      return { ok: false, json: async () => ({}) };
+    }
     return {
       ok: true,
       json: async () => [
@@ -57,6 +61,9 @@ global.fetch = async (url, options) => {
   }
 
   if (u.includes("tgju.org")) {
+    if (providerMode === "iran-unavailable") {
+      return { ok: false, json: async () => ({}) };
+    }
     // ساختار واقعی TGJU: مقادیر زیر کلید current و به‌صورت رشته‌ی کاما-دار (ریال).
     return {
       ok: true,
@@ -158,6 +165,8 @@ await sendCallback("op:above"); // awaiting_target
 await sendMessageUpdate("70000"); // -> confirmation
 const confirmText = allText();
 assert.ok(confirmText.includes("تایید") && confirmText.includes("BTC"), "should show confirmation for BTC");
+let alerts = await mockEnv.ALERTS_KV.get("alerts:user:123", "json");
+assert.equal(alerts, null, "no alert should be persisted before explicit confirmation");
 const confirmMsg = sent.find((s) => s.reply_markup?.inline_keyboard?.flat?.().some((b) => b.callback_data?.startsWith("confirm:")));
 assert.ok(confirmMsg, "confirmation should include a confirm button");
 const editData = confirmMsg.reply_markup.inline_keyboard.flat().find((b) => b.callback_data === "edit:target").callback_data;
@@ -170,7 +179,7 @@ const editedConfirmMsg = sent
 const confirmData = editedConfirmMsg.reply_markup.inline_keyboard.flat().find((b) => b.callback_data.startsWith("confirm:")).callback_data;
 
 await sendCallback(confirmData); // save alert after explicit confirmation
-let alerts = await mockEnv.ALERTS_KV.get("alerts:user:123", "json");
+alerts = await mockEnv.ALERTS_KV.get("alerts:user:123", "json");
 assert.equal(alerts.length, 1, "one alert should be persisted");
 assert.equal(alerts[0].symbol, "BTC");
 assert.equal(alerts[0].canonical_asset_id, "crypto:BTC");
@@ -179,6 +188,40 @@ assert.equal(alerts[0].target_price_display_unit, "USDT");
 assert.equal(alerts[0].lifecycle_state, "active");
 assert.equal(alerts[0].operator, "above");
 assert.equal(alerts[0].target, 75000);
+
+
+// 4b) Cancel at summary clears the session and creates no alert
+sent = [];
+await sendMessageUpdate("🔔 تنظیم هشدار", 124);
+await sendCallback("market:crypto", 124);
+await sendCallback("asset:ETH", 124);
+await sendCallback("op:below", 124);
+await sendMessageUpdate("۳۵۰۰", 124);
+const cancelConfirmMsg = sent
+  .filter((s) => s.reply_markup?.inline_keyboard?.flat?.().some((b) => b.callback_data?.startsWith("cancel:")))
+  .at(-1);
+assert.ok(cancelConfirmMsg, "summary should include a cancel button");
+const cancelData = cancelConfirmMsg.reply_markup.inline_keyboard.flat().find((b) => b.callback_data.startsWith("cancel:")).callback_data;
+await sendCallback(cancelData, 124);
+const cancelledAlerts = await mockEnv.ALERTS_KV.get("alerts:user:124", "json");
+assert.equal(cancelledAlerts, null, "cancel before activation should not persist an alert");
+
+// 4c) Persian/Arabic digits are normalized; invalid price input is rejected
+sent = [];
+await sendMessageUpdate("🔔 تنظیم هشدار", 125);
+await sendCallback("market:crypto", 125);
+await sendCallback("asset:SOL", 125);
+await sendCallback("op:above", 125);
+await sendMessageUpdate("abc", 125);
+assert.ok(lastText().includes("قیمت نامعتبره"), "invalid price should be rejected");
+await sendMessageUpdate("۱۶۶٫۵", 125);
+assert.ok(lastText().includes("قیمت نامعتبره"), "unsupported decimal separator should be rejected");
+await sendMessageUpdate("١,٦٦٥", 125);
+const persianConfirmMsg = sent
+  .filter((s) => s.reply_markup?.inline_keyboard?.flat?.().some((b) => b.callback_data?.startsWith("confirm:")))
+  .at(-1);
+assert.ok(persianConfirmMsg, "Arabic/Persian digits with separators should normalize to a pending confirmation");
+assert.ok(persianConfirmMsg.text.includes("USDT"), "normalized target confirmation should include the display unit");
 
 // 5) My alerts shows the alert with a delete button and current price
 sent = [];
@@ -229,5 +272,30 @@ sent = [];
 await worker.default.scheduled({}, cronEnv, ctx);
 const duplicateNotif = sent.find((s) => s.method === "sendMessage" && String(s.text).includes("هشدار قیمت"));
 assert.equal(duplicateNotif, undefined, "cron should not resend a delivered alert");
+
+
+// 9) Cron skips unavailable provider batches and does not trigger
+const unavailableEnv = {
+  ...mockEnv,
+  ALERTS_KV: new MockKV(),
+};
+await unavailableEnv.ALERTS_KV.put(
+  "alerts:user:1000",
+  JSON.stringify([
+    { id: "u1", market: "crypto", symbol: "BTC", operator: "above", target: 60000, enabled: true, lifecycle_state: "active", triggered_at: null },
+  ])
+);
+providerMode = "crypto-unavailable";
+sent = [];
+await worker.default.scheduled({}, unavailableEnv, ctx);
+providerMode = "healthy";
+const unavailableAfterCron = await unavailableEnv.ALERTS_KV.get("alerts:user:1000", "json");
+assert.equal(unavailableAfterCron[0].triggered_at, null, "provider unavailable should not trigger the alert");
+assert.equal(unavailableAfterCron[0].lifecycle_state, "active", "provider unavailable should leave the alert active");
+assert.equal(
+  sent.find((s) => s.method === "sendMessage" && String(s.text).includes("هشدار قیمت")),
+  undefined,
+  "provider unavailable should not send a notification",
+);
 
 console.log("new bot full-flow tests passed");

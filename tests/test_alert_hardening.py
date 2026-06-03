@@ -221,3 +221,30 @@ async def test_structured_lifecycle_logs_are_emitted(
         "alert_confirmed",
         "alert_activated",
     }
+
+
+@pytest.mark.anyio
+async def test_direct_activation_from_pending_without_confirm_timestamp_is_rejected(
+    db_session: AsyncSession,
+) -> None:
+    alert = AlertRule(
+        user_id="user-1",
+        asset_id="asset-1",
+        display_asset_name_at_creation="USD",
+        condition_type=AlertCondition.ABOVE,
+        target_price=Decimal("91000"),
+        target_price_display_unit="IRT",
+        lifecycle_state=AlertLifecycleState.PENDING_CONFIRMATION,
+        is_active=False,
+    )
+    service = AlertCRUDService(db_session)
+    created = await service.create(alert)
+
+    with pytest.raises(InvalidAlertTransitionError):
+        await service.update(created.id, "user-1", is_active=True)
+
+    refreshed = await service.get_for_user(created.id, "user-1")
+    assert refreshed is not None
+    assert refreshed.lifecycle_state == AlertLifecycleState.PENDING_CONFIRMATION
+    assert refreshed.is_active is False
+    assert refreshed.confirmed_at is None

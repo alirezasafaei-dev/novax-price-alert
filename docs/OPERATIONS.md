@@ -70,6 +70,22 @@ npm test
 
 ### Deploy Relay
 
+Use the secret-safe deploy script when updating Worker code, secrets, and webhook together:
+
+```bash
+cd deploy/cloudflare-worker
+bash scripts/deploy.sh
+```
+
+For one-off deploys using a temporary root `.env`, remove it automatically at script exit:
+
+```bash
+cd deploy/cloudflare-worker
+DELETE_ENV_AFTER_DEPLOY=1 bash scripts/deploy.sh
+```
+
+If secrets and webhook are already configured, code-only deploy is still:
+
 ```bash
 npx wrangler deploy
 ```
@@ -84,7 +100,7 @@ npx wrangler tail
 
 ```bash
 npx wrangler secret put TELEGRAM_BOT_TOKEN
-npx wrangler secret put RELAY_SECRET
+npx wrangler secret put TELEGRAM_SECRET_TOKEN
 ```
 
 
@@ -125,7 +141,7 @@ Minimum checks:
 
 - API can still operate, but Telegram notifications may fail.
 - Check Worker health and `wrangler tail`.
-- Verify `TELEGRAM_RELAY_SECRET` matches in Worker secrets and backend `.env`.
+- Verify `TELEGRAM_SECRET_TOKEN` matches the Telegram webhook secret configured for the Worker.
 - Verify `TELEGRAM_BOT_TOKEN` Worker secret is present.
 
 ### Database Failure
@@ -177,7 +193,6 @@ During rollout, tail Cloudflare Worker logs and backend worker logs and look for
 
 - `alert_activated`
 - `alert_evaluated`
-- `alert_triggered`
 - `stale_data_detected`
 - `duplicate_trigger_detected`
 - `duplicate_send_detected`
@@ -199,3 +214,51 @@ Pause rollout immediately if any of the following occur:
 ### Next-Step Planning
 
 The detailed post-hardening roadmap and task backlog are maintained in `docs/NEXT_STEPS_AND_ROADMAP_FA.md`.
+
+## Post-hardening Alert Operations
+
+The hardened alert contract is now the release baseline:
+
+- Alert creation is staged. A newly created backend alert starts as `pending_confirmation` and the Telegram Worker keeps pending alert data in session state until the user confirms the summary.
+- Activation requires explicit confirmation. Operators should treat any `active` alert without `confirmed_at` as suspicious.
+- Asset identity is canonical. Use `asset_id` in backend records and `canonical_asset_id` (`market:symbol`) in Worker KV/logs; display labels are snapshots for user readability.
+- Price units are explicit through `target_price_display_unit`; do not infer units from asset names.
+- Stale, missing, or unavailable provider data must not trigger alerts. Look for `stale_data_detected` logs.
+- Delivered one-shot alerts are finalized and disabled; later cron/evaluation runs must not re-send them.
+
+For release gates and incident response, use `docs/RELEASE_READINESS_FA.md`. For log events and operator queries, use `docs/OBSERVABILITY.md`.
+
+## Alert Rollout Commands
+
+Backend validation from the repo root:
+
+```bash
+git diff --check
+uv run ruff check src tests
+uv run mypy src
+uv run pytest -q
+```
+
+Worker validation:
+
+```bash
+cd deploy/cloudflare-worker
+npm test
+npx wrangler tail
+```
+
+## Alert Incident Shortcuts
+
+### Duplicate notification
+
+1. Stop rollout and disable cron or deploy the previous Worker.
+2. Search logs for `duplicate_send_detected`, `duplicate_trigger_detected`, `notification_send_started`, and `notification_send_succeeded`.
+3. Inspect the alert record for `trigger_event_id`, `triggered_at`, `delivered_at`, `enabled`, and `lifecycle_state`.
+4. Keep the alert disabled until root cause is understood.
+
+### Stale provider
+
+1. Search logs for `stale_data_detected` and provider-specific errors.
+2. Verify the same `alert_id` did not proceed to `notification_send_started` in that run.
+3. Check Binance for crypto and TGJU mirrors for fiat/gold.
+4. Do not lower freshness requirements during rollout unless explicitly approved.
