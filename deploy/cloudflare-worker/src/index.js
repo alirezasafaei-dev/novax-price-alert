@@ -1,3 +1,4 @@
+import { FLOW_STATES } from "./alert-flow.js";
 import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage } from "./commands.js";
 import { handleCallback, handleTextInSession } from "./callbacks.js";
 import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession } from "./sessions.js";
@@ -99,7 +100,7 @@ export default {
       }
       
       if (text === "🔔 تنظیم هشدار") {
-        await setSession(env, chatId, { flow: "create_alert", step: "select_market" });
+        await setSession(env, chatId, { flow: "create_alert", step: FLOW_STATES.CHOOSING_MARKET });
         await handleCreateAlertStart(env, chatId);
         return Response.json({ ok: true });
       }

@@ -1,187 +1,118 @@
 # Roadmap
 
-## Phase 0 — Repository Analysis and Foundation Reuse
+This roadmap reflects the current state after the alert-hardening work merged on 2026-06-03. For the detailed Persian execution backlog, see `docs/NEXT_STEPS_AND_ROADMAP_FA.md`.
+
+## Current Baseline
+
+The project now includes:
+
+- FastAPI backend models and APIs for assets, prices, alerts, alert events, lifecycle states, freshness-aware evaluation, and notification dispatch.
+- Cloudflare Telegram Worker for the user-facing bot flow, KV-backed sessions/alerts, price views, and cron evaluation.
+- Alert hardening contracts covering canonical asset identity, normalized price presentation, confirmation-based activation, lifecycle states, trigger/send idempotency, freshness behavior, and structured observability.
+- Automated backend and Worker tests for alert creation, duplicate prevention, stale/unavailable data handling, retry behavior, and Telegram full-flow behavior.
+
+## Phase A — Release Stabilization and Documentation Alignment
 
 ### Goals
-- inspect `rubika-bot-saas`
-- identify reusable infrastructure patterns
-- separate generic foundation from old domain logic
-- define new project boundaries
+
+- Validate the merged hardening work in a staging/dev runtime.
+- Ensure docs, runtime behavior, and operator expectations match.
+- Prepare a safe rollback path before broader rollout.
 
 ### Deliverables
-- reuse inventory
-- proposed repository structure
-- documented migration strategy
-- confirmed MVP scope for `novax-price-alert`
 
-### Out of Scope
-- advanced product features
-- non-essential integrations
-- performance tuning beyond baseline
+- Staging migration run and verification.
+- Backend and Cloudflare Worker test suite results.
+- Updated bot behavior and operations docs.
+- Go/No-Go checklist for production rollout.
+- Rollback instructions for Worker/runtime failures.
 
 ### Exit Criteria
-- reuse candidates are clearly categorized as:
-  - reusable as-is
-  - reusable with adaptation
-  - rebuild from scratch
-- new project architecture is documented
 
----
+- No critical doc/runtime mismatch remains.
+- Alerts do not activate without explicit confirmation.
+- Duplicate sends are not observed in repeated cron checks.
+- Stale or unavailable provider data does not trigger alerts.
 
-## Phase 1 — Bootstrap and Infrastructure
+## Phase B — Limited Production Rollout
 
 ### Goals
-- initialize FastAPI project
-- configure settings, logging, error handling
-- setup PostgreSQL, SQLAlchemy, Alembic
-- setup Redis + RQ worker bootstrap
-- provide Docker-based local/dev runtime
+
+- Exercise the hardened Telegram alert flow with low-risk real alerts.
+- Observe at least two cron cycles after creating test alerts.
+- Confirm lifecycle logs and operational signals are usable.
 
 ### Deliverables
-- application bootstrap
-- health and readiness endpoints
-- base database session management
-- first migration
-- worker startup path
-- `.env.example`, Dockerfile, docker-compose, Makefile
 
-### Out of Scope
-- advanced auth
-- production monitoring stack
-- full observability dashboards
+- Manual test alerts for crypto, fiat, and gold markets.
+- Evidence that delivered alerts are not resent.
+- Logs for `alert_activated`, `alert_evaluated`, `notification_send_started`, and `notification_send_succeeded`.
+- Incident notes if any duplicate, provider, or send failure occurs.
 
 ### Exit Criteria
-- app boots
-- DB connects
-- Redis connects
-- migrations run
-- health endpoints pass
 
----
+- Zero duplicate notifications.
+- No trigger from missing/unavailable prices.
+- Delivered alerts are finalized and disabled.
+- Operators can trace a notification by alert/event/worker identifiers.
 
-## Phase 2 — Prices and Providers
+## Phase C — Observability and Operational Gates
 
 ### Goals
-- define asset/provider/price models
-- implement provider abstraction
-- support mock provider
-- persist snapshots and latest prices
+
+- Make production behavior inspectable enough for safe ongoing operation.
+- Define thresholds that pause rollout or trigger incident response.
 
 ### Deliverables
-- `Asset`, `Provider`, `PriceSnapshot`, `LatestPrice`
-- provider registry
-- mock provider integration
-- latest prices endpoint
-- seed data for core assets
 
-### Out of Scope
-- many real providers
-- arbitrage logic
-- historical charting endpoints
+- Log query/runbook for lifecycle events.
+- Daily operational checks for Worker health, webhook state, cron execution, provider health, and send failures.
+- Duplicate notification incident runbook.
+- Retention expectations for delivered/cancelled alerts.
 
 ### Exit Criteria
-- price fetch job runs
-- latest prices persist correctly
-- latest prices endpoint returns usable data
 
----
+- Operators can answer: which alert fired, why it fired, which price was used, whether it sent, and whether it retried.
+- Any duplicate notification is treated as a release-stopping event.
 
-## Phase 3 — Alerts and Evaluation
+## Phase D — Source-of-Truth Decision
 
 ### Goals
-- implement alert rules
-- implement above/below conditions
-- enforce cooldowns
-- generate alert events
 
-### Deliverables
-- `AlertRule`, `AlertEvent`
-- alert CRUD API
-- evaluation job
-- status tracking for alert outcomes
+- Decide whether Telegram Worker KV remains the short-term source of truth or whether alert persistence/evaluation should move fully to the backend database.
 
-### Out of Scope
-- advanced rule expressions
-- compound conditions
-- portfolio alerts
+### Options
+
+1. **KV-first short-term path**
+   - Keep Worker KV for alerts and sessions.
+   - Add stronger lock/retention/debug tooling as usage grows.
+
+2. **Backend source-of-truth path**
+   - Worker keeps only conversation sessions in KV.
+   - Backend APIs own alert create/confirm/list/delete and evaluation.
+   - Backend workers own notification retries and history.
 
 ### Exit Criteria
-- alerts can be created
-- matching prices trigger events
-- cooldown is enforced
 
----
+- A short ADR documents the selected path and migration plan.
 
-## Phase 4 — Bale Bot Integration
+## Phase E — Product Expansion After Reliability Is Stable
 
-### Goals
-- implement Bale webhook endpoint
-- parse incoming command payloads
-- support simple command flow
-- send outgoing notification messages
+### Candidate Work
 
-### Deliverables
-- Bale parser/client/formatter
-- `/start`, `/help`, `/prices`, `/alert`
-- mock Bale sending
-- `NotificationDelivery`
+- Pause/resume alerts in Telegram.
+- Edit target/condition after activation with re-confirmation.
+- Recurring alerts with cooldown.
+- More assets and provider integrations.
+- Provider health dashboard.
+- Alert history and user-facing delivery status.
+- Mini App or web dashboard for alert management.
 
-### Out of Scope
-- deep conversational UX
-- inline workflows
-- user-authenticated web dashboard
+## Prioritization Rule
 
-### Exit Criteria
-- webhook handles supported commands safely
-- outgoing notification pipeline works in mock mode
-- triggered alerts create message deliveries
+Reliability work remains higher priority than product expansion until production evidence shows:
 
----
-
-## Phase 5 — Hardening and Operations
-
-### Goals
-- improve operational safety
-- improve logs and failure handling
-- finalize tests and deploy docs
-
-### Deliverables
-- smoke test coverage for MVP
-- operational docs
-- deployment checklist
-- recovery basics
-- safe failure handling in workers/webhooks
-
-### Out of Scope
-- enterprise SRE tooling
-- full distributed tracing
-
-### Exit Criteria
-- test suite passes
-- docs are complete
-- deployment path is repeatable
-
----
-
-## Phase 6 — Future Expansion
-
-### Goals
-- prepare for next-level product growth
-
-### Potential Deliverables
-- real provider integrations
-- scheduler service
-- user-facing alert editing flow via bot
-- admin dashboard
-- rate limiting
-- alert grouping
-- localization improvements
-- richer reporting
-- retention policies for price snapshots
-
-### Out of Scope
-- breaking architecture changes without need
-
-### Exit Criteria
-- future scope is prioritized by actual usage and operations feedback
-```
+- no duplicate sends,
+- no stale-data triggers,
+- no invalid critical transitions,
+- and enough observability to debug failures.
