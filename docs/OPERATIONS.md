@@ -145,3 +145,61 @@ Minimum checks:
 - Keep `RELAY_SECRET` enabled in production.
 - Keep the backend bound to `127.0.0.1` behind a reverse proxy unless intentionally exposed.
 - Use HTTPS for Telegram Mini App and relay URLs.
+
+## Alert Hardening Rollout Operations
+
+Use this section after deploying the hardened alert lifecycle and Telegram Worker flow.
+
+### Required Pre-Rollout Checks
+
+Run these checks before enabling or trusting production alert delivery:
+
+```bash
+uv run ruff check src tests
+uv run mypy src
+uv run pytest -q
+cd deploy/cloudflare-worker && npm test
+```
+
+Apply backend migrations in the target environment:
+
+```bash
+uv run alembic upgrade head
+```
+
+Then create low-risk manual Telegram alerts in each supported market and verify:
+
+- the alert is not active before explicit confirmation;
+- the confirmation summary shows asset, condition, target price, unit, and current price when available;
+- correction before confirmation works;
+- delivered alerts are not sent again on the next cron run;
+- unavailable or missing provider data produces `stale_data_detected` and does not trigger.
+
+### Lifecycle Logs to Watch
+
+During rollout, tail Cloudflare Worker logs and backend worker logs and look for:
+
+- `alert_activated`
+- `alert_evaluated`
+- `alert_triggered`
+- `stale_data_detected`
+- `duplicate_trigger_detected`
+- `duplicate_send_detected`
+- `notification_send_started`
+- `notification_send_succeeded`
+- `notification_send_failed`
+- `alert_evaluation_job_completed`
+
+### Rollout Stop Conditions
+
+Pause rollout immediately if any of the following occur:
+
+- any duplicate user-visible notification;
+- an alert activates without explicit confirmation;
+- a missing/unavailable price triggers an alert;
+- notification send failures spike across a cron cycle;
+- lifecycle logs do not include enough identifiers to trace a fired alert.
+
+### Next-Step Planning
+
+The detailed post-hardening roadmap and task backlog are maintained in `docs/NEXT_STEPS_AND_ROADMAP_FA.md`.

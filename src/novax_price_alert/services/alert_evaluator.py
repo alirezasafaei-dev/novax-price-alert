@@ -3,29 +3,63 @@ from decimal import Decimal
 from typing import List
 
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from novax_price_alert.core.observability import emit_event, record_metric
 from novax_price_alert.domain.alert_event import AlertEvent
 from novax_price_alert.domain.alert_rule import AlertRule
-from novax_price_alert.domain.enums import AlertCondition, AlertEventStatus
+from novax_price_alert.domain.enums import (
+    AlertCondition,
+    AlertEventStatus,
+    AlertLifecycleState,
+    PriceFreshness,
+)
 from novax_price_alert.domain.latest_price import LatestPrice
+from novax_price_alert.services.freshness import FreshnessPolicy, classify_latest_price
 
 
 class AlertEvaluatorService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        freshness_policy: FreshnessPolicy | None = None,
+    ) -> None:
         self.session = session
+        self.freshness_policy = freshness_policy or FreshnessPolicy()
 
-    async def evaluate_asset(self, asset_id: str) -> List[AlertEvent]:
+    async def evaluate_asset(
+        self,
+        asset_id: str,
+        worker_run_id: str | None = None,
+    ) -> List[AlertEvent]:
         latest_stmt = select(LatestPrice).where(LatestPrice.asset_id == asset_id)
         latest_res = await self.session.execute(latest_stmt)
         latest = latest_res.scalar_one_or_none()
 
-        if latest is None:
+        freshness = classify_latest_price(latest, policy=self.freshness_policy)
+        if latest is None or not freshness.evaluation_allowed:
+            metric_name = (
+                "price_unavailable_evaluation_count"
+                if freshness.classification == PriceFreshness.UNAVAILABLE
+                else "stale_evaluation_count"
+            )
+            record_metric(metric_name)
+            emit_event(
+                "stale_data_detected",
+                asset_id=asset_id,
+                worker_run_id=worker_run_id,
+                freshness=freshness.classification.value,
+                reason=freshness.reason,
+            )
             return []
+
+        record_metric("alert_evaluation_count")
 
         rules_stmt = select(AlertRule).where(
             AlertRule.asset_id == asset_id,
             AlertRule.is_active.is_(True),
+            AlertRule.lifecycle_state == AlertLifecycleState.ACTIVE,
             or_(
                 (AlertRule.condition_type == AlertCondition.ABOVE)
                 & (AlertRule.target_price <= latest.price),
@@ -38,30 +72,68 @@ class AlertEvaluatorService:
         rules = rules_res.scalars().all()
 
         events: List[AlertEvent] = []
-
         now = datetime.now(timezone.utc)
 
         for rule in rules:
+            emit_event(
+                "alert_evaluated",
+                alert_id=rule.id,
+                user_id=rule.user_id,
+                canonical_asset_id=rule.canonical_asset_id,
+                worker_run_id=worker_run_id,
+                provider_tick_id=latest.id,
+                price=str(latest.price),
+                freshness=freshness.classification.value,
+            )
+
             if self._cooldown_active(rule, now):
                 continue
 
             if rule.last_triggered_at == latest.observed_at:
+                record_metric("duplicate_trigger_count")
                 continue
 
+            event_id = self._event_id(rule.id, latest.observed_at)
             event = AlertEvent(
                 alert_rule_id=rule.id,
+                event_id=event_id,
+                idempotency_key=f"notification:{event_id}",
                 triggered_price=latest.price,
                 triggered_at=latest.observed_at,
                 status=AlertEventStatus.PENDING,
             )
 
             self.session.add(event)
-
             rule.last_triggered_at = latest.observed_at
+            rule.triggered_at = latest.observed_at
+            rule.transition_to(AlertLifecycleState.TRIGGERED)
 
+            try:
+                await self.session.commit()
+            except IntegrityError:
+                await self.session.rollback()
+                record_metric("duplicate_trigger_count")
+                emit_event(
+                    "duplicate_trigger_detected",
+                    alert_id=rule.id,
+                    user_id=rule.user_id,
+                    event_id=event_id,
+                    worker_run_id=worker_run_id,
+                )
+                continue
+
+            await self.session.refresh(event)
             events.append(event)
-
-        await self.session.commit()
+            record_metric("trigger_count")
+            emit_event(
+                "alert_triggered",
+                alert_id=rule.id,
+                user_id=rule.user_id,
+                event_id=event.event_id,
+                worker_run_id=worker_run_id,
+                triggered_price=str(event.triggered_price),
+                triggered_at=event.triggered_at.isoformat(),
+            )
 
         return events
 
@@ -81,3 +153,6 @@ class AlertEvaluatorService:
         cooldown = timedelta(minutes=rule.cooldown_minutes)
 
         return now < rule.last_triggered_at + cooldown
+
+    def _event_id(self, alert_rule_id: str, observed_at: datetime) -> str:
+        return f"alert:{alert_rule_id}:observed:{observed_at.isoformat()}"
