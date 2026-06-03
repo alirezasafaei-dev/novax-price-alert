@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from sqlalchemy import select
 
@@ -17,12 +18,13 @@ async def run_alert_evaluation_job() -> None:
 
         evaluator = AlertEvaluatorService(session)
         total_events = 0
+        worker_run_id = str(uuid.uuid4())
 
         for asset in assets:
-            events = await evaluator.evaluate_asset(asset.id)
+            events = await evaluator.evaluate_asset(asset.id, worker_run_id=worker_run_id)
             total_events += len(events)
 
     logger.info(
         "alert evaluation job completed",
-        extra={"triggered_events": total_events},
+        extra={"triggered_events": total_events, "worker_run_id": worker_run_id},
     )

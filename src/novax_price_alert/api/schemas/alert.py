@@ -10,11 +10,26 @@ class AlertCondition(str, Enum):
     BELOW = "below"
 
 
+class AlertLifecycleState(str, Enum):
+    DRAFT = "draft"
+    AWAITING_CONDITION = "awaiting_condition"
+    AWAITING_TARGET_PRICE = "awaiting_target_price"
+    PENDING_CONFIRMATION = "pending_confirmation"
+    ACTIVE = "active"
+    TRIGGERED = "triggered"
+    DELIVERY_IN_PROGRESS = "delivery_in_progress"
+    DELIVERED = "delivered"
+    PAUSED = "paused"
+    CANCELLED = "cancelled"
+    FAILED = "failed"
+
+
 class AlertCreateIn(BaseModel):
     asset_code: str
     condition_type: AlertCondition
     target_price: Decimal = Field(gt=0)
     cooldown_minutes: int = Field(default=60, ge=0)
+    confirm: bool = False
 
 
 class AlertUpdateIn(BaseModel):
@@ -29,11 +44,18 @@ class AlertOut(BaseModel):
     id: str
     user_id: str
     asset_id: str
+    display_asset_name_at_creation: str | None = None
     condition_type: AlertCondition
     target_price: Decimal
+    target_price_display_unit: str
+    lifecycle_state: AlertLifecycleState
     is_active: bool
     cooldown_minutes: int
     last_triggered_at: datetime | None
+    confirmed_at: datetime | None = None
+    triggered_at: datetime | None = None
+    delivered_at: datetime | None = None
+    cancelled_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
