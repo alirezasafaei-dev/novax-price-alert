@@ -3,6 +3,7 @@ import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreate
 import { handleCallback, handleTextInSession } from "./callbacks.js";
 import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession } from "./sessions.js";
 import { runCronJob } from "./cron.js";
+import { recordCronHeartbeat, getCronStatus } from "./heartbeat.js";
 import { sendMessage } from "./telegram.js";
 import { logEvent, logError } from "./log.js";
 
@@ -23,6 +24,13 @@ export default {
     
     if (url.pathname === "/health") {
       return Response.json({ status: "ok", service: "telegram-bot" });
+    }
+
+    // وضعیت ضربان cron برای مانیتور بیرونی. وقتی ضربان کهنه باشد ۵۰۳ برمی‌گرداند
+    // تا چک‌کننده‌های ساده فقط با کد وضعیت HTTP هم بتوانند هشدار بدهند.
+    if (url.pathname === "/status") {
+      const status = await getCronStatus(env);
+      return Response.json(status, { status: status.stale ? 503 : 200 });
     }
     
     if (url.pathname === "/setup-webhook" && request.method === "GET") {
@@ -133,6 +141,7 @@ export default {
   
   async scheduled(event, env, ctx) {
     const result = await runCronJob(env);
+    await recordCronHeartbeat(env, result);
     logEvent("cron_invocation_completed", { checked: result.checked, triggered: result.triggered });
   }
 };
