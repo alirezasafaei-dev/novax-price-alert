@@ -89,13 +89,16 @@ async def update_alert(
     db: AsyncSession = Depends(get_db),
 ) -> AlertOut:
     alerts = AlertCRUDService(db)
-    updated = await alerts.update(
-        alert_id,
-        current_user.id,
-        target_price=payload.target_price,
-        cooldown_minutes=payload.cooldown_minutes,
-        is_active=payload.is_active,
-    )
+    try:
+        updated = await alerts.update(
+            alert_id,
+            current_user.id,
+            target_price=payload.target_price,
+            cooldown_minutes=payload.cooldown_minutes,
+            is_active=payload.is_active,
+        )
+    except InvalidAlertTransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if updated is None:
         raise NotFoundError("alert not found")
     return AlertOut.model_validate(updated)

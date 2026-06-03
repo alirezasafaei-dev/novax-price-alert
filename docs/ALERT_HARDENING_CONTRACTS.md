@@ -82,7 +82,8 @@ Structured lifecycle logs include:
 - `alert_confirmed`
 - `alert_activated`
 - `alert_evaluated`
-- `alert_triggered`
+- `duplicate_trigger_detected`
+- `duplicate_send_detected`
 - `notification_send_started`
 - `notification_send_succeeded`
 - `notification_send_failed`

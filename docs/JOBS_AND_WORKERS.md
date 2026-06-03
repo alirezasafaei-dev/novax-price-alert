@@ -166,3 +166,18 @@ Possible approaches:
 Recommended MVP approach:
 - keep scheduling simple and explicit
 - do not add heavy orchestration unless needed
+## Post-hardening Alert Job Contract
+
+### `evaluate_alerts`
+
+The evaluator must only load alerts that are active by lifecycle state. It must skip stale or missing latest prices and emit `stale_data_detected` instead of creating an alert event. For each evaluated alert, emit `alert_evaluated` with the alert id, canonical asset id, freshness status, and condition result.
+
+A matching alert should create or claim a deterministic trigger event/idempotency key. If an equivalent trigger already exists, emit `duplicate_trigger_detected` and do not enqueue another notification.
+
+### `send_notifications`
+
+The dispatcher must atomically claim the event before sending, emit `notification_send_started`, and finalize exactly one successful send with `notification_send_succeeded`. If an event was already sent/finalized, emit `duplicate_send_detected` and do not send again. On failure, emit `notification_send_failed` with sanitized error context and leave enough state for operator review.
+
+### Cloudflare Worker cron
+
+The production Telegram Worker cron follows the same operational contract in KV: it evaluates only `lifecycle_state=active` alerts, skips unavailable provider batches, claims matching alerts before sending, stores `trigger_event_id`, finalizes successful sends as `lifecycle_state=delivered` and `enabled=false`, and ignores delivered alerts in later cron runs.

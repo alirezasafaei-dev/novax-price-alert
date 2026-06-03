@@ -104,6 +104,11 @@ class AlertCRUDService:
             alert.cooldown_minutes = cooldown_minutes
         if is_active is not None:
             if is_active:
+                if alert.lifecycle_state == AlertLifecycleState.PENDING_CONFIRMATION:
+                    raise InvalidAlertTransitionError(
+                        alert.lifecycle_state,
+                        AlertLifecycleState.ACTIVE,
+                    )
                 alert.transition_to(AlertLifecycleState.ACTIVE)
                 alert.confirmed_at = datetime.now(timezone.utc)
             else:
