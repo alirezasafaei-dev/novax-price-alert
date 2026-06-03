@@ -10,6 +10,8 @@ def test_alert_event_fields() -> None:
         alert_rule_id="rule-1",
         triggered_price=Decimal("100.00"),
         triggered_at=datetime.now(timezone.utc),
+        event_id="event-1",
+        idempotency_key="notification:event-1",
         status=AlertEventStatus.PENDING,
         error_message=None,
         sent_at=None,

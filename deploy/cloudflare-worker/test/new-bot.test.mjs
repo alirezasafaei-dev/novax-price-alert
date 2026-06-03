@@ -160,14 +160,25 @@ const confirmText = allText();
 assert.ok(confirmText.includes("تایید") && confirmText.includes("BTC"), "should show confirmation for BTC");
 const confirmMsg = sent.find((s) => s.reply_markup?.inline_keyboard?.flat?.().some((b) => b.callback_data?.startsWith("confirm:")));
 assert.ok(confirmMsg, "confirmation should include a confirm button");
-const confirmData = confirmMsg.reply_markup.inline_keyboard.flat().find((b) => b.callback_data.startsWith("confirm:")).callback_data;
+const editData = confirmMsg.reply_markup.inline_keyboard.flat().find((b) => b.callback_data === "edit:target").callback_data;
+await sendCallback(editData);
+assert.ok(lastText().includes("قیمت هدف جدید"), "edit target should return to price entry");
+await sendMessageUpdate("75,000");
+const editedConfirmMsg = sent
+  .filter((s) => s.reply_markup?.inline_keyboard?.flat?.().some((b) => b.callback_data?.startsWith("confirm:")))
+  .at(-1);
+const confirmData = editedConfirmMsg.reply_markup.inline_keyboard.flat().find((b) => b.callback_data.startsWith("confirm:")).callback_data;
 
-await sendCallback(confirmData); // save alert
+await sendCallback(confirmData); // save alert after explicit confirmation
 let alerts = await mockEnv.ALERTS_KV.get("alerts:user:123", "json");
 assert.equal(alerts.length, 1, "one alert should be persisted");
 assert.equal(alerts[0].symbol, "BTC");
+assert.equal(alerts[0].canonical_asset_id, "crypto:BTC");
+assert.equal(alerts[0].display_asset_name_at_creation, "بیت‌کوین (BTC)");
+assert.equal(alerts[0].target_price_display_unit, "USDT");
+assert.equal(alerts[0].lifecycle_state, "active");
 assert.equal(alerts[0].operator, "above");
-assert.equal(alerts[0].target, 70000);
+assert.equal(alerts[0].target, 75000);
 
 // 5) My alerts shows the alert with a delete button and current price
 sent = [];
@@ -212,5 +223,11 @@ const notif = sent.find((s) => s.method === "sendMessage" && String(s.text).incl
 assert.ok(notif, "cron should send a notification when condition is met");
 const afterCron = await cronEnv.ALERTS_KV.get("alerts:user:999", "json");
 assert.ok(afterCron[0].triggered_at, "alert should be marked triggered after firing");
+assert.equal(afterCron[0].lifecycle_state, "delivered", "alert should finalize as delivered");
+
+sent = [];
+await worker.default.scheduled({}, cronEnv, ctx);
+const duplicateNotif = sent.find((s) => s.method === "sendMessage" && String(s.text).includes("هشدار قیمت"));
+assert.equal(duplicateNotif, undefined, "cron should not resend a delivered alert");
 
 console.log("new bot full-flow tests passed");

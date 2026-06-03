@@ -161,3 +161,27 @@ Possible post-MVP improvements:
 - user preferences
 - localization refinement
 - richer formatting/templates
+
+## Current Telegram Worker Alert Flow
+
+The Cloudflare Telegram worker now follows the same hardening contract as the backend for the user-facing alert path:
+
+1. choose market
+2. choose asset
+3. choose condition
+4. enter target price
+5. review summary
+6. explicitly confirm activation
+
+Runtime rules:
+
+- The session state uses explicit flow states such as `choosing_asset`, `choosing_condition`, `entering_price`, and `awaiting_confirmation`.
+- Asset identity is stored as `canonical_asset_id` (`market:symbol`) and user-facing labels are copied to `display_asset_name_at_creation`.
+- Price input is normalized before the pending alert is shown for review.
+- The confirmation summary shows asset, condition, normalized target, unit, and current price when available.
+- The user can correct the target price before confirmation.
+- A persisted alert is activated only after the confirmation callback.
+
+Worker alert records include lifecycle fields such as `lifecycle_state`, `confirmed_at`, `triggered_at`, and `delivered_at`. The cron path evaluates only active alerts, claims a matching alert before sending, records a deterministic trigger event ID, finalizes delivered alerts, and avoids re-sending delivered alerts.
+
+Freshness behavior in the worker is intentionally conservative: each cron run treats prices fetched during that run as fresh, and blocks alert evaluation for unavailable provider batches or missing asset prices while logging `stale_data_detected` with a reason.

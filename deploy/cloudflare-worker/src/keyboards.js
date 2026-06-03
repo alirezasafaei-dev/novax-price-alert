@@ -83,7 +83,10 @@ export function confirmAlertKeyboard(alertId) {
   return {
     inline_keyboard: [
       [
-        { text: "✅ تایید و ذخیره", callback_data: `confirm:${alertId}` },
+        { text: "✅ تایید و فعال‌سازی", callback_data: `confirm:${alertId}` },
+        { text: "✏️ اصلاح قیمت", callback_data: "edit:target" }
+      ],
+      [
         { text: "❌ لغو", callback_data: "cancel:alert" }
       ]
     ]
