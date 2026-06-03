@@ -88,7 +88,7 @@ export async function runCronJob(env) {
 
     if (!conditionMatched) continue;
 
-    const eventId = buildTriggerEventId(alert, currentPrice, freshness.observed_at);
+    const eventId = buildTriggerEventId(alert);
     if (await alreadySent(env, eventId)) {
       console.log("duplicate_send_detected", {
         alert_id: alert.id,
@@ -115,7 +115,14 @@ export async function runCronJob(env) {
         worker_run_id: workerRunId,
       });
       const text = formatAlertNotification(claimed, formatPrice(currentPrice));
-      await sendMessage(env, alert.chat_id, text);
+      const { response, result } = await sendMessage(env, alert.chat_id, text);
+      // sendMessage resolves even on Telegram API errors (e.g. 429 rate-limit,
+      // 403 bot blocked); surface them so they are treated as failed delivery
+      // instead of being silently recorded as delivered.
+      if (!response?.ok || result?.ok === false) {
+        const description = result?.description || `HTTP ${response?.status}`;
+        throw new Error(`telegram_send_failed: ${description}`);
+      }
       await markSent(env, eventId);
       await markAlertDelivered(env, alert.chat_id, alert.id, eventId);
       triggered++;
@@ -125,12 +132,15 @@ export async function runCronJob(env) {
         worker_run_id: workerRunId,
       });
     } catch (error) {
-      await markAlertDeliveryFailed(env, alert.chat_id, alert.id, eventId, error);
+      const outcome = await markAlertDeliveryFailed(env, alert.chat_id, alert.id, eventId, error);
       console.log("notification_send_failed", {
         alert_id: alert.id,
         event_id: eventId,
         worker_run_id: workerRunId,
         error_message: String(error?.message || error),
+        retryable: outcome?.retryable === true,
+        attempt: outcome?.attempts,
+        max_attempts: outcome?.maxAttempts,
       });
     }
   }
