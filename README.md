@@ -13,9 +13,9 @@
 ## 🎯 قابلیت‌های فعلی
 
 ### 1. نمایش قیمت (✅ کار می‌کند)
-- **ارزها**: USDT, DOGE, SHIB, TRX, ADA, DOT
-- **منبع**: CoinGecko API
-- **واحد**: تومان (نرخ: 1 USD = 175,000 تومان)
+- **کریپتو**: BTC, ETH, SOL, BNB — منبع: **Binance** — واحد: **USDT**
+- **ارز**: دلار (USD)، یورو (EUR) — منبع: **TGJU** — واحد: **تومان**
+- **طلا**: طلای ۱۸ عیار، سکه امامی — منبع: **TGJU** — واحد: **تومان**
 - **به‌روزرسانی**: لحظه‌ای با تاریخ و ساعت تهران
 
 ### 2. سیستم هشدار (✅ کار می‌کند)
@@ -33,16 +33,10 @@
 
 ## ⚠️ مشکلات شناخته شده
 
-1. **فلوی هشدار ناقص**
-   - کاربر می‌تواند بدون انتخاب کامل (بازار/دارایی/شرط) عدد بفرستد
-   - هشدارها با مقادیر نادرست ذخیره می‌شوند
-
-2. **نرخ تبدیل ثابت**
-   - نرخ دلار به تومان ثابت: 175,000
-   - نیاز به API واقعی یا به‌روزرسانی دستی
-
-3. **Rate limit گاهی**
-   - دکمه‌ها گاهی نیاز به چند بار تلاش دارند
+موارد قبلی برطرف شده‌اند:
+- ✅ فلوی هشدار کامل و مرحله‌ای شد (بازار → دارایی → شرط → قیمت → تایید) با دکمه‌ی بازگشت در هر مرحله.
+- ✅ نرخ تبدیل ثابت حذف شد؛ ارز/طلا به‌صورت زنده از TGJU و کریپتو با واحد USDT از Binance خوانده می‌شود.
+- ✅ retry/backoff برای کاهش خطای rate limit اضافه شد.
 
 ---
 
@@ -59,7 +53,7 @@ sites/secondary/bale-price-alert/
 │   │   ├── callbacks.js      # callback query handler
 │   │   ├── sessions.js       # مدیریت session
 │   │   ├── alerts.js         # مدیریت هشدارها
-│   │   ├── prices.js         # دریافت قیمت از CoinGecko
+│   │   ├── prices.js         # دریافت قیمت از Binance (کریپتو) و TGJU (ارز/طلا)
 │   │   └── cron.js           # Cron job
 │   ├── wrangler.toml         # تنظیمات Cloudflare
 │   └── package.json
@@ -128,42 +122,20 @@ CLOUDFLARE_ACCOUNT_ID=<YOUR_CLOUDFLARE_ACCOUNT_ID>
 
 ---
 
-## 📋 TODO - مراحل بعدی
+## 📋 وضعیت تکمیل (مطابق USER_GUIDE)
 
-### فاز 1: اصلاح فلوی هشدار (اولویت بالا)
-- [ ] اجباری کردن انتخاب کامل (بازار → دارایی → شرط → قیمت)
-- [ ] اضافه کردن دکمه "لغو" در هر مرحله
-- [ ] نمایش پیشرفت (مثلاً: "مرحله 2 از 4")
-- [ ] جلوگیری از ارسال عدد قبل از تکمیل مراحل
+### ✅ انجام‌شده
+- [x] فلوی ۵مرحله‌ای هشدار (بازار → دارایی → شرط → قیمت → تایید) با دکمه‌ی بازگشت
+- [x] کریپتو BTC/ETH/SOL/BNB از Binance با واحد USDT
+- [x] ارز (USD + EUR) و طلا (۱۸ عیار + سکه امامی) از TGJU به تومان
+- [x] «هشدارهای من» با قیمت فعلی + دکمه‌ی 🗑 حذف برای هر هشدار
+- [x] بررسی هشدار با Cron هر ۱۰ دقیقه (تست زنده تأیید شد)
+- [x] retry/backoff برای خطاهای شبکه/rate limit
 
-**فایل‌های مرتبط:**
-- `src/callbacks.js` - handleTextInSession
-- `src/keyboards.js` - اضافه کردن دکمه لغو
-
-### فاز 2: بهبود نرخ تبدیل (اولویت متوسط)
-**گزینه A: استفاده از API واقعی**
-- [ ] پیدا کردن API قابل اعتماد برای نرخ دلار به تومان
-- [ ] اضافه کردن fallback به نرخ ثابت
-
-**گزینه B: راه‌اندازی Proxy در VPS**
-- [ ] باز کردن SSH در VPS (185.3.124.93)
-- [ ] نصب proxy از پوشه `proxy/`
-- [ ] تغییر `src/prices.js` برای استفاده از proxy
-
-**فایل‌های مرتبط:**
-- `src/prices.js` - USD_TO_TOMAN
-
-### فاز 3: بهینه‌سازی UX (اولویت پایین)
-- [ ] اضافه کردن loading indicator
-- [ ] بهبود پیام‌های خطا
-- [ ] اضافه کردن دکمه "تنظیم سریع هشدار"
-- [ ] نمایش تاریخچه قیمت (اختیاری)
-
-### فاز 4: مانیتورینگ و تست
-- [ ] تست کامل cron job
-- [ ] تست rate limit handling
-- [ ] اضافه کردن metrics (اختیاری)
-- [ ] تست با چند کاربر همزمان
+### 🔮 بهبودهای اختیاری آینده
+- [ ] اضافه کردن metrics/مانیتورینگ
+- [ ] نمایش تاریخچه‌ی قیمت
+- [ ] دارایی‌ها/بازارهای بیشتر
 
 ---
 
@@ -175,9 +147,9 @@ CLOUDFLARE_ACCOUNT_ID=<YOUR_CLOUDFLARE_ACCOUNT_ID>
 3. بررسی session: ممکن است session قدیمی باشد
 
 ### قیمت‌ها نمایش داده نمی‌شوند
-1. بررسی لاگ برای خطای CoinGecko
-2. تست API مستقیم: `curl "https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=usd" -H "User-Agent: Novax-Price-Bot/1.0"`
-3. بررسی rate limit CoinGecko
+1. بررسی لاگ برای خطای Binance یا TGJU
+2. تست کریپتو (Binance): `curl "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT"`
+3. تست ارز/طلا (TGJU، با fallback): `curl "https://call2.tgju.org/ajax.json"`
 
 ### هشدارها کار نمی‌کنند
 1. بررسی cron log: `npx wrangler tail` و منتظر cron بمانید
@@ -212,7 +184,8 @@ CLOUDFLARE_ACCOUNT_ID=<YOUR_CLOUDFLARE_ACCOUNT_ID>
 
 - **بات تلگرام**: https://t.me/novax_price_bot
 - **Cloudflare Dashboard**: https://dash.cloudflare.com/
-- **CoinGecko API**: https://www.coingecko.com/en/api
+- **Binance API**: https://data-api.binance.vision
+- **TGJU**: https://www.tgju.org
 - **Telegram Bot API**: https://core.telegram.org/bots/api
 
 ---
@@ -225,5 +198,4 @@ CLOUDFLARE_ACCOUNT_ID=<YOUR_CLOUDFLARE_ACCOUNT_ID>
 
 ---
 
-**آخرین به‌روزرسانی**: ۱۴۰۵/۰۳/۱۱ ۲۱:۲۰
-**وضعیت**: Production - کار می‌کند ✅
+**وضعیت**: Production - کامل و مطابق USER_GUIDE ✅ (کریپتو Binance/USDT، ارز و طلا TGJU/تومان)
