@@ -8,6 +8,7 @@ import {
   unitForMarket,
 } from "./prices.js";
 import { getUserAlerts, formatAlertLine } from "./alerts.js";
+import { logError } from "./log.js";
 
 export async function handleStart(env, chatId, from) {
   if (from) {
@@ -67,7 +68,7 @@ export async function handleMyAlerts(env, chatId) {
   try {
     [cryptoPrices, iranPrices] = await Promise.all([getCryptoPrices(), getIranMarketPrices()]);
   } catch (error) {
-    console.error("Failed to load prices for alerts list:", error);
+    logError("alerts_list_price_load_failed", { error_message: error?.message });
   }
 
   await sendMessage(env, chatId, "📋 هشدارهای فعال شما:", { reply_markup: MAIN_KEYBOARD });

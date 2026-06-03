@@ -8,6 +8,7 @@ import {
 } from "./alerts.js";
 import { getCryptoPrices, getIranMarketPrices, formatPrice } from "./prices.js";
 import { sendMessage } from "./telegram.js";
+import { logEvent, logWarn, logError } from "./log.js";
 
 function classifyPriceBatch(prices, providerId) {
   if (!prices || Object.keys(prices).filter((key) => !key.startsWith("_")).length === 0) {
@@ -29,7 +30,7 @@ export async function runCronJob(env) {
   const alerts = await getAllActiveAlerts(env);
 
   if (alerts.length === 0) {
-    console.log("alert_evaluation_job_completed", { worker_run_id: workerRunId, checked: 0, triggered: 0 });
+    logEvent("alert_evaluation_job_completed", { worker_run_id: workerRunId, checked: 0, triggered: 0 });
     return { checked: 0, triggered: 0 };
   }
 
@@ -47,7 +48,7 @@ export async function runCronJob(env) {
     const freshness = alert.market === "crypto" ? cryptoFreshness : iranFreshness;
 
     if (freshness.freshness !== "fresh") {
-      console.log("stale_data_detected", {
+      logWarn("stale_data_detected", {
         alert_id: alert.id,
         user_id: String(alert.chat_id),
         canonical_asset_id: alert.canonical_asset_id || `${alert.market}:${alert.symbol}`,
@@ -61,7 +62,7 @@ export async function runCronJob(env) {
     const currentPrice = priceBatch?.[alert.symbol];
 
     if (!currentPrice) {
-      console.log("stale_data_detected", {
+      logWarn("stale_data_detected", {
         alert_id: alert.id,
         user_id: String(alert.chat_id),
         canonical_asset_id: alert.canonical_asset_id || `${alert.market}:${alert.symbol}`,
@@ -76,7 +77,7 @@ export async function runCronJob(env) {
       (alert.operator === "above" && currentPrice > alert.target) ||
       (alert.operator === "below" && currentPrice < alert.target);
 
-    console.log("alert_evaluated", {
+    logEvent("alert_evaluated", {
       alert_id: alert.id,
       user_id: String(alert.chat_id),
       canonical_asset_id: alert.canonical_asset_id || `${alert.market}:${alert.symbol}`,
@@ -90,7 +91,7 @@ export async function runCronJob(env) {
 
     const eventId = buildTriggerEventId(alert);
     if (await alreadySent(env, eventId)) {
-      console.log("duplicate_send_detected", {
+      logEvent("duplicate_send_detected", {
         alert_id: alert.id,
         event_id: eventId,
         worker_run_id: workerRunId,
@@ -100,7 +101,7 @@ export async function runCronJob(env) {
 
     const claimed = await claimAlertForDelivery(env, alert.chat_id, alert.id, eventId);
     if (!claimed) {
-      console.log("duplicate_trigger_detected", {
+      logEvent("duplicate_trigger_detected", {
         alert_id: alert.id,
         event_id: eventId,
         worker_run_id: workerRunId,
@@ -109,7 +110,7 @@ export async function runCronJob(env) {
     }
 
     try {
-      console.log("notification_send_started", {
+      logEvent("notification_send_started", {
         alert_id: alert.id,
         event_id: eventId,
         worker_run_id: workerRunId,
@@ -126,14 +127,14 @@ export async function runCronJob(env) {
       await markSent(env, eventId);
       await markAlertDelivered(env, alert.chat_id, alert.id, eventId);
       triggered++;
-      console.log("notification_send_succeeded", {
+      logEvent("notification_send_succeeded", {
         alert_id: alert.id,
         event_id: eventId,
         worker_run_id: workerRunId,
       });
     } catch (error) {
       const outcome = await markAlertDeliveryFailed(env, alert.chat_id, alert.id, eventId, error);
-      console.log("notification_send_failed", {
+      logError("notification_send_failed", {
         alert_id: alert.id,
         event_id: eventId,
         worker_run_id: workerRunId,
@@ -145,6 +146,6 @@ export async function runCronJob(env) {
     }
   }
 
-  console.log("alert_evaluation_job_completed", { worker_run_id: workerRunId, checked, triggered });
+  logEvent("alert_evaluation_job_completed", { worker_run_id: workerRunId, checked, triggered });
   return { checked, triggered };
 }

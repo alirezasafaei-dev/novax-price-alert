@@ -6,6 +6,7 @@ import { getSession, setSession, clearSession } from "./sessions.js";
 import { createAlert, deleteAlert } from "./alerts.js";
 import { getCryptoPrices, getIranMarketPrices, formatPrice, formatCryptoPricesMessage, formatFiatPricesMessage, formatGoldPricesMessage, unitForMarket, getCurrentPrice, formatCurrentPrice } from "./prices.js";
 import { handleStart, handleMyAlerts, handleCreateAlertStart } from "./commands.js";
+import { logWarn } from "./log.js";
 
 const ASSET_KEYBOARDS = {
   crypto: CRYPTO_ASSETS,
@@ -41,7 +42,7 @@ export async function handleCallback(env, callbackQuery) {
   const data = callbackQuery.data || callbackQuery.callback_data;
 
   if (!data) {
-    console.error("No callback_data found:", JSON.stringify(callbackQuery));
+    logWarn("callback_data_missing", { callback_query_id: callbackQuery?.id });
     await answerCallbackQuery(env, callbackQuery.id);
     return;
   }

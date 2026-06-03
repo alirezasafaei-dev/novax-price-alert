@@ -1,3 +1,5 @@
+import { logWarn, logError } from "./log.js";
+
 async function fetchWithRetry(url, options = {}, maxRetries = 3) {
   let lastError;
   
@@ -20,11 +22,18 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
       return response;
     } catch (error) {
       lastError = error;
-      console.error(`Attempt ${attempt + 1}/${maxRetries} failed:`, error.message);
-      
-      if (attempt < maxRetries - 1) {
-        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.log(`Retrying in ${delay}ms...`);
+      const willRetry = attempt < maxRetries - 1;
+      const delay = willRetry ? Math.pow(2, attempt) * 1000 : 0; // Exponential backoff: 1s, 2s, 4s
+      logWarn("provider_fetch_retry", {
+        url,
+        attempt: attempt + 1,
+        max_attempts: maxRetries,
+        error_message: error?.message,
+        will_retry: willRetry,
+        retry_delay_ms: delay,
+      });
+
+      if (willRetry) {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -77,7 +86,7 @@ export async function getCryptoPrices() {
     prices._currency = "USDT";
     return prices;
   } catch (error) {
-    console.error("Failed to fetch crypto prices:", error);
+    logError("provider_fetch_failed", { provider: "crypto", error_message: String(error?.message || error) });
     return null;
   }
 }
@@ -108,7 +117,7 @@ export async function getIranMarketPrices() {
       data = await response.json();
       if (data) break;
     } catch (error) {
-      console.error(`Failed to fetch Iran market prices from ${url}:`, error.message);
+      logError("provider_fetch_failed", { provider: "iran_market", url, error_message: error?.message });
     }
   }
 
