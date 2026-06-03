@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from novax_price_alert.core.settings import settings
 from novax_price_alert.db.session import AsyncSessionLocal
@@ -24,10 +25,11 @@ async def run_notification_dispatch_job() -> None:
                 relay_secret=settings.telegram_relay_secret,
             )
         )
+        worker_run_id = str(uuid.uuid4())
         service = NotificationDispatcherService(session=session, sender=sender)
-        sent_count = await service.dispatch_pending_events()
+        sent_count = await service.dispatch_pending_events(worker_run_id=worker_run_id)
 
     logger.info(
         "notification dispatch job completed",
-        extra={"sent_count": sent_count},
+        extra={"sent_count": sent_count, "worker_run_id": worker_run_id},
     )
