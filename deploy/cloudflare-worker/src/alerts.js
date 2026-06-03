@@ -2,6 +2,11 @@ import { ALERT_LIFECYCLE, formatNormalizedTarget, operatorLabel } from "./alert-
 import { getAssetByCanonicalId, getAssetByMarketSymbol } from "./asset-catalog.js";
 import { formatPrice, unitForMarket } from "./prices.js";
 
+// Bounded retry policy for notification delivery (mirrors the backend retry
+// contract in docs/ALERT_HARDENING_CONTRACTS.md: 3 attempts with backoff).
+export const DEFAULT_MAX_DELIVERY_ATTEMPTS = 3;
+export const RETRY_BACKOFF_MS = 60 * 1000;
+
 export async function getUserAlerts(env, chatId) {
   const key = `alerts:user:${chatId}`;
   const data = await env.ALERTS_KV.get(key, "json");
@@ -40,6 +45,10 @@ export async function createAlert(env, chatId, alertData) {
     triggered_at: null,
     delivered_at: null,
     trigger_event_id: null,
+    attempt_count: 0,
+    max_attempts: DEFAULT_MAX_DELIVERY_ATTEMPTS,
+    next_retry_at: null,
+    error_message: null,
     metadata: { source: "cloudflare_worker_bot" },
   };
   alerts.push(newAlert);
@@ -82,8 +91,12 @@ export async function getAllActiveAlerts(env) {
   return allAlerts;
 }
 
-export function buildTriggerEventId(alert, currentPrice, observedAt) {
-  return `alert:${alert.id}:observed:${observedAt}:price:${currentPrice}`;
+// Stable per-trigger idempotency key. It must NOT depend on the per-run observed_at
+// or the live price, otherwise retries would produce a new key and the
+// notification_sent guard could double-send. Each one-shot alert has a single
+// logical trigger over its lifetime, keyed by its condition.
+export function buildTriggerEventId(alert) {
+  return `alert:${alert.id}:${alert.operator}:${alert.target}`;
 }
 
 export async function claimAlertForDelivery(env, chatId, alertId, eventId) {
@@ -98,6 +111,8 @@ export async function claimAlertForDelivery(env, chatId, alertId, eventId) {
   alert.lifecycle_state = ALERT_LIFECYCLE.DELIVERY_IN_PROGRESS;
   alert.trigger_event_id = eventId;
   alert.triggered_at = now;
+  alert.attempt_count = (alert.attempt_count || 0) + 1;
+  alert.next_retry_at = null;
   await saveUserAlerts(env, chatId, alerts);
   return alert;
 }
@@ -116,12 +131,29 @@ export async function markAlertDelivered(env, chatId, alertId, eventId) {
 export async function markAlertDeliveryFailed(env, chatId, alertId, eventId, error) {
   const alerts = await getUserAlerts(env, chatId);
   const alert = alerts.find((a) => a.id === alertId);
-  if (alert && alert.trigger_event_id === eventId) {
-    alert.lifecycle_state = ALERT_LIFECYCLE.FAILED;
-    alert.enabled = false;
-    alert.error_message = String(error?.message || error).slice(0, 500);
+  if (!alert || alert.trigger_event_id !== eventId) return { retryable: false };
+
+  alert.error_message = String(error?.message || error).slice(0, 500);
+  const attempts = alert.attempt_count || 0;
+  const maxAttempts = alert.max_attempts || DEFAULT_MAX_DELIVERY_ATTEMPTS;
+
+  if (attempts < maxAttempts) {
+    // Bounded retry: hand the alert back to the active set so the next cron run
+    // re-attempts delivery. The stable trigger_event_id is preserved so the
+    // notification_sent guard still prevents a double-send.
+    alert.lifecycle_state = ALERT_LIFECYCLE.ACTIVE;
+    alert.enabled = true;
+    alert.triggered_at = null;
+    alert.next_retry_at = new Date(Date.now() + RETRY_BACKOFF_MS).toISOString();
     await saveUserAlerts(env, chatId, alerts);
+    return { retryable: true, attempts, maxAttempts };
   }
+
+  alert.lifecycle_state = ALERT_LIFECYCLE.FAILED;
+  alert.enabled = false;
+  alert.next_retry_at = null;
+  await saveUserAlerts(env, chatId, alerts);
+  return { retryable: false, attempts, maxAttempts };
 }
 
 export async function markAlertTriggered(env, chatId, alertId) {

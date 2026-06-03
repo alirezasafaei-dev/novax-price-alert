@@ -34,6 +34,7 @@ const ctx = { waitUntil() {} };
 // Records outgoing Telegram API calls so we can assert on bot behavior.
 let sent = [];
 let providerMode = "healthy";
+let telegramMode = "ok";
 
 global.fetch = async (url, options) => {
   const u = String(url);
@@ -42,6 +43,13 @@ global.fetch = async (url, options) => {
     const method = u.split("/").pop();
     const body = options?.body ? JSON.parse(options.body) : {};
     sent.push({ method, ...body });
+    if (telegramMode === "fail" && method === "sendMessage") {
+      return {
+        ok: false,
+        status: 429,
+        json: async () => ({ ok: false, error_code: 429, description: "Too Many Requests" }),
+      };
+    }
     return { ok: true, json: async () => ({ ok: true, result: { message_id: sent.length } }) };
   }
 
@@ -297,5 +305,64 @@ assert.equal(
   undefined,
   "provider unavailable should not send a notification",
 );
+
+// 10) A failing Telegram send is NOT recorded as delivered, and the alert is
+//     retried on the next cron run (bounded retry), then recovers.
+const retryEnv = {
+  ...mockEnv,
+  ALERTS_KV: new MockKV(),
+};
+await retryEnv.ALERTS_KV.put(
+  "alerts:user:1001",
+  JSON.stringify([
+    {
+      id: "r1", market: "crypto", symbol: "BTC", operator: "above", target: 60000,
+      enabled: true, lifecycle_state: "active", triggered_at: null,
+      attempt_count: 0, max_attempts: 3,
+    },
+  ])
+);
+telegramMode = "fail";
+sent = [];
+await worker.default.scheduled({}, retryEnv, ctx);
+let afterFail = (await retryEnv.ALERTS_KV.get("alerts:user:1001", "json"))[0];
+assert.notEqual(afterFail.lifecycle_state, "delivered", "failed send must not be marked delivered");
+assert.equal(afterFail.lifecycle_state, "active", "failed-but-retryable alert returns to active");
+assert.equal(afterFail.triggered_at, null, "retryable alert clears triggered_at for re-pickup");
+assert.equal(afterFail.attempt_count, 1, "attempt_count increments on each delivery attempt");
+assert.equal(afterFail.enabled, true, "retryable alert stays enabled");
+
+// next cron run with Telegram healthy delivers it
+telegramMode = "ok";
+sent = [];
+await worker.default.scheduled({}, retryEnv, ctx);
+const recovered = sent.find((s) => s.method === "sendMessage" && String(s.text).includes("هشدار قیمت"));
+assert.ok(recovered, "retry should deliver once Telegram recovers");
+afterFail = (await retryEnv.ALERTS_KV.get("alerts:user:1001", "json"))[0];
+assert.equal(afterFail.lifecycle_state, "delivered", "alert finalizes as delivered after successful retry");
+assert.equal(afterFail.attempt_count, 2, "second attempt counted");
+
+// 11) Delivery attempts are bounded: once exhausted, the alert is terminal FAILED.
+const exhaustEnv = {
+  ...mockEnv,
+  ALERTS_KV: new MockKV(),
+};
+await exhaustEnv.ALERTS_KV.put(
+  "alerts:user:1002",
+  JSON.stringify([
+    {
+      id: "e1", market: "crypto", symbol: "BTC", operator: "above", target: 60000,
+      enabled: true, lifecycle_state: "active", triggered_at: null,
+      attempt_count: 0, max_attempts: 1,
+    },
+  ])
+);
+telegramMode = "fail";
+sent = [];
+await worker.default.scheduled({}, exhaustEnv, ctx);
+telegramMode = "ok";
+const exhausted = (await exhaustEnv.ALERTS_KV.get("alerts:user:1002", "json"))[0];
+assert.equal(exhausted.lifecycle_state, "failed", "exhausted retries end in terminal failed state");
+assert.equal(exhausted.enabled, false, "terminal failed alert is disabled");
 
 console.log("new bot full-flow tests passed");
