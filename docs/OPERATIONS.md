@@ -70,6 +70,22 @@ npm test
 
 ### Deploy Relay
 
+Use the secret-safe deploy script when updating Worker code, secrets, and webhook together:
+
+```bash
+cd deploy/cloudflare-worker
+bash scripts/deploy.sh
+```
+
+For one-off deploys using a temporary root `.env`, remove it automatically at script exit:
+
+```bash
+cd deploy/cloudflare-worker
+DELETE_ENV_AFTER_DEPLOY=1 bash scripts/deploy.sh
+```
+
+If secrets and webhook are already configured, code-only deploy is still:
+
 ```bash
 npx wrangler deploy
 ```
@@ -84,7 +100,7 @@ npx wrangler tail
 
 ```bash
 npx wrangler secret put TELEGRAM_BOT_TOKEN
-npx wrangler secret put RELAY_SECRET
+npx wrangler secret put TELEGRAM_SECRET_TOKEN
 ```
 
 
@@ -125,7 +141,7 @@ Minimum checks:
 
 - API can still operate, but Telegram notifications may fail.
 - Check Worker health and `wrangler tail`.
-- Verify `TELEGRAM_RELAY_SECRET` matches in Worker secrets and backend `.env`.
+- Verify `TELEGRAM_SECRET_TOKEN` matches the Telegram webhook secret configured for the Worker.
 - Verify `TELEGRAM_BOT_TOKEN` Worker secret is present.
 
 ### Database Failure

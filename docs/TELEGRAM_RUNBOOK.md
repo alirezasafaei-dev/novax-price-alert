@@ -88,11 +88,12 @@ https://novax-telegram-relay.asdevelooper.workers.dev/webhook
 
 ```bash
 cd deploy/cloudflare-worker
-# requires CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID in env/.env
+# requires CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
+# TELEGRAM_BOT_TOKEN, and TELEGRAM_SECRET_TOKEN from ../../.env or the environment
 bash scripts/deploy.sh
 ```
 
-`scripts/deploy.sh` reads `.env`, uploads the Worker secrets (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_SECRET_TOKEN`), runs `npx wrangler deploy`, and sets the Telegram webhook. Afterwards confirm with the verification commands above.
+`scripts/deploy.sh` validates required secrets without printing them, uploads the Worker secrets (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_SECRET_TOKEN`), runs `npx wrangler deploy`, sets the Telegram webhook, and prints redacted health/webhook verification output. If a temporary `.env` was created for a one-off deploy, run `DELETE_ENV_AFTER_DEPLOY=1 bash scripts/deploy.sh` so the file is removed on exit.
 
 To (re)set just the webhook without deploying, either open `GET /setup-webhook` in a browser/curl, or run `scripts/set-webhook.sh` (fill in the token/secret first).
 

@@ -49,10 +49,32 @@ npx wrangler dev
 
 ## Deploy and operations
 
+The deploy script is secret-safe: it loads `../../.env` when present, otherwise uses the current environment, validates all required secret variables before touching Cloudflare, uploads Worker secrets, deploys the Worker, sets the Telegram webhook, and prints only redacted verification output.
+
+Required environment variables:
+
 ```bash
-# from deploy/cloudflare-worker
+CLOUDFLARE_API_TOKEN=...
+CLOUDFLARE_ACCOUNT_ID=...
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_SECRET_TOKEN=...
+```
+
+Deploy from this directory:
+
+```bash
 bash scripts/deploy.sh
-# or, if secrets/webhook are already configured
+```
+
+If a temporary `.env` file was created only for this deploy, ask the script to remove it at exit:
+
+```bash
+DELETE_ENV_AFTER_DEPLOY=1 bash scripts/deploy.sh
+```
+
+If secrets and webhook are already configured and you only need to upload code, you can still run:
+
+```bash
 npx wrangler deploy
 ```
 
@@ -62,12 +84,14 @@ Tail production/staging logs:
 npx wrangler tail
 ```
 
-After deploy, verify:
+The deploy script verifies health and Telegram webhook automatically. Manual verification commands are:
 
 ```bash
 curl -fsS "https://novax-telegram-relay.asdevelooper.workers.dev/health"
-curl -fsS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo" | jq .
+curl -fsS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
 ```
+
+Do not paste or print token values when sharing verification output.
 
 Operational references:
 
