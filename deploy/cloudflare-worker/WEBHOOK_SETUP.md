@@ -14,7 +14,7 @@
 از یک سیستم با دسترسی اینترنت این دستور را اجرا کنید:
 
 ```bash
-cd sites/secondary/bale-price-alert/deploy/cloudflare-worker
+cd sites/secondary/novax-price-alert/deploy/cloudflare-worker
 ./scripts/set-webhook.sh
 ```
 
