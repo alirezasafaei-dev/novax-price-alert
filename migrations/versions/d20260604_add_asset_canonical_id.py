@@ -23,8 +23,9 @@ def upgrade() -> None:
         sa.Column("canonical_id", sa.String(length=50), nullable=True),
     )
     op.execute("UPDATE assets SET canonical_id = symbol WHERE canonical_id IS NULL")
-    op.alter_column("assets", "canonical_id", nullable=False)
-    op.create_unique_constraint("uq_assets_canonical_id", "assets", ["canonical_id"])
+    with op.batch_alter_table("assets") as batch_op:
+        batch_op.alter_column("canonical_id", nullable=False)
+        batch_op.create_unique_constraint("uq_assets_canonical_id", ["canonical_id"])
 
     op.add_column(
         "alert_rules",
@@ -34,7 +35,8 @@ def upgrade() -> None:
         "UPDATE alert_rules SET canonical_asset_id = "
         "(SELECT canonical_id FROM assets WHERE assets.id = alert_rules.asset_id)"
     )
-    op.alter_column("alert_rules", "canonical_asset_id", nullable=False)
+    with op.batch_alter_table("alert_rules") as batch_op:
+        batch_op.alter_column("canonical_asset_id", nullable=False)
     op.create_index(
         op.f("ix_alert_rules_canonical_asset_id"),
         "alert_rules",

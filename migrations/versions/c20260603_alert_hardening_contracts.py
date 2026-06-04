@@ -66,14 +66,21 @@ def upgrade() -> None:
         "UPDATE alert_events SET idempotency_key = 'notification:' || event_id "
         "WHERE idempotency_key IS NULL"
     )
-    op.alter_column("alert_events", "event_id", existing_type=sa.String(length=128), nullable=False)
-    op.alter_column(
-        "alert_events", "idempotency_key", existing_type=sa.String(length=160), nullable=False
-    )
-    op.create_unique_constraint("uq_alert_events_event_id", "alert_events", ["event_id"])
-    op.create_unique_constraint(
-        "uq_alert_events_idempotency_key", "alert_events", ["idempotency_key"]
-    )
+    with op.batch_alter_table("alert_events") as batch_op:
+        batch_op.alter_column(
+            "event_id",
+            existing_type=sa.String(length=128),
+            nullable=False,
+        )
+        batch_op.alter_column(
+            "idempotency_key",
+            existing_type=sa.String(length=160),
+            nullable=False,
+        )
+        batch_op.create_unique_constraint("uq_alert_events_event_id", ["event_id"])
+        batch_op.create_unique_constraint(
+            "uq_alert_events_idempotency_key", ["idempotency_key"]
+        )
 
 
 def downgrade() -> None:
