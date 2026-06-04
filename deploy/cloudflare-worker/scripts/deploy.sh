@@ -26,10 +26,35 @@ fi
 cd "${WORKER_DIR}"
 
 if [[ -f "${ENV_FILE}" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "${ENV_FILE}"
-  set +a
+  load_dotenv() {
+    local line key value
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+      line="${line%%$'\r'}"
+      [[ -z "${line}" || "${line}" =~ ^[[:space:]]*# ]] && continue
+      [[ "${line}" =~ ^[[:space:]]*export[[:space:]]+ ]] && line="${line#[[:space:]]export }"
+      [[ "${line}" == *"="* ]] || continue
+
+      key="${line%%=*}"
+      value="${line#*=}"
+      key="${key#"${key%%[![:space:]]*}"}"
+      key="${key%"${key##*[![:space:]]}"}"
+      value="${value#"${value%%[![:space:]]*}"}"
+
+      if [[ "${value}" =~ ^\".*\"$ || "${value}" =~ ^\'.*\'$ ]]; then
+        value="${value:1:${#value}-2}"
+      fi
+
+      if [[ ! "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        echo "Skipping invalid dotenv key: ${key}" >&2
+        continue
+      fi
+
+      printf -v "${key}" '%s' "${value}"
+      export "${key}"
+    done < "${ENV_FILE}"
+  }
+
+  load_dotenv
 else
   echo "No .env file found at ${ENV_FILE}; using current environment variables."
 fi

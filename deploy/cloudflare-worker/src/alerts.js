@@ -47,9 +47,12 @@ export async function createAlert(env, chatId, alertData) {
     triggered_at: null,
     delivered_at: null,
     trigger_event_id: null,
+    paused_at: null,
     attempt_count: 0,
     max_attempts: DEFAULT_MAX_DELIVERY_ATTEMPTS,
     next_retry_at: null,
+    repeat_every_minutes: alertData.repeat_every_minutes || null,
+    next_trigger_at: null,
     error_message: null,
     metadata: { source: "cloudflare_worker_bot" },
   };
@@ -77,6 +80,7 @@ export async function deleteAlert(env, chatId, alertId) {
 export async function getAllActiveAlerts(env) {
   const list = await env.ALERTS_KV.list({ prefix: "alerts:user:" });
   const allAlerts = [];
+  const now = Date.now();
 
   for (const key of list.keys) {
     const alerts = await env.ALERTS_KV.get(key.name, "json");
@@ -84,7 +88,9 @@ export async function getAllActiveAlerts(env) {
       const chatId = key.name.replace("alerts:user:", "");
       for (const alert of alerts) {
         const state = alert.lifecycle_state || (alert.enabled ? ALERT_LIFECYCLE.ACTIVE : ALERT_LIFECYCLE.CANCELLED);
-        if (alert.enabled && state === ALERT_LIFECYCLE.ACTIVE && !alert.triggered_at) {
+        const nextTriggerAt = alert.next_trigger_at ? Date.parse(alert.next_trigger_at) : null;
+        const readyToRun = !nextTriggerAt || Number.isNaN(nextTriggerAt) || nextTriggerAt <= now;
+        if (alert.enabled && state === ALERT_LIFECYCLE.ACTIVE && !alert.triggered_at && readyToRun) {
           allAlerts.push({ ...alert, chat_id: chatId, lifecycle_state: state });
         }
       }
@@ -109,6 +115,7 @@ export async function claimAlertForDelivery(env, chatId, alertId, eventId) {
 
   const state = alert.lifecycle_state || ALERT_LIFECYCLE.ACTIVE;
   if (state !== ALERT_LIFECYCLE.ACTIVE) return null;
+  if (alert.next_trigger_at && Date.parse(alert.next_trigger_at) > Date.now()) return null;
 
   const now = new Date().toISOString();
   alert.lifecycle_state = ALERT_LIFECYCLE.DELIVERY_IN_PROGRESS;
@@ -124,9 +131,18 @@ export async function markAlertDelivered(env, chatId, alertId, eventId) {
   const alerts = await getUserAlerts(env, chatId);
   const alert = alerts.find((a) => a.id === alertId);
   if (alert && alert.trigger_event_id === eventId) {
-    alert.lifecycle_state = ALERT_LIFECYCLE.DELIVERED;
-    alert.enabled = false;
     alert.delivered_at = new Date().toISOString();
+    if (alert.repeat_every_minutes && Number(alert.repeat_every_minutes) > 0) {
+      alert.lifecycle_state = ALERT_LIFECYCLE.ACTIVE;
+      alert.enabled = true;
+      alert.triggered_at = null;
+      alert.trigger_event_id = null;
+      alert.next_trigger_at = new Date(Date.now() + Number(alert.repeat_every_minutes) * 60 * 1000).toISOString();
+    } else {
+      alert.lifecycle_state = ALERT_LIFECYCLE.DELIVERED;
+      alert.enabled = false;
+      alert.next_trigger_at = null;
+    }
     await saveUserAlerts(env, chatId, alerts);
   }
 }
@@ -157,6 +173,51 @@ export async function markAlertDeliveryFailed(env, chatId, alertId, eventId, err
   alert.next_retry_at = null;
   await saveUserAlerts(env, chatId, alerts);
   return { retryable: false, attempts, maxAttempts };
+}
+
+export async function pauseAlert(env, chatId, alertId) {
+  const alerts = await getUserAlerts(env, chatId);
+  const alert = alerts.find((a) => a.id === alertId);
+  if (!alert || alert.lifecycle_state !== ALERT_LIFECYCLE.ACTIVE) return null;
+  alert.lifecycle_state = ALERT_LIFECYCLE.PAUSED;
+  alert.enabled = false;
+  alert.paused_at = new Date().toISOString();
+  await saveUserAlerts(env, chatId, alerts);
+  return alert;
+}
+
+export async function resumeAlert(env, chatId, alertId) {
+  const alerts = await getUserAlerts(env, chatId);
+  const alert = alerts.find((a) => a.id === alertId);
+  if (!alert || alert.lifecycle_state !== ALERT_LIFECYCLE.PAUSED) return null;
+  alert.lifecycle_state = ALERT_LIFECYCLE.ACTIVE;
+  alert.enabled = true;
+  alert.paused_at = null;
+  await saveUserAlerts(env, chatId, alerts);
+  return alert;
+}
+
+export async function updateAlertTarget(env, chatId, alertId, target, unit) {
+  const alerts = await getUserAlerts(env, chatId);
+  const alert = alerts.find((a) => a.id === alertId);
+  if (!alert) return null;
+  alert.target = target;
+  alert.target_price_normalized = target;
+  if (unit) alert.target_price_display_unit = unit;
+  alert.lifecycle_state = ALERT_LIFECYCLE.PAUSED;
+  alert.enabled = false;
+  alert.paused_at = new Date().toISOString();
+  await saveUserAlerts(env, chatId, alerts);
+  return alert;
+}
+
+export async function setAlertRepeat(env, chatId, alertId, repeatEveryMinutes) {
+  const alerts = await getUserAlerts(env, chatId);
+  const alert = alerts.find((a) => a.id === alertId);
+  if (!alert) return null;
+  alert.repeat_every_minutes = repeatEveryMinutes || null;
+  await saveUserAlerts(env, chatId, alerts);
+  return alert;
 }
 
 export async function markAlertTriggered(env, chatId, alertId) {
@@ -190,6 +251,11 @@ export function formatAlertLine(alert, index, currentPriceText) {
   const lines = [`${num} ${assetName} ${operatorLabel(alert.operator)} ${targetText(alert)}`];
   if (currentPriceText) {
     lines.push(`   قیمت فعلی: ${currentPriceText}`);
+  }
+  if (alert.lifecycle_state === ALERT_LIFECYCLE.PAUSED) {
+    lines.push("   وضعیت: ⏸ متوقف");
+  } else if (alert.repeat_every_minutes) {
+    lines.push(`   تکرار: هر ${alert.repeat_every_minutes} دقیقه`);
   }
   return lines.join("\n");
 }

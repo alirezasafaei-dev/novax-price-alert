@@ -3,7 +3,7 @@ import { FLOW_STATES, buildAlertSummary, normalizeTargetPrice } from "./alert-fl
 import { getAssetByMarketSymbol } from "./asset-catalog.js";
 import { editMessageText, answerCallbackQuery, sendMessage } from "./telegram.js";
 import { getSession, setSession, clearSession } from "./sessions.js";
-import { createAlert, deleteAlert } from "./alerts.js";
+import { createAlert, deleteAlert, getUserAlerts, pauseAlert, resumeAlert, updateAlertTarget, setAlertRepeat } from "./alerts.js";
 import { getCryptoPrices, getIranMarketPrices, formatPrice, formatCryptoPricesMessage, formatFiatPricesMessage, formatGoldPricesMessage, unitForMarket, getCurrentPrice, formatCurrentPrice } from "./prices.js";
 import { handleStart, handleMyAlerts, handleCreateAlertStart } from "./commands.js";
 import { logWarn } from "./log.js";
@@ -51,6 +51,32 @@ export async function handleCallback(env, callbackQuery) {
 
   if (data === "menu:main") {
     await handleStart(env, chatId, callbackQuery.from);
+    return;
+  }
+
+  if (data.startsWith("edit_alert:")) {
+    const alertId = data.split(":")[1];
+    const alerts = await getUserAlerts(env, chatId);
+    const alert = alerts.find((item) => item.id === alertId);
+    if (!alert) {
+      await editMessageText(env, chatId, messageId, "هشدار پیدا نشد.");
+      return;
+    }
+    await setSession(env, chatId, {
+      flow: "edit_alert",
+      step: FLOW_STATES.ENTERING_PRICE,
+      edit_alert_id: alertId,
+      edit_alert_unit: alert.target_price_display_unit,
+      edit_alert_asset_name: alert.display_asset_name_at_creation,
+      edit_alert_market: alert.market,
+      edit_alert_symbol: alert.symbol,
+    });
+    await editMessageText(
+      env,
+      chatId,
+      messageId,
+      `قیمت جدید برای ${alert.display_asset_name_at_creation || alert.symbol} را وارد کن:\n\nمثال: ${alert.market === "crypto" ? "70000" : "180000"}`,
+    );
     return;
   }
 
@@ -172,6 +198,39 @@ export async function handleCallback(env, callbackQuery) {
     return;
   }
 
+  if (data.startsWith("pause:")) {
+    const alertId = data.split(":")[1];
+    const paused = await pauseAlert(env, chatId, alertId);
+    await editMessageText(env, chatId, messageId, paused ? "⏸ هشدار متوقف شد." : "❌ هشدار پیدا نشد یا قابل توقف نیست.");
+    return;
+  }
+
+  if (data.startsWith("resume:")) {
+    const alertId = data.split(":")[1];
+    const resumed = await resumeAlert(env, chatId, alertId);
+    await editMessageText(env, chatId, messageId, resumed ? "▶️ هشدار دوباره فعال شد." : "❌ هشدار پیدا نشد یا قابل ادامه نیست.");
+    return;
+  }
+
+  if (data.startsWith("repeat:")) {
+    const alertId = data.split(":")[1];
+    const alerts = await getUserAlerts(env, chatId);
+    const alert = alerts.find((item) => item.id === alertId);
+    if (!alert) {
+      await editMessageText(env, chatId, messageId, "❌ هشدار پیدا نشد.");
+      return;
+    }
+    const enabled = !alert.repeat_every_minutes;
+    const updated = await setAlertRepeat(env, chatId, alertId, enabled ? 60 : null);
+    await editMessageText(
+      env,
+      chatId,
+      messageId,
+      updated?.repeat_every_minutes ? "🔁 تکرار ساعتی فعال شد." : "🔁 تکرار غیرفعال شد.",
+    );
+    return;
+  }
+
   if (data.startsWith("cancel:")) {
     await clearSession(env, chatId);
     await editMessageText(env, chatId, messageId, "❌ لغو شد.");
@@ -249,6 +308,21 @@ export async function handleTextInSession(env, chatId, text) {
     return true;
   }
 
+  const targetPriceDisplayUnit = session.edit_alert_unit || session.target_price_display_unit || unitForMarket(session.market);
+
+  if (session.flow === "edit_alert" && session.edit_alert_id) {
+    const updatedAlert = await updateAlertTarget(env, chatId, session.edit_alert_id, target, targetPriceDisplayUnit);
+    await clearSession(env, chatId);
+    await sendMessage(
+      env,
+      chatId,
+      updatedAlert
+        ? `✏️ قیمت هشدار برای ${updatedAlert.display_asset_name_at_creation || updatedAlert.symbol} به‌روزرسانی شد و موقتاً متوقف شد.\n\nبرای ادامه دوباره از دکمه ▶️ ادامه استفاده کن.`
+        : "❌ هشدار پیدا نشد.",
+    );
+    return true;
+  }
+
   const alertData = {
     market: session.market,
     symbol: session.symbol,
@@ -256,7 +330,7 @@ export async function handleTextInSession(env, chatId, text) {
     display_asset_name_at_creation: session.display_asset_name_at_creation || session.symbol,
     operator: session.operator,
     target,
-    target_price_display_unit: session.target_price_display_unit || unitForMarket(session.market),
+    target_price_display_unit: targetPriceDisplayUnit,
   };
 
   let currentPrice = null;

@@ -16,6 +16,7 @@ export const ALERT_LIFECYCLE = {
   ACTIVE: "active",
   DELIVERY_IN_PROGRESS: "delivery_in_progress",
   DELIVERED: "delivered",
+  PAUSED: "paused",
   CANCELLED: "cancelled",
   FAILED: "failed",
 };
