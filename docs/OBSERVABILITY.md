@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This runbook defines the minimum log events and operational questions required before and during the post-hardening rollout. It applies to both backend alert workers and the Cloudflare Telegram Worker, with the Worker currently serving as the production bot alert source of truth.
+This runbook defines the minimum log events and operational questions required before and during the post-hardening rollout. It applies to both backend alert workers and the Cloudflare Telegram Worker.
 
 ## Log format
 
@@ -104,10 +104,8 @@ ADR `docs/adr/0002-cron-heartbeat-monitor-placement.md`.
 - **External monitor:** `deploy/monitoring/cron_heartbeat_monitor.sh` polls
   `/status` and alerts the Telegram ops group if the Worker is unreachable or the
   heartbeat is stale. It runs on **GitHub Actions** every 15 minutes
-  (`.github/workflows/cron-heartbeat-monitor.yml`) — runners are outside Iran and
-  can reach both Cloudflare and Telegram (the in-Iran VPS cannot, because
-  Telegram is filtered there). Required repo secrets: `OPS_BOT_TOKEN`,
-  `OPS_CHAT_ID`.
+  (`.github/workflows/cron-heartbeat-monitor.yml`). Required repo secrets:
+  `OPS_BOT_TOKEN`, `OPS_CHAT_ID`.
 - **Healthy = silent.** The monitor only messages on failure; a green run with no
   Telegram message is the normal healthy state. To get a visible end-to-end
   confirmation without a real outage, point it at an unreachable URL once, e.g.
@@ -135,6 +133,13 @@ For each alert lifecycle trace, collect as many of these fields as the runtime e
 - `stale_data_detected` is acceptable only when no notification follows for the same alert/run.
 - A sustained absence of `alert_evaluation_job_completed` means cron may not be running.
 - A spike in `notification_send_failed` pauses rollout until Telegram/network/runtime health is understood.
+
+## When to use this runbook
+
+- before rollout
+- during rollout
+- during incident triage
+- when validating the logging contract against code changes
 
 ## Daily operator check
 

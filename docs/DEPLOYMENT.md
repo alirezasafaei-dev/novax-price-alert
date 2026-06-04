@@ -4,17 +4,16 @@
 
 Deploy this project without Docker:
 
-- Cloudflare Worker: Telegram relay for outbound Bot API calls
-- VPS or local server process: FastAPI backend and background worker
+- Cloudflare Worker for Telegram relay and webhook handling
+- VPS or local server process for the FastAPI backend and background worker
 - PostgreSQL in production, SQLite only for local smoke checks
-- Redis-compatible cache/queue only if enabled by a future worker mode
 - Nginx or Caddy for HTTPS in front of the FastAPI backend
 
-The Python FastAPI app is not deployed directly to Cloudflare Workers. Cloudflare runs the lightweight relay in `deploy/cloudflare-worker/`, while the backend keeps the database, migrations, price fetcher, alert evaluator, and Telegram Mini App API.
+The Python FastAPI app is not deployed directly to Cloudflare Workers. Cloudflare runs the lightweight relay in `deploy/cloudflare-worker/`, while the backend keeps the database, migrations, price fetcher, alert evaluator, Telegram Mini App API, and operational APIs.
 
 ## Cloudflare Telegram Relay
 
-The relay exists to give the backend a stable HTTPS edge for Telegram sends.
+The relay exists to give the backend a stable HTTPS edge for Telegram sends and webhook termination.
 
 Files:
 
@@ -110,9 +109,6 @@ The smoke script runs migrations, seeds MVP assets, fetches real prices through 
 
 ## Production Verification
 
-For Telegram-specific checks, use `docs/TELEGRAM_RUNBOOK.md`.
-
-
 After deploy:
 
 ```bash
@@ -153,3 +149,13 @@ pg_dump "$DATABASE_URL" > backup-$(date +%Y%m%d-%H%M%S).sql
 ```
 
 SQLite backups are acceptable only for local/dev use, not production.
+
+## Release Checklist
+
+- relay deploy completed successfully
+- backend migrations applied
+- worker process restarted
+- `/health` and `/api/v1/prices/latest` are healthy
+- `/status` is healthy and not stale
+- Telegram webhook is configured and returns expected webhook info
+- production alert smoke test has passed

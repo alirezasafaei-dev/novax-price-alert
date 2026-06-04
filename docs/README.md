@@ -12,6 +12,7 @@ This repository keeps a small set of living docs and moves historical/spec draft
 - [Operations](OPERATIONS.md)
 - [Observability](OBSERVABILITY.md)
 - [Progress](PROGRESS.md)
+- [Implementation Roadmap](IMPLEMENTATION_ROADMAP_FA.md)
 
 ## Source-of-truth notes
 
