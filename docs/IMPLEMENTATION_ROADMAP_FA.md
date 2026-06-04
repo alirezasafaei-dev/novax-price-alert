@@ -37,6 +37,14 @@ Lock the current behavior as the reference baseline.
 - a new agent can find the source of truth in under 2 minutes
 - no active doc contradicts the codebase reality
 
+### Task Breakdown
+
+| Task | Owner | Output | Acceptance |
+|---|---|---|---|
+| Freeze active docs list | Tech Lead | `docs/README.md`, `INDEX.md`, `MEMORY.md` aligned | no duplicate source-of-truth paths |
+| Retain archive as history only | Docs owner | archived reports in `docs/archive/` | active docs do not point at archived drafts as current |
+| Verify production facts | Backend + Ops | `PROGRESS.md` matches runtime reality | no statement in `PROGRESS.md` conflicts with code |
+
 ## Phase 1: UX Clarity
 
 ### Objective
@@ -59,6 +67,15 @@ Remove ambiguity from price display and alert creation.
 
 - a user can create an alert without guessing the target asset or unit
 - summary and confirmation show the same asset and unit the code stores
+
+### Task Breakdown
+
+| Task | Owner | Output | Acceptance |
+|---|---|---|---|
+| Standardize asset naming | Product + UX/Content | explicit asset labels in flows | no sensitive message uses ambiguous asset-only text |
+| Standardize target unit language | Product + Backend | `toman`/`USDT` conventions documented | display and stored unit match |
+| Harden confirmation summary | UX/Content + Backend | summary template for alert confirm step | user sees asset, condition, unit, target, current price |
+| Simplify list/delete flow | UX/Content | easy alert list + delete experience | user can inspect and delete without confusion |
 
 ## Phase 2: Reliability Hardening
 
@@ -85,6 +102,15 @@ Protect the system from duplicate alerts, stale data, and ambiguous state transi
 - stale data never produces a false trigger
 - confirmed alerts remain traceable through logs and state
 
+### Task Breakdown
+
+| Task | Owner | Output | Acceptance |
+|---|---|---|---|
+| Enforce canonical asset identity | Backend | canonical ids in alert and asset records | evaluations use canonical ids, not display text |
+| Validate state transitions | Backend + Tech Lead | explicit alert lifecycle checks | invalid transitions are rejected |
+| Add idempotency to delivery | Backend | single-send guarantee per event | duplicate send cannot happen for same event |
+| Block stale triggers | Backend + Ops | freshness gate in evaluation | stale/unavailable prices do not fire alerts |
+
 ## Phase 3: Observability and Operations
 
 ### Objective
@@ -110,6 +136,15 @@ Make runtime health visible and supportable.
 - operators can trace an alert from creation to delivery
 - a rollout can be paused using logs and health endpoints
 
+### Task Breakdown
+
+| Task | Owner | Output | Acceptance |
+|---|---|---|---|
+| Keep log contract stable | Backend + Ops | structured event names and fields | alert trace can be reconstructed from logs |
+| Keep cron heartbeat external | Ops | GitHub Actions monitor and `/status` | stale cron is detected outside Worker |
+| Define incident playbooks | Ops | short operational response notes | duplicate send, stale data, and relay failure have clear steps |
+| Keep release checks short | Tech Lead + Ops | deploy checklist | every release uses the same health gates |
+
 ## Phase 4: Controlled Expansion
 
 ### Objective
@@ -127,6 +162,15 @@ Add only the next most valuable improvements after the core is stable.
 
 - expansion does not regress the baseline alert and pricing flow
 - every new feature has a clear owner and rollback path
+
+### Task Breakdown
+
+| Task | Owner | Output | Acceptance |
+|---|---|---|---|
+| Add metrics only after stability | Ops + Backend | metric set for reliability | metrics help decision-making, not noise |
+| Add price history only if useful | Product + Backend | history endpoints or UI | history does not complicate core flow |
+| Expand assets carefully | Product + Backend | new provider mappings | new assets do not break naming or units |
+| Improve Telegram UX incrementally | UX/Content + Backend | small UX releases | no regression in alert creation or delivery |
 
 ## Milestone Checklist
 
