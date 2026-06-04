@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novax_price_alert.domain.asset import Asset
@@ -15,6 +15,8 @@ class UserResolverService:
         return result.scalar_one_or_none()
 
     async def resolve_asset(self, asset_symbol: str) -> Asset | None:
-        stmt = select(Asset).where(Asset.symbol == asset_symbol)
+        stmt = select(Asset).where(
+            or_(Asset.symbol == asset_symbol, Asset.canonical_id == asset_symbol)
+        )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()

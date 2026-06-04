@@ -11,6 +11,7 @@ from novax_price_alert.domain.provider import Provider
 
 class AssetSeed(TypedDict):
     symbol: str
+    canonical_id: str
     name: str
     display_name: str
     category: str
@@ -27,6 +28,7 @@ class ProviderSeed(TypedDict):
 MVP_ASSETS: list[AssetSeed] = [
     {
         "symbol": "USD_IRT",
+        "canonical_id": "USD_IRT",
         "name": "US Dollar",
         "display_name": "دلار آزاد",
         "category": "currency",
@@ -35,6 +37,7 @@ MVP_ASSETS: list[AssetSeed] = [
     },
     {
         "symbol": "GOLD_18K_IRT",
+        "canonical_id": "GOLD_18K_IRT",
         "name": "18K Gold",
         "display_name": "طلای ۱۸ عیار",
         "category": "gold",
@@ -43,6 +46,7 @@ MVP_ASSETS: list[AssetSeed] = [
     },
     {
         "symbol": "SEKKEH_EMAMI_IRT",
+        "canonical_id": "SEKKEH_EMAMI_IRT",
         "name": "Emami Coin",
         "display_name": "سکه امامی",
         "category": "coin",
@@ -51,6 +55,7 @@ MVP_ASSETS: list[AssetSeed] = [
     },
     {
         "symbol": "USDT_IRT",
+        "canonical_id": "USDT_IRT",
         "name": "Tether",
         "display_name": "تتر",
         "category": "crypto",
@@ -86,6 +91,7 @@ async def seed_mvp_data(session: AsyncSession) -> None:
             session.add(Asset(**asset_data, enabled=True))
             continue
         asset.symbol = asset_data["symbol"]
+        asset.canonical_id = asset_data["canonical_id"]
         asset.name = asset_data["name"]
         asset.display_name = asset_data["display_name"]
         asset.category = asset_data["category"]
