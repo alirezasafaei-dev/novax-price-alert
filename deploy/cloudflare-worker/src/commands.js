@@ -59,7 +59,7 @@ export async function handleMyAlerts(env, chatId) {
   const alerts = await getUserAlerts(env, chatId);
 
   if (alerts.length === 0) {
-    await sendMessage(env, chatId, "هنوز هشدار فعالی نداری.\n\nبرای ساخت هشدار از «🔔 تنظیم هشدار» استفاده کن.", { reply_markup: MAIN_KEYBOARD });
+    await sendMessage(env, chatId, "هنوز هشدار فعالی نداری.\n\nبرای ساخت هشدار از «🔔 تنظیم هشدار» یا دکمه وب‌اپ استفاده کن.", { reply_markup: MAIN_KEYBOARD });
     return;
   }
 
@@ -71,24 +71,33 @@ export async function handleMyAlerts(env, chatId) {
     logError("alerts_list_price_load_failed", { error_message: error?.message });
   }
 
-  await sendMessage(env, chatId, "📋 هشدارهای فعال شما:", { reply_markup: MAIN_KEYBOARD });
+  // Group by asset for better UX (My Assets style summary in chat)
+  const byAsset = {};
+  alerts.forEach(a => {
+    const key = a.canonical_asset_id || `${a.market}:${a.symbol}`;
+    if (!byAsset[key]) byAsset[key] = { name: a.display_asset_name_at_creation || a.symbol, alerts: [], market: a.market, symbol: a.symbol };
+    byAsset[key].alerts.push(a);
+  });
 
-  for (let i = 0; i < alerts.length; i++) {
-    const alert = alerts[i];
-    const current = alert.market === "crypto"
-      ? cryptoPrices?.[alert.symbol]
-      : iranPrices?.[alert.symbol];
+  const assetNames = Object.keys(byAsset).map(k => byAsset[k].name).join("، ");
+  await sendMessage(env, chatId, `📁 دارایی‌های شما با هشدار فعال: ${assetNames}\n\nجزئیات:`, { reply_markup: MAIN_KEYBOARD });
 
-    let currentText = null;
-    if (current !== undefined && current !== null) {
-      const decimals = alert.market === "crypto" && current < 100 ? 2 : 0;
-      currentText = `${formatPrice(current, decimals)} ${unitForMarket(alert.market)}`;
-    }
-
-    const line = formatAlertLine(alert, i, currentText);
-    const status = alert.triggered_at ? "\n   وضعیت: ✅ ارسال‌شده" : "";
-    await sendMessage(env, chatId, line + status, { reply_markup: alertActionsKeyboard(alert.id) });
+  // Send per-asset summary + quick TWA link
+  const assetKeys = Object.keys(byAsset);
+  for (const key of assetKeys.slice(0, 5)) {  // limit for chat
+    const item = byAsset[key];
+    const current = item.market === "crypto" ? cryptoPrices?.[item.symbol] : iranPrices?.[item.symbol];
+    let cur = current != null ? `${formatPrice(current, item.market==="crypto" && current<100 ? 2 : 0)} ${unitForMarket(item.market)}` : "نامشخص";
+    const msg = `• ${item.name}\n  قیمت فعلی: ${cur}\n  تعداد هشدار: ${item.alerts.length}\n\nبرای مدیریت کامل و چارت، از دکمه وب‌اپ استفاده کنید.`;
+    await sendMessage(env, chatId, msg, { reply_markup: MAIN_KEYBOARD });
   }
+
+  if (assetKeys.length > 5) {
+    await sendMessage(env, chatId, `... و ${assetKeys.length - 5} دارایی دیگر.`, { reply_markup: MAIN_KEYBOARD });
+  }
+
+  // Encourage rich UI
+  await sendMessage(env, chatId, "برای تجربه کامل (چارت پیشرفته، پیشنهادهای هوشمند، دارایی‌های من) از دکمه «🌐 اپ وب پیشرفته» استفاده کنید.", { reply_markup: MAIN_KEYBOARD });
 }
 
 export async function handleCreateAlertStart(env, chatId) {
