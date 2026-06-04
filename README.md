@@ -23,7 +23,8 @@
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [API](docs/API.md)
-- [Deployment](docs/DEPLOYMENT.md)
+- [Deployment (VPS)](docs/DEPLOYMENT.md)
+- [Deployment (Cloudflare + Render)](docs/CLOUDFLARE_RENDER_DEPLOYMENT.md) ⭐️ پیشنهادی
 - [Operations](docs/OPERATIONS.md)
 - [Observability](docs/OBSERVABILITY.md)
 - [Progress](docs/PROGRESS.md)

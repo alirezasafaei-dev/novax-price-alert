@@ -1,0 +1,53 @@
+services:
+  # FastAPI Backend Service
+  - type: web
+    name: novax-price-alert-api
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: "pip install uv && uv sync"
+    startCommand: "uv run uvicorn novax_price_alert.api.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: false
+      - key: PORT
+        value: 8000
+      - key: PYTHON_VERSION
+        value: 3.10
+    # Health check
+    healthcheckPath: /health
+    healthcheckInterval: 30
+    healthcheckTimeout: 10
+    healthcheckRetries: 3
+
+  # Background Worker Service
+  - type: worker
+    name: novax-price-alert-worker
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: "pip install uv && uv sync"
+    startCommand: "uv run python -m novax_price_alert.worker_main"
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: false
+      - key: PYTHON_VERSION
+        value: 3.10
+
+databases:
+  # PostgreSQL Database
+  - name: novax-price-alert-db
+    databaseName: price_alert
+    user: price_alert
+    plan: free
+    region: oregon
+
+# Redis for caching (optional but recommended)
+# - name: novax-price-alert-redis
+#   plan: free
+#   region: oregon
+#   maxmemoryPolicy: allkeys-lru
