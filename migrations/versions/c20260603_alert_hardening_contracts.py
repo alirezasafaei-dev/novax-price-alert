@@ -41,7 +41,7 @@ def upgrade() -> None:
     op.add_column("alert_rules", sa.Column("cancelled_at", sa.DateTime(timezone=True), nullable=True))
 
     op.execute(
-        "UPDATE alert_rules SET lifecycle_state = CASE WHEN is_active = 1 "
+        "UPDATE alert_rules SET lifecycle_state = CASE WHEN is_active "
         "THEN 'active' ELSE 'paused' END"
     )
     op.create_index(op.f("ix_alert_rules_lifecycle_state"), "alert_rules", ["lifecycle_state"], unique=False)
