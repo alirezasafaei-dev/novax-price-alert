@@ -124,9 +124,20 @@ Minimum checks:
 - API `/health`
 - API `/api/v1/prices/latest`
 - Cloudflare relay `/health`
+- Cloudflare relay `/status` (cron heartbeat; returns `503` when stale)
 - worker process is running
 - latest prices are not stale
 - provider failures appear in logs
+
+### Cron heartbeat monitor
+
+The scheduled (cron) handler cannot detect its own failure to run, so an
+external monitor polls `/status` and alerts the Telegram ops group when the
+heartbeat is stale or the Worker is unreachable. It runs on **GitHub Actions**
+every 15 minutes (`.github/workflows/cron-heartbeat-monitor.yml`); an in-Iran
+VPS cannot be used because Telegram is filtered there. Required repo secrets:
+`OPS_BOT_TOKEN`, `OPS_CHAT_ID`. Healthy runs are silent. Details:
+`docs/OBSERVABILITY.md` and ADR `docs/adr/0002-cron-heartbeat-monitor-placement.md`.
 
 ## Failure Modes
 
