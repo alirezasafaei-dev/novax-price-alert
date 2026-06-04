@@ -47,7 +47,7 @@ class PriceFetcher:
                     if base_quote.endswith('USDT'):
                         base = base_quote[:-5]
                         prices.append({
-                            'asset_code': base,
+                            'asset_code': f"{base}_USDT",
                             'asset_name': self._get_asset_name(base),
                             'price_value': float(item['price']),
                             'currency_code': 'USDT',

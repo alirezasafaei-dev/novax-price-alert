@@ -71,6 +71,34 @@ MVP_ASSETS: list[AssetSeed] = [
         "unit": "IRT",
         "priority": 40,
     },
+    # Crypto in USDT (for Binance ingest / GH Actions)
+    {
+        "symbol": "BTC_USDT",
+        "canonical_id": "BTC_USDT",
+        "name": "Bitcoin",
+        "display_name": "بیت‌کوین",
+        "category": "crypto",
+        "unit": "USDT",
+        "priority": 50,
+    },
+    {
+        "symbol": "ETH_USDT",
+        "canonical_id": "ETH_USDT",
+        "name": "Ethereum",
+        "display_name": "اتریوم",
+        "category": "crypto",
+        "unit": "USDT",
+        "priority": 51,
+    },
+    {
+        "symbol": "BNB_USDT",
+        "canonical_id": "BNB_USDT",
+        "name": "BNB",
+        "display_name": "بایننس کوین",
+        "category": "crypto",
+        "unit": "USDT",
+        "priority": 52,
+    },
 ]
 
 MVP_PROVIDERS: list[ProviderSeed] = [
