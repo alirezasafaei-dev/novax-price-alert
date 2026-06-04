@@ -229,7 +229,7 @@ Add only the next most valuable improvements after the core is stable.
 
 | Task                              | Owner                | Output                     | Acceptance                                  |
 | --------------------------------- | -------------------- | -------------------------- | ------------------------------------------- |
-| Add metrics only after stability  | Ops + Backend        | initial `/metrics` counter endpoint | token-protected counters expose reliability signals without adding time-series complexity |
+| Add metrics only after stability  | Ops + Backend        | `/metrics` and `/metrics/summary` | token-protected counters and operational summary expose reliability signals without adding time-series complexity |
 | Add price history only if useful  | Product + Backend    | history endpoints or UI    | history does not complicate core flow       |
 | Expand assets carefully           | Product + Backend    | new provider mappings      | new assets do not break naming or units     |
 | Improve Telegram UX incrementally | UX/Content + Backend | small UX releases          | no regression in alert creation or delivery |

@@ -42,12 +42,12 @@
 - stale data نباید trigger بسازد.
 - duplicate notification باید incident تلقی شود.
 
-## کارهای باقی‌مانده
+## وضعیت نهایی و کارهای آینده اختیاری
 
-- metrics و مانیتورینگ دقیق‌تر: endpoint سبک `/metrics` و داشبورد عملیاتی JSON در `/metrics/summary` اضافه شده؛ time-series پایدار فقط در صورت نیاز عملیاتی بعدی انجام شود.
-- تاریخچه‌ی قیمت: endpoint خواندنی `/api/v1/prices/history` روی snapshotهای موجود اضافه شده و TWA اکنون تاریخچه ۱۰ snapshot اخیر هر دارایی را نمایش می‌دهد؛ نمودار پیشرفته هنوز nice-to-have است.
+- metrics و مانیتورینگ عملیاتی: endpoint سبک `/metrics` و داشبورد JSON در `/metrics/summary` آماده است؛ time-series پایدار فقط در صورت نیاز عملیاتی بعدی انجام شود.
+- تاریخچه‌ی قیمت: endpoint خواندنی `/api/v1/prices/history` و نمایش ۱۰ snapshot اخیر در TWA آماده است؛ نمودار پیشرفته فقط nice-to-have است.
 - گسترش کنترل‌شده‌ی دارایی‌ها و بازارها: دارایی مستندشده‌ی EUR در backend seed و provider mappings هم‌راستا شد؛ گسترش بازارهای جدید فقط با mapping/test جدا انجام شود.
-- بهبودهای UX روی summary، edit، و delete flow: summary، نمایش واحد/نام دارایی، escaping خروجی API، create→confirm flow، حذف، و اصلاح قیمت هدف هشدار در TWA انجام شده؛ flowهای پیشرفته‌تر nice-to-have هستند.
+- UX هشدار: summary، نمایش واحد/نام دارایی، escaping خروجی API، create→confirm flow، حذف، و اصلاح قیمت هدف هشدار در TWA انجام شده؛ flowهای پیشرفته‌تر nice-to-have هستند.
 
 ## مرجع‌ها
 
