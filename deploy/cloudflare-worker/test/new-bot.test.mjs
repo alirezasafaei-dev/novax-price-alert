@@ -90,6 +90,7 @@ global.fetch = async (url, options) => {
 };
 
 const worker = await import("../src/index.js");
+const alertsModule = await import("../src/alerts.js");
 
 let updateId = 0;
 
@@ -396,5 +397,81 @@ assert.ok(
   pricePrompt.includes("قیمت فعلی") && pricePrompt.includes("مثال"),
   "price-entry prompt should show current price and an example",
 );
+
+// 13) Active alerts expose pause/resume/edit/repeat actions and state changes are persisted.
+const managementEnv = {
+  ...mockEnv,
+  ALERTS_KV: new MockKV(),
+};
+await managementEnv.ALERTS_KV.put(
+  "alerts:user:3000",
+  JSON.stringify([
+    {
+      id: "mg1",
+      market: "crypto",
+      symbol: "ETH",
+      operator: "below",
+      target: 3500,
+      target_price_display_unit: "USDT",
+      display_asset_name_at_creation: "اتریوم (ETH)",
+      enabled: true,
+      lifecycle_state: "active",
+      triggered_at: null,
+      repeat_every_minutes: null,
+    },
+  ]),
+);
+
+await alertsModule.pauseAlert(managementEnv, 3000, "mg1");
+let managedAlerts = await managementEnv.ALERTS_KV.get("alerts:user:3000", "json");
+let managedAlert = managedAlerts.find((item) => item.id === "mg1");
+assert.equal(managedAlert.lifecycle_state, "paused", "pause action should persist paused state");
+assert.equal(managedAlert.enabled, false, "pause action should disable evaluation");
+
+await alertsModule.resumeAlert(managementEnv, 3000, "mg1");
+managedAlerts = await managementEnv.ALERTS_KV.get("alerts:user:3000", "json");
+managedAlert = managedAlerts.find((item) => item.id === "mg1");
+assert.equal(managedAlert.lifecycle_state, "active", "resume action should reactivate the alert");
+assert.equal(managedAlert.enabled, true, "resume action should re-enable evaluation");
+
+await alertsModule.updateAlertTarget(managementEnv, 3000, "mg1", 3600, "USDT");
+managedAlerts = await managementEnv.ALERTS_KV.get("alerts:user:3000", "json");
+managedAlert = managedAlerts.find((item) => item.id === "mg1");
+assert.equal(managedAlert.target, 3600, "edit action should update the target");
+assert.equal(managedAlert.lifecycle_state, "paused", "editing should pause the alert");
+
+await alertsModule.setAlertRepeat(managementEnv, 3000, "mg1", 60);
+managedAlerts = await managementEnv.ALERTS_KV.get("alerts:user:3000", "json");
+managedAlert = managedAlerts.find((item) => item.id === "mg1");
+assert.equal(managedAlert.repeat_every_minutes, 60, "repeat toggle should enable hourly recurrence");
+
+// 14) Recurring alerts re-arm after delivery and are not cleared as one-shot.
+const recurringEnv = {
+  ...mockEnv,
+  ALERTS_KV: new MockKV(),
+};
+await recurringEnv.ALERTS_KV.put(
+  "alerts:user:2000",
+  JSON.stringify([
+    {
+      id: "rr1",
+      market: "crypto",
+      symbol: "BTC",
+      operator: "above",
+      target: 60000,
+      enabled: true,
+      lifecycle_state: "active",
+      triggered_at: null,
+      repeat_every_minutes: 60,
+    },
+  ]),
+);
+sent = [];
+await worker.default.scheduled({}, recurringEnv, ctx);
+let recurringAlert = (await recurringEnv.ALERTS_KV.get("alerts:user:2000", "json"))[0];
+assert.equal(recurringAlert.lifecycle_state, "active", "recurring alert should remain active after delivery");
+assert.equal(recurringAlert.enabled, true, "recurring alert should stay enabled");
+assert.ok(recurringAlert.next_trigger_at, "recurring alert should store next trigger time");
+assert.equal(recurringAlert.triggered_at, null, "recurring alert should clear triggered_at after re-arming");
 
 console.log("new bot full-flow tests passed");

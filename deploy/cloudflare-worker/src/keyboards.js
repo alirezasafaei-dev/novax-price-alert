@@ -97,7 +97,15 @@ export function alertActionsKeyboard(alertId) {
   return {
     inline_keyboard: [
       [
+        { text: "✏️ ویرایش قیمت", callback_data: `edit_alert:${alertId}` },
         { text: "🗑 حذف", callback_data: `delete:${alertId}` }
+      ],
+      [
+        { text: "⏸ توقف", callback_data: `pause:${alertId}` },
+        { text: "▶️ ادامه", callback_data: `resume:${alertId}` }
+      ],
+      [
+        { text: "🔁 تکرار ۱ساعته", callback_data: `repeat:${alertId}` }
       ]
     ]
   };
