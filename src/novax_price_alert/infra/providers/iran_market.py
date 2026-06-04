@@ -55,7 +55,7 @@ class AlanChandProvider(BasePriceProvider):
             by_category.setdefault(category, []).append(symbol)
 
         results: dict[str, PricePoint] = {}
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
             for category, grouped_symbols in by_category.items():
                 provider_symbols = [
                     PROVIDER_SYMBOLS.get(symbol, {}).get("alanchand", symbol)
@@ -97,7 +97,7 @@ class NerkhProvider(BasePriceProvider):
         provider_symbol = PROVIDER_SYMBOLS.get(symbol, {}).get("nerkh", symbol)
         category = PROVIDER_SYMBOLS.get(symbol, {}).get("category", "currency")
         nerkh_category = "gold" if category == "coin" else category
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
             response = await client.get(
                 f"{self.base_url}/v1/prices/json/{nerkh_category}/{provider_symbol}",
                 params={"x-api-key": self.api_key},
@@ -130,7 +130,11 @@ class TgjuScrapeProvider(BasePriceProvider):
         path = self.paths.get(symbol)
         if path is None:
             raise RuntimeError(f"TGJU scraping is not configured for {symbol}")
-        async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "Mozilla/5.0"}) as client:
+        async with httpx.AsyncClient(
+            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0"},
+            trust_env=False,
+        ) as client:
             response = await client.get(f"{self.base_url}{path}")
             response.raise_for_status()
         html = response.text
@@ -161,7 +165,7 @@ class ApiIrProvider(BasePriceProvider):
         if not self.api_key or not self.base_url:
             raise RuntimeError("API.ir configuration is incomplete")
         provider_symbol = PROVIDER_SYMBOLS.get(symbol, {}).get("api_ir", symbol)
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
             response = await client.get(
                 self.base_url,
                 params={"symbol": provider_symbol},
@@ -187,7 +191,7 @@ class BonbastProvider(BasePriceProvider):
     async def get_price(self, symbol: str) -> PricePoint:
         if symbol != "USD_IRT":
             raise RuntimeError("Bonbast failover is only enabled for supported FX symbols")
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
             response = await client.get(self.base_url)
             response.raise_for_status()
         raw = _extract_raw_price(response.json(), "usd")

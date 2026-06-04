@@ -62,7 +62,7 @@ class TelegramNotificationSender(BaseNotificationSender):
     async def _send_message(self, *, chat_id: str, text: str) -> dict[str, object]:
         if self.relay_url:
             headers = {"X-Relay-Secret": self.relay_secret} if self.relay_secret else {}
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds, trust_env=False) as client:
                 response = await client.post(
                     f"{self.relay_url}/send",
                     headers=headers,
@@ -74,7 +74,7 @@ class TelegramNotificationSender(BaseNotificationSender):
                 return relay_payload
             raise RuntimeError("telegram relay returned an invalid response")
 
-        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+        async with httpx.AsyncClient(timeout=self.timeout_seconds, trust_env=False) as client:
             response = await client.post(
                 f"https://api.telegram.org/bot{self.bot_token}/sendMessage",
                 json={"chat_id": chat_id, "text": text},

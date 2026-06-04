@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from novax_price_alert.application.services.alert_crud_service import AlertCRUDService
 from novax_price_alert.domain.alert_event import AlertEvent
 from novax_price_alert.domain.alert_rule import AlertRule, InvalidAlertTransitionError
+from novax_price_alert.domain.asset import Asset
 from novax_price_alert.domain.enums import AlertCondition, AlertEventStatus, AlertLifecycleState
 from novax_price_alert.domain.latest_price import LatestPrice
 from novax_price_alert.infra.notifications.base import BaseNotificationSender
@@ -32,6 +33,7 @@ async def test_alert_creation_requires_confirmation(db_session: AsyncSession) ->
     alert = AlertRule(
         user_id="user-1",
         asset_id="asset-1",
+        canonical_asset_id="asset-1",
         display_asset_name_at_creation="USD",
         condition_type=AlertCondition.ABOVE,
         target_price=Decimal("91000"),
@@ -59,6 +61,7 @@ async def test_invalid_state_transition_is_rejected() -> None:
     alert = AlertRule(
         user_id="user-1",
         asset_id="asset-1",
+        canonical_asset_id="asset-1",
         condition_type=AlertCondition.ABOVE,
         target_price=Decimal("100"),
         lifecycle_state=AlertLifecycleState.PENDING_CONFIRMATION,
@@ -67,6 +70,33 @@ async def test_invalid_state_transition_is_rejected() -> None:
 
     with pytest.raises(InvalidAlertTransitionError):
         alert.transition_to(AlertLifecycleState.DELIVERED)
+
+
+@pytest.mark.anyio
+async def test_alert_rule_canonical_asset_id_uses_asset_canonical_id(
+    db_session: AsyncSession,
+) -> None:
+    asset = Asset(
+        id="asset-1",
+        symbol="USD_IRT",
+        canonical_id="fiat:USD",
+        name="US Dollar",
+    )
+    rule = AlertRule(
+        user_id="user-1",
+        asset_id="asset-1",
+        canonical_asset_id="fiat:USD",
+        condition_type=AlertCondition.ABOVE,
+        target_price=Decimal("100"),
+        lifecycle_state=AlertLifecycleState.ACTIVE,
+        is_active=True,
+    )
+    db_session.add_all([asset, rule])
+    await db_session.commit()
+
+    refreshed = await db_session.get(AlertRule, rule.id)
+    assert refreshed is not None
+    assert refreshed.canonical_asset_id == "fiat:USD"
 
 
 @pytest.mark.anyio
@@ -83,6 +113,7 @@ async def test_stale_data_blocks_trigger(db_session: AsyncSession) -> None:
             AlertRule(
                 user_id="user-1",
                 asset_id="asset-1",
+                canonical_asset_id="asset-1",
                 condition_type=AlertCondition.ABOVE,
                 target_price=Decimal("100"),
                 cooldown_minutes=0,
@@ -104,6 +135,7 @@ async def test_unavailable_provider_blocks_trigger(db_session: AsyncSession) -> 
         AlertRule(
             user_id="user-1",
             asset_id="asset-1",
+            canonical_asset_id="asset-1",
             condition_type=AlertCondition.ABOVE,
             target_price=Decimal("100"),
             cooldown_minutes=0,
@@ -207,6 +239,7 @@ async def test_structured_lifecycle_logs_are_emitted(
     alert = AlertRule(
         user_id="user-1",
         asset_id="asset-1",
+        canonical_asset_id="asset-1",
         condition_type=AlertCondition.ABOVE,
         target_price=Decimal("100"),
         lifecycle_state=AlertLifecycleState.PENDING_CONFIRMATION,
@@ -230,6 +263,7 @@ async def test_direct_activation_from_pending_without_confirm_timestamp_is_rejec
     alert = AlertRule(
         user_id="user-1",
         asset_id="asset-1",
+        canonical_asset_id="asset-1",
         display_asset_name_at_creation="USD",
         condition_type=AlertCondition.ABOVE,
         target_price=Decimal("91000"),

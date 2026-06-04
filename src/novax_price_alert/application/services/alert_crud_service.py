@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from novax_price_alert.core.observability import emit_event, record_metric
 from novax_price_alert.domain.alert_rule import AlertRule, InvalidAlertTransitionError
+from novax_price_alert.domain.asset import Asset
 from novax_price_alert.domain.enums import AlertLifecycleState
 from novax_price_alert.domain.pricing import normalize_price
 
@@ -22,6 +23,12 @@ class AlertCRUDService:
 
     async def create(self, alert: AlertRule) -> AlertRule:
         alert.target_price = normalize_price(alert.target_price)
+        if not alert.canonical_asset_id:
+            asset = getattr(alert, "asset", None)
+            if asset is None:
+                asset = await self.session.get(Asset, alert.asset_id)
+            alert.canonical_asset_id = asset.canonical_id if asset is not None else alert.asset_id
+
         self.session.add(alert)
         await self.session.commit()
         await self.session.refresh(alert)

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Integer, String
+from sqlalchemy import Boolean, Integer, String, event
 from sqlalchemy.orm import Mapped, mapped_column
 
 from novax_price_alert.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -14,6 +14,12 @@ class Asset(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         nullable=False,
     )
 
+    canonical_id: Mapped[str] = mapped_column(
+        String(50),
+        unique=True,
+        nullable=False,
+    )
+
     name: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
@@ -24,3 +30,9 @@ class Asset(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     unit: Mapped[str] = mapped_column(String(16), nullable=False, default="IRT")
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+@event.listens_for(Asset, "init", propagate=True)
+def _set_default_canonical_id(target, args, kwargs):
+    if kwargs.get("canonical_id") is None and "symbol" in kwargs:
+        kwargs["canonical_id"] = kwargs["symbol"]

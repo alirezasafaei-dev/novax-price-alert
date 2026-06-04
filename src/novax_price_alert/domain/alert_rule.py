@@ -88,6 +88,13 @@ class AlertRule(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         index=True,
     )
 
+    canonical_asset_id: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="",
+        index=True,
+    )
+
     condition_type: Mapped[AlertCondition] = mapped_column(
         String(10),
         nullable=False,
@@ -145,10 +152,6 @@ class AlertRule(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         back_populates="alert_rule",
         cascade="all, delete-orphan",
     )
-
-    @property
-    def canonical_asset_id(self) -> str:
-        return self.asset_id
 
     def transition_to(self, next_state: AlertLifecycleState) -> None:
         current_state = AlertLifecycleState(self.lifecycle_state)
