@@ -82,6 +82,37 @@ Since each line is JSON, you can also filter by level, e.g. only errors:
 npx wrangler tail --format json | grep '"level":"error"'
 ```
 
+## Cron heartbeat & external monitor
+
+A stopped cron cannot be detected from inside the Worker (no run → no log). The
+Worker therefore records a heartbeat and exposes it for an external checker. See
+ADR `docs/adr/0002-cron-heartbeat-monitor-placement.md`.
+
+- **Heartbeat:** at the end of every scheduled run the Worker writes
+  `cron:last_run` to KV (`{ts, checked, triggered}`), via
+  `recordCronHeartbeat()` in `deploy/cloudflare-worker/src/heartbeat.js`.
+- **`GET /status`:** returns `status` (`ok` | `stale` | `unknown`),
+  `age_seconds`, `last_cron_run`, `expected_interval_seconds` (600), and
+  `stale_after_seconds`. Returns HTTP **`503`** when stale (default: > 3 missed
+  ticks = 30 min) so even a dumb HTTP checker can alert on status code alone.
+
+  ```bash
+  curl -s https://novax-telegram-relay.asdevelooper.workers.dev/status
+  # {"status":"ok","last_cron_run":"...","age_seconds":44,...}
+  ```
+
+- **External monitor:** `deploy/monitoring/cron_heartbeat_monitor.sh` polls
+  `/status` and alerts the Telegram ops group if the Worker is unreachable or the
+  heartbeat is stale. It runs on **GitHub Actions** every 15 minutes
+  (`.github/workflows/cron-heartbeat-monitor.yml`) — runners are outside Iran and
+  can reach both Cloudflare and Telegram (the in-Iran VPS cannot, because
+  Telegram is filtered there). Required repo secrets: `OPS_BOT_TOKEN`,
+  `OPS_CHAT_ID`.
+- **Healthy = silent.** The monitor only messages on failure; a green run with no
+  Telegram message is the normal healthy state. To get a visible end-to-end
+  confirmation without a real outage, point it at an unreachable URL once, e.g.
+  `WORKER_URL=http://127.0.0.1:9 COOLDOWN_SEC=0 ... cron_heartbeat_monitor.sh`.
+
 ## Minimum event fields
 
 For each alert lifecycle trace, collect as many of these fields as the runtime emits:
