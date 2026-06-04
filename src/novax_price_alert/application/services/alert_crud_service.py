@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from novax_price_alert.core.observability import emit_event, record_metric
 from novax_price_alert.domain.alert_rule import AlertRule, InvalidAlertTransitionError
@@ -17,7 +18,11 @@ class AlertCRUDService:
         self.session = session
 
     async def list_alerts(self, user_id: str) -> Sequence[AlertRule]:
-        stmt = select(AlertRule).where(AlertRule.user_id == user_id)
+        stmt = (
+            select(AlertRule)
+            .options(selectinload(AlertRule.asset))
+            .where(AlertRule.user_id == user_id)
+        )
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
@@ -46,7 +51,11 @@ class AlertCRUDService:
         return alert
 
     async def get_for_user(self, alert_id: str, user_id: str) -> AlertRule | None:
-        stmt = select(AlertRule).where(AlertRule.id == alert_id, AlertRule.user_id == user_id)
+        stmt = (
+            select(AlertRule)
+            .options(selectinload(AlertRule.asset))
+            .where(AlertRule.id == alert_id, AlertRule.user_id == user_id)
+        )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 

@@ -75,28 +75,46 @@ const headers = initData ? {"X-Telegram-Init-Data": initData, "Content-Type": "a
 const fmt = new Intl.NumberFormat("fa-IR");
 let latest = [];
 let alertDraft = {asset_code:null,condition_type:null,target_price:null,unit:null,asset_name:null,current_price:null};
-
-function assetLabel(code){return latest.find(x=>x.asset_code===code)?.asset_name || code}
+const auth = document.getElementById("auth");
+const prices = document.getElementById("prices");
+const asset = document.getElementById("asset");
+const alerts = document.getElementById("alerts");
+const condition = document.getElementById("condition");
+const target = document.getElementById("target");
+const targetLabel = document.getElementById("target-label");
+const summary = document.getElementById("summary");
+const nextAsset = document.getElementById("next-asset");
+const nextCondition = document.getElementById("next-condition");
+const backCondition = document.getElementById("back-condition");
+const nextTarget = document.getElementById("next-target");
+const backTarget = document.getElementById("back-target");
+const confirmAlert = document.getElementById("confirm-alert");
+const editTarget = document.getElementById("edit-target");
+const cancelAlert = document.getElementById("cancel-alert");
+function escapeHtml(value){return String(value ?? "").replace(/[&<>"']/g, ch => {if(ch==="&") return "&amp;"; if(ch==="<") return "&lt;"; if(ch===">") return "&gt;"; if(ch==='"') return "&quot;"; return "&#39;"})}
+function assetLabel(alert){return alert.asset_name || latest.find(x=>x.asset_code===alert.asset_code)?.asset_name || alert.display_asset_name_at_creation || alert.asset_code || alert.asset_id}
+function resetDraft(){alertDraft = {asset_code:null,condition_type:null,target_price:null,unit:null,asset_name:null,current_price:null}; target.value = ""}
 function showStep(stepId){document.querySelectorAll(".step").forEach(s=>s.classList.remove("active")); document.getElementById(stepId).classList.add("active")}
 async function api(path, opts={}){const r=await fetch(path,{...opts,headers:{...headers,...(opts.headers||{})}}); if(!r.ok) throw new Error(await r.text()); return r.json()}
 async function loadPrices(){
   const data = await api("/api/v1/prices/latest"); latest = data.items || [];
-  prices.innerHTML = latest.map(x=>`<article class="card"><div class="row"><div><div class="name">${x.asset_name}</div><div class="meta">${x.asset_code} · ${x.is_stale?"قدیمی":"به‌روز"}</div></div><div class="price">${fmt.format(Number(x.price_value))}</div></div><div class="meta">آخرین بروزرسانی: ${new Date(x.fetched_at).toLocaleString("fa-IR")}</div></article>`).join("");
-  asset.innerHTML = latest.map(x=>`<option value="${x.asset_code}">${x.asset_name}</option>`).join("");
+  prices.innerHTML = latest.map(x=>`<article class="card"><div class="row"><div><div class="name">${escapeHtml(x.asset_name)}</div><div class="meta">${escapeHtml(x.asset_code)} · ${x.is_stale?"قدیمی":"به‌روز"}</div></div><div class="price">${fmt.format(Number(x.price_value))} ${escapeHtml(x.display_unit || x.currency_code)}</div></div><div class="meta">آخرین بروزرسانی: ${new Date(x.fetched_at).toLocaleString("fa-IR")}</div></article>`).join("");
+  asset.innerHTML = latest.map(x=>`<option value="${escapeHtml(x.asset_code)}">${escapeHtml(x.asset_name)}</option>`).join("");
 }
 async function loadAlerts(){
   if(!initData){auth.classList.remove("hidden"); return}
   const data = await api("/api/v1/alerts");
-  alerts.innerHTML = (data.items||[]).map(a=>`<article class="card"><div class="row"><div><div class="name">${assetLabel(a.asset_id)}</div><div class="meta">${a.condition_type==="above"?"بالای":"زیر"} ${fmt.format(Number(a.target_price))} ${a.target_price_display_unit||""}</div></div><span class="${a.is_active?"ok":"danger"}">${a.is_active?"فعال":"خاموش"}</span></div><button class="ghost" onclick="removeAlert('${a.id}')">حذف</button></article>`).join("");
+  alerts.innerHTML = (data.items||[]).map(a=>`<article class="card"><div class="row"><div><div class="name">${escapeHtml(assetLabel(a))}</div><div class="meta">${a.condition_type==="above"?"بالای":"زیر"} ${fmt.format(Number(a.target_price))} ${escapeHtml(a.target_price_display_unit||"")}</div></div><span class="${a.is_active?"ok":"danger"}">${a.is_active?"فعال":"خاموش"}</span></div><button class="ghost" data-alert-id="${escapeHtml(a.id)}">حذف</button></article>`).join("");
+  alerts.querySelectorAll("button[data-alert-id]").forEach(button => button.onclick = () => removeAlert(button.dataset.alertId));
 }
-async function removeAlert(id){await api(`/api/v1/alerts/${id}`,{method:"DELETE"}); await loadAlerts()}
+async function removeAlert(id){if(!id || !confirm("این هشدار حذف شود؟")) return; await api(`/api/v1/alerts/${id}`,{method:"DELETE"}); await loadAlerts()}
 
 nextAsset.onclick = ()=>{
   const selected = latest.find(x=>x.asset_code===asset.value);
   if(!selected) return;
   alertDraft.asset_code = selected.asset_code;
   alertDraft.asset_name = selected.asset_name;
-  alertDraft.unit = selected.unit || "تومان";
+  alertDraft.unit = selected.display_unit || selected.currency_code || "تومان";
   alertDraft.current_price = selected.price_value;
   showStep("step-condition");
 };
@@ -118,7 +136,7 @@ nextTarget.onclick = ()=>{
   alertDraft.target_price = val;
   const sign = alertDraft.condition_type==="above"?"بالاتر از":"پایین‌تر از";
   const currentText = alertDraft.current_price ? `${fmt.format(alertDraft.current_price)} ${alertDraft.unit}` : "نامشخص";
-  summary.innerHTML = `دارایی: ${alertDraft.asset_name}<br>شرط: ${sign} ${fmt.format(alertDraft.target_price)} ${alertDraft.unit}<br>قیمت فعلی: ${currentText><br><br>بعد از تایید، هشدار فعال می‌شود.`;
+  summary.innerHTML = `دارایی: ${escapeHtml(alertDraft.asset_name)}<br>شرط: ${sign} ${fmt.format(alertDraft.target_price)} ${escapeHtml(alertDraft.unit)}<br>قیمت فعلی: ${escapeHtml(currentText)}<br><br>بعد از تایید، هشدار فعال می‌شود.`;
   showStep("step-confirm");
 };
 
@@ -126,10 +144,10 @@ backTarget.onclick = ()=>showStep("step-condition");
 
 confirmAlert.onclick = async ()=>{
   if(!initData){auth.classList.remove("hidden"); return}
-  await api("/api/v1/alerts",{method:"POST",body:JSON.stringify({asset_code:alertDraft.asset_code,condition_type:alertDraft.condition_type,target_price:alertDraft.target_price,cooldown_minutes:60,confirm:true})});
+  const created = await api("/api/v1/alerts",{method:"POST",body:JSON.stringify({asset_code:alertDraft.asset_code,condition_type:alertDraft.condition_type,target_price:alertDraft.target_price,cooldown_minutes:60})});
+  await api(`/api/v1/alerts/${created.id}/confirm`,{method:"POST"});
   alert("هشدار فعال شد ✅");
-  alertDraft = {asset_code:null,condition_type:null,target_price:null,unit:null,asset_name:null,current_price:null};
-  target.value = "";
+  resetDraft();
   showStep("step-asset");
   await loadAlerts();
 };
@@ -137,8 +155,7 @@ confirmAlert.onclick = async ()=>{
 editTarget.onclick = ()=>showStep("step-target");
 
 cancelAlert.onclick = ()=>{
-  alertDraft = {asset_code:null,condition_type:null,target_price:null,unit:null,asset_name:null,current_price:null};
-  target.value = "";
+  resetDraft();
   showStep("step-asset");
 };
 

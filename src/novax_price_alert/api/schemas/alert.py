@@ -44,6 +44,8 @@ class AlertOut(BaseModel):
     id: str
     user_id: str
     asset_id: str
+    asset_code: str | None = None
+    asset_name: str | None = None
     display_asset_name_at_creation: str | None = None
     condition_type: AlertCondition
     target_price: Decimal
