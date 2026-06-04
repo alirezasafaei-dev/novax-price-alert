@@ -1,0 +1,39 @@
+name: Price Fetcher for Iranian VPS
+
+on:
+  schedule:
+    # Run every 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  fetch-prices:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-price-fetcher.txt
+
+      - name: Fetch prices from external APIs
+        env:
+          BINANCE_API_URL: https://api.binance.com
+          TGJU_API_URL: https://www.tgju.org
+          NOBITEX_API_URL: https://api.nobitex.ir
+          VPS_API_URL: ${{ secrets.VPS_API_URL }}
+          VPS_API_TOKEN: ${{ secrets.VPS_API_TOKEN }}
+        run: |
+          python scripts/fetch_prices_to_vps.py
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Price fetch failed - check logs"

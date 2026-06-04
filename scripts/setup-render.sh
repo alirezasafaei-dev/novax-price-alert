@@ -47,6 +47,9 @@ fi
 log "Installing dependencies..."
 uv sync
 
+log "Installing development dependencies required for migrations..."
+uv sync --extra dev
+
 log "Running database migrations (if DATABASE_URL is set)..."
 if grep -q "^DATABASE_URL=" .env; then
     uv run alembic upgrade head
