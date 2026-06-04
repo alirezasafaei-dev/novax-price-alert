@@ -1,0 +1,40 @@
+name: Cron heartbeat monitor
+
+# مانیتورِ بیرونیِ ضربان cron برای Worker. روی رانرهای GitHub اجرا می‌شود (خارج از
+# ایران، با دسترسی به Cloudflare و Telegram) و مستقل از Cloudflare cron است.
+# `/status` را چک می‌کند و اگر cron کهنه یا قطع باشد به گروه ops تلگرام هشدار می‌دهد.
+#
+# نیازمندِ دو Repository Secret:
+#   OPS_BOT_TOKEN  توکن همان بات تلگرام
+#   OPS_CHAT_ID    chat id گروه ops (مثلاً -1003773212865)
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # هر ۱۵ دقیقه (GitHub ممکن است کمی با تأخیر اجرا کند).
+  workflow_dispatch: {} # امکان اجرای دستی برای تست.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cron-heartbeat-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check cron heartbeat
+        env:
+          BOT_TOKEN: ${{ secrets.OPS_BOT_TOKEN }}
+          OPS_CHAT_ID: ${{ secrets.OPS_CHAT_ID }}
+          COOLDOWN_SEC: "0"
+          STATE_DIR: ${{ runner.temp }}
+        run: |
+          if [[ -z "$BOT_TOKEN" || -z "$OPS_CHAT_ID" ]]; then
+            echo "::error::OPS_BOT_TOKEN / OPS_CHAT_ID secrets are not set; skipping."
+            exit 1
+          fi
+          chmod +x deploy/monitoring/cron_heartbeat_monitor.sh
+          deploy/monitoring/cron_heartbeat_monitor.sh
