@@ -3,7 +3,7 @@
 ## Overview
 
 `novax-price-alert` is designed as a **modular monolith**.  
-This architecture is chosen for the MVP because it provides:
+This architecture is chosen because it provides:
 
 - fast delivery
 - simple deployment
@@ -272,7 +272,7 @@ Design goals:
 
 ## Queue / Worker Model
 
-RQ is chosen for MVP because:
+RQ (or equivalent queue) is chosen because:
 
 - it matches the old project direction
 - it is simple to operate
@@ -297,7 +297,7 @@ Queue responsibilities:
 - mockable external integrations
 - production-aware defaults
 
-## Non-Goals for MVP
+## Non-Goals (current scope)
 
 - microservices
 - multi-tenant enterprise control plane

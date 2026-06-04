@@ -84,7 +84,7 @@ npx wrangler tail --format json | grep '"level":"error"'
 
 ## Runtime counters
 
-The backend exposes a minimal `GET /metrics` JSON endpoint for in-process counters recorded through `record_metric()`. Treat it as a lightweight rollout signal for counts such as alert creation, alert confirmation, invalid transitions, and notification delivery. It is not a durable dashboard or time-series system; add those only as a later controlled expansion if the operational value is clear.
+The backend exposes a minimal `GET /metrics` JSON endpoint for in-process counters recorded through `record_metric()`. Treat it as a lightweight rollout signal for counts such as alert creation, alert confirmation, invalid transitions, and notification delivery. It is not a durable dashboard or time-series system; richer metrics/dashboards should be added only when clear operational value is demonstrated and after core hardening (per roadmap phases 0-3).
 
 Set `METRICS_ACCESS_TOKEN` for deployment and send it with `X-Metrics-Token`. Production requests are rejected when a valid token is not configured and provided.
 
