@@ -6,8 +6,16 @@ TWA_SHELL_HTML = """
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>Novax قیمت بازار ایران</title>
+  <meta name="description" content="قیمت لحظه‌ای دلار، یورو، طلا، سکه، تتر و ارزهای دیجیتال (BTC, ETH و ...) در بازار ایران. هشدار قیمت هوشمند، تاریخچه و چارت در تلگرام با Novax." />
+  <meta name="keywords" content="قیمت دلار, قیمت طلا, قیمت تتر, قیمت بیت کوین, هشدار قیمت, بازار ایران, novax" />
+  <meta property="og:title" content="Novax | قیمت بازار ایران + هشدار هوشمند" />
+  <meta property="og:description" content="قیمت‌های زنده بازار ایران (دلار، طلا، کریپتو) و ساخت هشدار قیمت در تلگرام. چارت و تاریخچه کامل." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://novax.alirezasafaeisystems.ir" />
+  <meta name="theme-color" content="#070b16" />
+  <title>Novax • قیمت بازار ایران و هشدار قیمت</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{color-scheme:dark;--bg:#070b16;--card:#111827;--muted:#9ca3af;--text:#f9fafb;--accent:#38bdf8;--danger:#fb7185;--ok:#34d399}
     *{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#08111f,#020617);font-family:Tahoma,Arial,sans-serif;color:var(--text)}
@@ -19,6 +27,7 @@ TWA_SHELL_HTML = """
     .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ghost{background:#1f2937;color:var(--text)}.danger{background:var(--danger);color:#00111f}.ok{background:var(--ok);color:#00111f}
     .notice{font-size:12px;color:var(--muted);line-height:1.8}.hidden{display:none}
     .step{display:none}.step.active{display:block}.mini{font-size:12px;padding:9px 10px;margin-top:8px}.history-list{display:grid;gap:8px;margin-top:10px}.history-row{display:flex;justify-content:space-between;gap:10px;border-top:1px solid rgb(148 163 184/.12);padding-top:8px}.history-row:first-child{border-top:0;padding-top:0}
+    #price-chart { background:#0b1220; border-radius:8px; padding:4px; margin: 4px 0; }
   </style>
 </head>
 <body>
@@ -31,6 +40,7 @@ TWA_SHELL_HTML = """
   <section class="grid" id="prices"></section>
   <section id="history-card" class="card hidden" style="margin-top:12px">
     <div class="row"><div><div class="name" id="history-title">تاریخچه قیمت</div><div class="meta">آخرین snapshotهای ثبت‌شده</div></div><button id="close-history" class="ghost mini" style="width:auto">بستن</button></div>
+    <canvas id="price-chart" width="400" height="160" style="max-height:180px;margin:8px 0 12px;"></canvas>
     <div id="history-list" class="history-list"></div>
   </section>
   
@@ -79,6 +89,7 @@ const headers = initData ? {"X-Telegram-Init-Data": initData, "Content-Type": "a
 const fmt = new Intl.NumberFormat("fa-IR");
 let latest = [];
 let alertDraft = {asset_code:null,condition_type:null,target_price:null,unit:null,asset_name:null,current_price:null};
+let priceChart = null;
 const auth = document.getElementById("auth");
 const prices = document.getElementById("prices");
 const asset = document.getElementById("asset");
@@ -116,9 +127,45 @@ async function loadHistory(assetCode){
   historyTitle.textContent = `تاریخچه ${selected?.asset_name || assetCode}`;
   historyList.innerHTML = `<div class="meta">در حال دریافت...</div>`;
   historyCard.classList.remove("hidden");
+  if (priceChart) { priceChart.destroy(); priceChart = null; }
   const data = await api(`/api/v1/prices/history?asset_code=${encodeURIComponent(assetCode)}&limit=10`);
   const items = data.items || [];
   historyList.innerHTML = items.length ? items.map(x=>`<div class="history-row"><span>${new Date(x.observed_at).toLocaleString("fa-IR")}</span><strong>${fmt.format(Number(x.price_value))} ${escapeHtml(x.display_unit || x.currency_code)}</strong></div>`).join("") : `<div class="meta">برای این دارایی هنوز تاریخچه‌ای ثبت نشده است.</div>`;
+
+  // Simple price chart (new UX feature)
+  const canvas = document.getElementById("price-chart");
+  if (items.length > 1 && canvas) {
+    const labels = items.map(x => new Date(x.observed_at).toLocaleTimeString("fa-IR", {hour:'2-digit', minute:'2-digit'})).reverse();
+    const values = items.map(x => Number(x.price_value)).reverse();
+    const ctx = canvas.getContext("2d");
+    priceChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: selected?.asset_name || assetCode,
+          data: values,
+          borderColor: "#38bdf8",
+          backgroundColor: "rgba(56,189,248,0.1)",
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true,
+          pointRadius: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { mode: "index" } },
+        scales: {
+          x: { grid: { color: "rgba(148,163,184,0.1)" }, ticks: { color: "#9ca3af", font: { size: 10 } } },
+          y: { grid: { color: "rgba(148,163,184,0.1)" }, ticks: { color: "#9ca3af", font: { size: 10 }, callback: v => fmt.format(v) } }
+        }
+      }
+    });
+  } else if (canvas) {
+    canvas.style.display = "none";
+  }
 }
 async function loadAlerts(){
   if(!initData){auth.classList.remove("hidden"); return}
@@ -180,7 +227,11 @@ cancelAlert.onclick = ()=>{
   showStep("step-asset");
 };
 
-closeHistory.onclick = ()=>historyCard.classList.add("hidden");
+closeHistory.onclick = ()=>{ 
+  historyCard.classList.add("hidden"); 
+  if (priceChart) { priceChart.destroy(); priceChart = null; }
+  const c = document.getElementById("price-chart"); if (c) c.style.display = "";
+};
 
 loadPrices().then(loadAlerts).catch(e=>{prices.innerHTML=`<article class="card danger">خطا در دریافت داده: ${e.message}</article>`});
 setInterval(loadPrices, 60000);

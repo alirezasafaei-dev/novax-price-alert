@@ -1,6 +1,8 @@
+import os
 from fastapi import APIRouter, Depends, Query, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
+from datetime import datetime, timezone
 
 from novax_price_alert.api.deps import get_db
 from novax_price_alert.api.schemas.price import (
@@ -10,7 +12,11 @@ from novax_price_alert.api.schemas.price import (
     PriceHistoryOut,
 )
 from novax_price_alert.application.services.price_query_service import PriceQueryService
+from novax_price_alert.application.services.price_service import PriceService
 from novax_price_alert.core.settings import settings
+from novax_price_alert.db.models import Asset, Provider
+from novax_price_alert.infra.providers.base import PricePoint
+from sqlalchemy import select
 
 router = APIRouter(prefix="/prices", tags=["prices"])
 
@@ -69,7 +75,7 @@ async def get_price_history(
 
 @router.post("/ingest")
 async def ingest_prices(
-    items: List[dict],
+    payload: dict | List[dict],
     authorization: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_db),
 ):
@@ -78,8 +84,8 @@ async def ingest_prices(
     This endpoint is used by the price fetcher running on GitHub Actions
     to avoid IP blocking on Iranian VPS.
     """
-    # Verify API token
-    expected_token = getattr(settings, 'METRICS_ACCESS_TOKEN', None)
+    # Verify API token (prefer real os.environ as PM2 may set it after settings cache)
+    expected_token = os.environ.get("METRICS_ACCESS_TOKEN") or getattr(settings, "metrics_access_token", None)
     if not expected_token:
         raise HTTPException(status_code=500, detail="METRICS_ACCESS_TOKEN not configured")
     
@@ -90,20 +96,100 @@ async def ingest_prices(
     if token != expected_token:
         raise HTTPException(status_code=403, detail="Invalid API token")
     
-    # Process and store prices
-    service = PriceQueryService(db)
+    price_service = PriceService(db)
     success_count = 0
+    errors = []
+    
+    # Support both {"items": [...]} (from fetch_prices_to_vps.py) and raw list
+    if isinstance(payload, dict) and "items" in payload:
+        items = payload.get("items", [])
+    else:
+        items = payload if isinstance(payload, list) else []
     
     for item in items:
         try:
-            # Here you would call your service to store the price
-            # For now, just log it
+            asset_code = item.get("asset_code") or item.get("symbol")
+            if not asset_code:
+                errors.append({"item": item, "error": "missing asset_code"})
+                continue
+            
+            # Resolve asset by symbol (e.g. BTC, USD_IRT, BTC_USDT)
+            stmt = select(Asset).where(Asset.symbol == asset_code)
+            result = await db.execute(stmt)
+            asset = result.scalar_one_or_none()
+            
+            if asset is None:
+                # Flexible mapping for GH fetcher which sends "BTC" etc.
+                candidates = [
+                    asset_code,
+                    f"{asset_code}_USDT",
+                    f"{asset_code}_IRT",
+                    asset_code.replace("_IRT", "").replace("_USDT", ""),
+                ]
+                for cand in candidates:
+                    if cand == asset_code:
+                        continue
+                    stmt2 = select(Asset).where(Asset.symbol == cand)
+                    r2 = await db.execute(stmt2)
+                    asset = r2.scalar_one_or_none()
+                    if asset:
+                        break
+            
+            if asset is None:
+                errors.append({"asset_code": asset_code, "error": "asset not found in DB"})
+                continue
+            
+            # Resolve or create provider
+            provider_slug = item.get("provider", "external_ingest")
+            prov_stmt = select(Provider).where(Provider.slug == provider_slug)
+            prov_result = await db.execute(prov_stmt)
+            provider = prov_result.scalar_one_or_none()
+            
+            if provider is None:
+                provider = Provider(
+                    slug=provider_slug,
+                    name=provider_slug.replace("_", " ").title(),
+                    priority=50,
+                    is_active=True,
+                )
+                db.add(provider)
+                await db.commit()
+                await db.refresh(provider)
+            
+            price_value = float(item.get("price_value") or item.get("price") or 0)
+            currency_code = item.get("currency_code", "USDT")
+            display_unit = item.get("display_unit", currency_code)
+            
+            fetched_at_str = item.get("fetched_at")
+            if fetched_at_str:
+                try:
+                    observed_at = datetime.fromisoformat(fetched_at_str.replace("Z", "+00:00"))
+                except Exception:
+                    observed_at = datetime.now(timezone.utc)
+            else:
+                observed_at = datetime.now(timezone.utc)
+            
+            price_point = PricePoint(
+                symbol=asset_code,
+                price=price_value,
+                observed_at=observed_at,
+                fetched_at=observed_at,
+                raw_data=item,
+            )
+            
+            await price_service.save_price(
+                asset_id=asset.id,
+                provider_id=provider.id,
+                price_point=price_point,
+            )
             success_count += 1
+            
         except Exception as e:
-            print(f"Error processing price item: {e}")
+            errors.append({"item": item.get("asset_code"), "error": str(e)})
     
     return {
-        "status": "success",
+        "status": "success" if success_count > 0 else "partial",
         "processed": success_count,
-        "total": len(items)
+        "total": len(items),
+        "errors": errors[:5] if errors else None,  # limit error reporting
     }
