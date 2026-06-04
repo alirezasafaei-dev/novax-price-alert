@@ -10,7 +10,7 @@ This roadmap is the active execution plan for the current Telegram price-alert b
 - فاز ۱: شفاف کردن جریان ساخت هشدار، نمایش دارایی و واحد قیمت.
 - فاز ۲: سخت‌سازی reliability با جلوگیری از duplicate notification، stale data و state transitions نامشخص.
 - فاز ۳: اضافه کردن دید عملیاتی، مانیتورینگ cron و runbook incident.
-- فاز ۴: توسعه کنترل‌شده قابلیت‌های بعدی پس از تثبیت هسته.
+- فاز ۴: بهبودهای تولید و گسترش غنی رابط کاربری و قابلیت‌ها (بدون محدودیت MVP).
 
 این roadmap طوری نوشته شده که هم agent خودکار بتواند به‌صورت مرحله‌ای کار کند و هم تیم فنی بتواند آن را به ticket/PR تبدیل کند.
 
@@ -199,40 +199,63 @@ Make runtime health visible and supportable.
 | Define incident playbooks    | Ops             | short operational response notes     | duplicate send, stale data, and relay failure have clear steps |
 | Keep release checks short    | Tech Lead + Ops | deploy checklist                     | every release uses the same health gates                       |
 
-## Phase 4: Controlled Expansion
+## Phase 4: Production Enhancements & Rich UX (Full Product Focus)
 
 ### Objective
 
-Add only the next most valuable improvements after the core is stable.
+Deliver the best possible user experience and functionality for a real production Iranian Telegram price-alert product. No MVP limitations, nice-to-haves, or artificial "controlled" brakes. Prioritize ambitious, high-impact improvements to UI/UX (TWA as full mini-app + enriched bot chat), functionality (smart suggestions, My Assets as first-class, advanced charting, richer interactions), while maintaining the hardened core.
 
-### Candidate Work
+### Key Principles (Updated)
 
-- metrics and dashboards
-- price history
-- broader asset coverage
-- richer Telegram UX improvements
+- Treat as full production product from day one.
+- UI/UX and end-user value are top priority alongside reliability.
+- Bold expansions: richer interfaces, smarter features, better asset coverage, seamless bot <-> TWA integration.
+- Every improvement must be high-quality, well-tested, and observable.
+- Roadmap is living; new phases for ongoing innovation (e.g. AI suggestions, multi-asset portfolios, notifications 2.0).
 
-### Tasks
+### Current Focus Areas (Best Possible Work)
 
-- [x] add metrics only after stability is confirmed — token-protected `/metrics` counters and `/metrics/summary` operational dashboard API added
-- [x] add price history only if it is clearly useful and not disruptive — read-only `/api/v1/prices/history` endpoint added on existing snapshots and exposed in TWA
-- [x] expand assets carefully with provider mappings and naming consistency — documented EUR support aligned in backend seed/provider mappings with tests
-- [x] improve Telegram UX incrementally without changing the core alert flow — TWA summary/unit/delete, target edit, history panel, and create→confirm polish completed
-- [x] require a rollback plan for every expansion item — each controlled-expansion API surface documents a remove/disable path
+- **UI/UX Overhaul**:
+  - TWA as a polished, navigable mini-app (tabs/sections: Prices, My Assets, Alerts, Create, Charts).
+  - Interactive advanced charts (time ranges, comparisons, sparklines).
+  - Smart "Suggestions" and "My Assets" as core experiences with quick actions.
+  - Enriched bot chat: asset browser, inline suggestions, deep links to TWA.
+- **Functionality**:
+  - My Assets: full watchlist view, performance summary, bulk actions.
+  - Smart suggestions: based on volatility, user history, market moves, complementary assets.
+  - Advanced alerts: more conditions, trailing, multi-asset.
+  - Better discovery: search, categories, trends.
+- **Expansion**:
+  - More assets/markets with quality providers.
+  - Richer notifications and summaries in bot.
+  - Operational polish for scale.
 
-### Acceptance
+### Tasks (Ambitious & Ongoing)
 
-- expansion does not regress the baseline alert and pricing flow
-- every new feature has a clear owner and rollback path
+- [ ] Full TWA navigation and app-like experience (tabs, better flows, Telegram WebApp APIs).
+- [ ] Advanced charting and visualization in TWA (ranges, multi-asset, trends).
+- [ ] First-class My Assets experience with summaries, quick-edit, favorites.
+- [ ] Intelligent Suggestions engine (volatility-based, personalized, in both bot and TWA).
+- [ ] Enrich bot chat UX (asset quick views, suggestion carousels, one-tap actions).
+- [ ] Expand assets with robust testing and user-facing discovery.
+- [ ] Advanced alert features (trailing stops, conditions, bulk management).
+- [ ] Continuous UX polish, performance, accessibility for Iranian users.
 
-### Task Breakdown
+### Acceptance (Full Product)
+
+- Improvements deliver clear, measurable value to real users (better engagement with alerts, discovery).
+- No regression in core reliability/hardening.
+- UI/UX feels premium and native to Telegram + web.
+- Features are ambitious but maintainable and observable.
+
+### Task Breakdown (Examples)
 
 | Task                              | Owner                | Output                     | Acceptance                                  |
 | --------------------------------- | -------------------- | -------------------------- | ------------------------------------------- |
-| Add metrics only after stability  | Ops + Backend        | `/metrics` and `/metrics/summary` | token-protected counters and operational summary expose reliability signals without adding time-series complexity |
-| Add price history only if useful  | Product + Backend    | history endpoints or UI    | history does not complicate core flow       |
-| Expand assets carefully           | Product + Backend    | new provider mappings      | new assets do not break naming or units     |
-| Improve Telegram UX incrementally | UX/Content + Backend | small UX releases          | no regression in alert creation or delivery |
+| TWA as full mini-app             | UX + Backend        | Tabbed navigation, rich components | Users can fluidly browse prices/assets/alerts/create without friction |
+| Advanced charts + My Assets      | Backend + UX        | Time-range charts, asset summaries | My Assets shows value + actions; charts are interactive and useful |
+| Smart Suggestions                | Product + Backend   | Volatility + history based recs | Suggestions appear in TWA and bot, lead to higher alert creation |
+| Enriched bot chat UX             | Worker + UX         | Inline asset views, suggestion buttons | Chat feels modern, reduces need to open TWA for simple tasks |
 
 ## Milestone Checklist
 
