@@ -1,13 +1,26 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Find the project root directory (three levels up from the current file)
 BASE_DIR = Path(__file__).resolve().parents[3]
 # Define the path to the SQLite database file
 DB_PATH = BASE_DIR / "novax_price_alert.db"
+
+
+def normalize_database_url(value: str) -> str:
+    if not isinstance(value, str):
+        return value
+
+    if value.startswith("postgres://"):
+        return value.replace("postgres://", "postgresql+asyncpg://", 1)
+
+    if value.startswith("postgresql://") and not value.startswith("postgresql+asyncpg://"):
+        return value.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    return value
 
 
 class Settings(BaseSettings):
@@ -23,6 +36,11 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str = f"sqlite+aiosqlite:///{DB_PATH}"
     redis_url: str = "redis://localhost:6379/0"
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        return normalize_database_url(value)
 
     telegram_bot_token: str = ""
     telegram_relay_url: str = ""

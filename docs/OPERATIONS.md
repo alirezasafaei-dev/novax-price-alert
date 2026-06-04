@@ -2,6 +2,8 @@
 
 ## Runtime Model
 
+### VPS Deployment (Legacy)
+
 Operate two backend processes and one Cloudflare Worker:
 
 - FastAPI API process
@@ -9,6 +11,16 @@ Operate two backend processes and one Cloudflare Worker:
 - Cloudflare Telegram relay Worker
 
 Do not use Docker for this deployment path.
+
+### Render + Cloudflare Deployment (Current)
+
+Operate one web service and one Cloudflare Worker:
+
+- **Render Web Service**: FastAPI API (serverless, auto-scaling)
+- **Cloudflare Worker**: Telegram relay, webhook handling, and cron jobs
+- **No separate worker process**: Cron jobs run on Cloudflare Workers (free tier)
+
+This is the recommended deployment path for cost-effectiveness and simplicity.
 
 ## Common Commands
 
@@ -125,9 +137,31 @@ Minimum checks:
 - API `/api/v1/prices/latest`
 - Cloudflare relay `/health`
 - Cloudflare relay `/status` (cron heartbeat; returns `503` when stale)
-- worker process is running
+- worker process is running (VPS) OR Cloudflare cron is active (Render)
 - latest prices are not stale
 - provider failures appear in logs
+
+### Render + Cloudflare Monitoring
+
+For the current Render deployment:
+
+```bash
+# Check Render API health
+curl https://novax-price-alert-api.onrender.com/health
+
+# Check Render API latest prices
+curl https://novax-price-alert-api.onrender.com/api/v1/prices/latest
+
+# Check Cloudflare Worker health
+curl https://novax-telegram-relay.asdevelooper.workers.dev/health
+
+# Check Cloudflare Worker cron heartbeat
+curl https://novax-telegram-relay.asdevelooper.workers.dev/status
+```
+
+**Render Logs**: Access logs via Render dashboard for the web service.
+
+**Cloudflare Logs**: Use `npx wrangler tail` from `deploy/cloudflare-worker/` for Worker and cron logs.
 
 ### Cron heartbeat monitor
 
@@ -145,7 +179,7 @@ VPS cannot be used because Telegram is filtered there. Required repo secrets:
 
 - Keep existing latest prices.
 - Do not overwrite with empty or fabricated values.
-- Inspect worker logs for provider failure order.
+- Inspect worker logs (VPS) or Cloudflare Worker logs (Render) for provider failure order.
 - Prefer adding a provider key before lowering reliability assumptions.
 
 ### Cloudflare Relay Failure
@@ -158,8 +192,16 @@ VPS cannot be used because Telegram is filtered there. Required repo secrets:
 ### Database Failure
 
 - `/health` should fail or return an error.
-- Stop workers if writes are failing repeatedly.
-- Restore from PostgreSQL backup if needed.
+- Stop workers if writes are failing repeatedly (VPS only).
+- Restore from PostgreSQL backup if needed (Neon or Render PostgreSQL).
+
+### Render Service Failure
+
+- Check Render dashboard for service status and logs.
+- Verify environment variables are correctly set.
+- Check deployment logs for startup errors.
+- Render automatically restarts failed services; check for crash loops.
+- If persistent, consider redeploying or scaling up resources.
 
 ## Security Rules
 
