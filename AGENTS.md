@@ -54,6 +54,10 @@ This file is the first stop for any new agent or chat session.
 - Tests: `tests/`
 - Database migrations: `migrations/versions/`
 
+## Recent Code Fixes
+
+- **field_validator import (2026-06-04)**: Added missing `field_validator` import to `src/novax_price_alert/core/settings.py` to fix ruff check failure. The validator was used but not imported from pydantic.
+
 ## When Updating Docs
 
 - Prefer short, concrete, current statements.

@@ -3,8 +3,8 @@
 ## Strategy Overview
 
 This deployment strategy uses:
-- **Cloudflare Workers** → Telegram relay and webhook handling (edge, globally distributed)
-- **Render** → Python FastAPI backend and background worker (serverless, auto-scaling)
+- **Cloudflare Workers** → Telegram relay, webhook handling, and cron jobs (edge, globally distributed)
+- **Render** → Python FastAPI backend (serverless, auto-scaling)
 - **Neon PostgreSQL** → Serverless database (or Render built-in PostgreSQL)
 - **Vercel** → Frontend (if applicable)
 
@@ -15,6 +15,7 @@ This deployment strategy uses:
 - ✅ **Cost-effective** - Free tiers available, scale as needed
 - ✅ **Migration path** - Easy to move to Hetzner/DigitalOcean when traffic grows
 - ✅ **Fast globally** - Cloudflare Workers edge deployment
+- ✅ **No worker needed on Render** - Cron jobs run on Cloudflare Workers (free)
 
 ## Prerequisites
 
@@ -24,11 +25,38 @@ This deployment strategy uses:
 - Telegram bot token from BotFather
 - Domain (optional, for custom URLs)
 
+## Current Deployment Status
+
+**As of 2026-06-04:**
+
+✅ **Cloudflare Worker Relay**: Deployed and operational
+- URL: `https://novax-telegram-relay.asdevelooper.workers.dev`
+- Cron triggers: Active (every 10 minutes)
+- KV namespaces: Configured
+- Analytics Engine: Enabled for metrics
+
+✅ **Render API**: Deployed and operational
+- URL: `https://novax-price-alert-api.onrender.com`
+- Health: `{"status":"ok","db":"connected"}`
+- Web Service: Active
+- Background Worker: Not needed (cron runs on Cloudflare)
+
+✅ **Database**: Connected and operational
+- Provider: Neon PostgreSQL or Render PostgreSQL
+- Migrations: Applied
+- Seed data: Loaded
+
 ## Deployment Steps
 
 ### 1. Cloudflare Telegram Relay (Already Deployed)
 
 ✅ **Status**: Already deployed to `https://novax-telegram-relay.asdevelooper.workers.dev`
+
+**Components:**
+- Telegram webhook relay and message handling
+- Cron job for alert evaluation (every 10 minutes)
+- KV storage for alert state and sessions
+- Analytics Engine for metrics collection
 
 If you need to redeploy:
 ```bash
@@ -40,12 +68,21 @@ bash scripts/deploy-cloudflare-relay.sh
 
 Verify:
 ```bash
+# Health check
 curl https://novax-telegram-relay.asdevelooper.workers.dev/health
+
+# Cron heartbeat status
+curl https://novax-telegram-relay.asdevelooper.workers.dev/status
 ```
 
-Expected response:
+Expected health response:
 ```json
 {"status":"ok","service":"telegram-relay"}
+```
+
+Expected status response:
+```json
+{"status":"ok","last_cron_run":"...","age_seconds":45,...}
 ```
 
 ### 2. Setup Database
@@ -161,7 +198,7 @@ bash deploy/cloudflare-worker/scripts/setup-webhook-via-worker.sh
 User → Telegram Bot → Cloudflare Worker → Render API → Neon PostgreSQL
                       ↑                    ↑
                       |                    |
-                   Cron Trigger      Background Worker
+                   Cron Trigger         (API only)
 ```
 
 ## File Structure
@@ -180,9 +217,9 @@ novax-price-alert/
 
 ## Cost Estimate (Free Tier)
 
-- **Cloudflare Workers**: Free (100k requests/day)
+- **Cloudflare Workers**: Free (100k requests/day, includes cron triggers)
 - **Render Web Service**: Free (750 hours/month)
-- **Render Worker**: Free (750 hours/month)
+- **Render Worker**: Not needed - cron jobs run on Cloudflare Workers
 - **Neon PostgreSQL**: Free (0.5GB storage, ~200 hours compute)
 - **Total**: $0/month initially
 
@@ -215,10 +252,10 @@ Scale as needed:
 
 ### Worker Not Processing Alerts
 
-1. Check worker logs in Render dashboard
-2. Verify worker service is running
-3. Check database connection in worker
-4. Ensure cron jobs are configured (if using Render cron)
+1. Check Cloudflare Worker logs: `npx wrangler tail` (from `deploy/cloudflare-worker/`)
+2. Verify cron trigger is configured in `wrangler.toml` (`crons = ["*/10 * * * *"]`)
+3. Check `/status` endpoint on Cloudflare Worker for heartbeat status
+4. Ensure KV namespaces are correctly configured in `wrangler.toml`
 
 ## Monitoring
 
