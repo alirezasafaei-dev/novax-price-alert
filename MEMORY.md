@@ -19,7 +19,7 @@ Keep it short and update it only when the project reality changes.
 - `docs/README.md` is the docs index.
 - `docs/PROGRESS.md` is the live progress note.
 - `docs/archive/` is the home for retired docs.
-- `docs/archive/PROJECT_IMPROVEMENT_REPORT_FA/` stores the historical improvement report series.
+- active docs must be self-contained and not depend on retired drafts.
 
 ## Important Current Code Facts
 

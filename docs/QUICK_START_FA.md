@@ -25,6 +25,7 @@ https://t.me/novax_price_bot
 ### دریافت قیمت‌ها
 
 💰 قیمت‌ها ← بازار را انتخاب کنید:
+
 - **₿ کریپتو**: BTC / ETH / SOL / BNB — به USDT
 - **💵 ارز**: دلار (USD) و یورو (EUR) — به تومان
 - **🪙 طلا**: طلای ۱۸ عیار و سکه امامی — به تومان
@@ -49,7 +50,7 @@ https://t.me/novax_price_bot
 
 ## 📚 مستندات کامل
 
-- **راهنمای کامل کاربر**: `docs/USER_GUIDE_COMPLETE_FA.md`
+- **راهنمای کاربر**: `docs/USER_GUIDE_FA.md`
 - **چک‌لیست تولید**: `docs/PRODUCTION_CHECKLIST_FA.md`
 - **راهنمای فنی**: `docs/OBSERVABILITY.md` و `docs/OPERATIONS.md`
 

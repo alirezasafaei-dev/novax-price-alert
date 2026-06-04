@@ -23,11 +23,6 @@
 - [docs/adr/0001-alert-source-of-truth.md](docs/adr/0001-alert-source-of-truth.md)
 - [docs/adr/0002-cron-heartbeat-monitor-placement.md](docs/adr/0002-cron-heartbeat-monitor-placement.md)
 
-## Archive
-
-- [docs/archive/README.md](docs/archive/README.md)
-- [docs/archive/root/](docs/archive/root/)
-
 ## Code Areas
 
 - `src/novax_price_alert/` application code

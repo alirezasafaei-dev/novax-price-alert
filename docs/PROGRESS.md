@@ -21,8 +21,21 @@
 - retry/backoff برای fetch/send در مسیرهای موقت
 - observability برای eventهای کلیدی هشدار و cron
 
+## وضعیت فازبندی
+
+- [x] Phase 0: Baseline Freeze — active docs aligned, no direct archive dependencies
+- [ ] Phase 1: UX Clarity — alert creation and price/unit clarity
+- [ ] Phase 2: Reliability Hardening — duplicate prevention and stale-data protection
+- [ ] Phase 3: Observability and Operations — health checks and incident readiness
+- [ ] Phase 4: Controlled Expansion — safe improvements after stability
+
 ## چیزهایی که از گزارش‌های بهبود باید مبنا بمانند
 
+- این سند و `docs/IMPLEMENTATION_ROADMAP_FA.md` اکنون مرجع اصلی جهت‌دهی را فراهم می‌کنند.
+- Report 01: محصول باید برای کاربر ایرانی واقعی تعریف شود و اولویتش شفافیت، اطمینان و hardening باشد.
+- Report 02: شناسایی و رفع ابهام در انتخاب دارایی، جریان هشدار، ارسال تکراری، داده قدیمی، و دید عملیاتی.
+- Report 03: تبدیل تحلیل‌ها به راهکارهای عملی برای محصول، UX، تکنولوژی و عملیات.
+- Reports 04–06: جزئیات تاکتیکی برای چرخه زندگی هشدار، gateهای freshness، idempotency در ارسال، و پایش عملیاتی.
 - دارایی و شرط باید همیشه explicit باشند.
 - unit اصلی کاربر باید `تومان` باشد.
 - summary نهایی باید قابل فهم و قابل بازبینی باشد.

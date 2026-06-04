@@ -1,6 +1,52 @@
 # Implementation Roadmap
 
-This roadmap turns the archived improvement reports and the current codebase into an executable plan.
+This roadmap is the active execution plan for the current Telegram price-alert bot. It encodes the product, UX, technical, and operational hardening guidance that is already reflected in the current codebase.
+
+## خلاصه فارسی
+
+این سند مسیر فازبندی شده و قابل اجرا را برای تبدیل بات قیمت تلگرام به یک محصول قابل اعتماد و پشتیبانی‌شدنی تعریف می‌کند.
+
+- فاز ۰: ثابت کردن وضعیت فعلی مستندات و جلوگیری از وابستگی به drafts/آرشیو.
+- فاز ۱: شفاف کردن جریان ساخت هشدار، نمایش دارایی و واحد قیمت.
+- فاز ۲: سخت‌سازی reliability با جلوگیری از duplicate notification، stale data و state transitions نامشخص.
+- فاز ۳: اضافه کردن دید عملیاتی، مانیتورینگ cron و runbook incident.
+- فاز ۴: توسعه کنترل‌شده قابلیت‌های بعدی پس از تثبیت هسته.
+
+این roadmap طوری نوشته شده که هم agent خودکار بتواند به‌صورت مرحله‌ای کار کند و هم تیم فنی بتواند آن را به ticket/PR تبدیل کند.
+
+## Core hardening findings
+
+- The product is defined for real Iranian Telegram users, not a demonstration MVP.
+- The main display unit for users is **تومان**. Crypto prices are shown in **USDT** only where that is the actual market convention.
+- Alert creation must be explicit, confirm-gated, and summary-first.
+- Asset identity must be canonical and unambiguous across flow, storage, and notifications.
+- Stale or unavailable data must not trigger alerts.
+- Duplicate notification behavior is a production incident, not a benign retry.
+- Observability and operational readiness are baseline requirements, not optional extras.
+
+Background: earlier review work produced a six-part improvement series, and this roadmap distills those findings into a single living plan.
+
+- Report 01 establishes the mission: a real Iranian Telegram price-alert bot, not an MVP demo. It emphasizes alignment of product, UX, and code to real user needs.
+- Report 02 analyzes the key risks: asset-selection ambiguity, alert-flow ambiguity, duplicate notifications, stale data, observability gaps, and mismatched docs.
+- Report 03 turns those risks into practical execution guidance across product, UX, technical, and operational layers.
+- Reports 04–06 provide deeper tactical detail on alert lifecycle hardening, data freshness guards, delivery idempotency, and operational readiness.
+- The roadmap distills that series into a short active execution plan while keeping the full reports available for reference.
+
+## Execution Plan for Automation and Engineering
+
+This section defines the executable phase plan for both an automated agent and a full-stack / senior engineering team.
+
+- هر فاز با یک هدف مشخص آغاز می‌شود.
+- هر تسک باید به صورت `- [ ]` نوشته شود تا agent بتواند آن را علامت بزند.
+- پذیرش هر فاز با شرایط پذیرش روشن شده است.
+
+### چک‌لیست کلی فازها
+
+- [ ] Phase 0: Baseline Freeze
+- [ ] Phase 1: UX Clarity
+- [ ] Phase 2: Reliability Hardening
+- [ ] Phase 3: Observability and Operations
+- [ ] Phase 4: Controlled Expansion
 
 ## Goal
 
@@ -12,7 +58,7 @@ Make the current Telegram bot and Telegram Mini App stack more reliable, more ex
 - Treat alert confirmation as mandatory.
 - Keep canonical asset identity and explicit units everywhere.
 - Prefer reliability and observability over new surface area.
-- Keep active docs short; keep history in `docs/archive/`.
+- Keep active docs short; keep retired drafts separate from the living docs.
 
 ## Phase 0: Baseline Freeze
 
@@ -23,14 +69,16 @@ Lock the current behavior as the reference baseline.
 ### Deliverables
 
 - active docs aligned with code
-- archived improvement reports retained for reference
+- historical review work retained separately, while active docs remain authoritative
 - production facts documented in `PROGRESS.md`
 
 ### Tasks
 
-- verify `README.md`, `AGENTS.md`, `INDEX.md`, and `MEMORY.md`
-- keep the active docs set short
-- move phase-specific docs to archive
+- [ ] verify `README.md`, `AGENTS.md`, `INDEX.md`, and `MEMORY.md`
+- [ ] keep the active docs set short
+- [ ] move retired phase-specific drafts to a separate history location
+- [ ] confirm no active doc links to retired drafts or archive paths
+- [ ] mark this phase complete when all active docs are aligned and checked in
 
 ### Acceptance
 
@@ -39,11 +87,11 @@ Lock the current behavior as the reference baseline.
 
 ### Task Breakdown
 
-| Task | Owner | Output | Acceptance |
-|---|---|---|---|
-| Freeze active docs list | Tech Lead | `docs/README.md`, `INDEX.md`, `MEMORY.md` aligned | no duplicate source-of-truth paths |
-| Retain archive as history only | Docs owner | archived reports in `docs/archive/` | active docs do not point at archived drafts as current |
-| Verify production facts | Backend + Ops | `PROGRESS.md` matches runtime reality | no statement in `PROGRESS.md` conflicts with code |
+| Task                                       | Owner         | Output                                                  | Acceptance                                             |
+| ------------------------------------------ | ------------- | ------------------------------------------------------- | ------------------------------------------------------ |
+| Freeze active docs list                    | Tech Lead     | `docs/README.md`, `INDEX.md`, `MEMORY.md` aligned       | no duplicate source-of-truth paths                     |
+| Retain retired review work as history only | Docs owner    | historical review work kept outside the active docs set | active docs do not depend on retired drafts as current |
+| Verify production facts                    | Backend + Ops | `PROGRESS.md` matches runtime reality                   | no statement in `PROGRESS.md` conflicts with code      |
 
 ## Phase 1: UX Clarity
 
@@ -59,9 +107,11 @@ Remove ambiguity from price display and alert creation.
 
 ### Tasks
 
-- keep the alert wizard step-based
-- ensure target price and unit are always visible
-- keep delete/list flows easy to understand
+- [ ] keep the alert wizard step-based
+- [ ] ensure target price and unit are always visible in every alert creation step
+- [ ] keep delete/list flows easy to understand
+- [ ] verify confirmation text displays asset, condition, unit, and target price
+- [ ] update live docs to reflect the current alert flow and wording
 
 ### Acceptance
 
@@ -70,12 +120,12 @@ Remove ambiguity from price display and alert creation.
 
 ### Task Breakdown
 
-| Task | Owner | Output | Acceptance |
-|---|---|---|---|
-| Standardize asset naming | Product + UX/Content | explicit asset labels in flows | no sensitive message uses ambiguous asset-only text |
-| Standardize target unit language | Product + Backend | `toman`/`USDT` conventions documented | display and stored unit match |
-| Harden confirmation summary | UX/Content + Backend | summary template for alert confirm step | user sees asset, condition, unit, target, current price |
-| Simplify list/delete flow | UX/Content | easy alert list + delete experience | user can inspect and delete without confusion |
+| Task                             | Owner                | Output                                  | Acceptance                                              |
+| -------------------------------- | -------------------- | --------------------------------------- | ------------------------------------------------------- |
+| Standardize asset naming         | Product + UX/Content | explicit asset labels in flows          | no sensitive message uses ambiguous asset-only text     |
+| Standardize target unit language | Product + Backend    | `toman`/`USDT` conventions documented   | display and stored unit match                           |
+| Harden confirmation summary      | UX/Content + Backend | summary template for alert confirm step | user sees asset, condition, unit, target, current price |
+| Simplify list/delete flow        | UX/Content           | easy alert list + delete experience     | user can inspect and delete without confusion           |
 
 ## Phase 2: Reliability Hardening
 
@@ -92,9 +142,11 @@ Protect the system from duplicate alerts, stale data, and ambiguous state transi
 
 ### Tasks
 
-- keep alert state transitions explicit and validated
-- keep stale/unavailable data from triggering notifications
-- keep send retries from creating duplicate user-visible events
+- [ ] keep alert state transitions explicit and validated
+- [ ] keep stale/unavailable data from triggering notifications
+- [ ] keep send retries from creating duplicate user-visible events
+- [ ] add or verify tests for duplicate prevention and stale-data gates
+- [ ] review alert lifecycle coverage in current code and tests
 
 ### Acceptance
 
@@ -104,12 +156,12 @@ Protect the system from duplicate alerts, stale data, and ambiguous state transi
 
 ### Task Breakdown
 
-| Task | Owner | Output | Acceptance |
-|---|---|---|---|
-| Enforce canonical asset identity | Backend | canonical ids in alert and asset records | evaluations use canonical ids, not display text |
-| Validate state transitions | Backend + Tech Lead | explicit alert lifecycle checks | invalid transitions are rejected |
-| Add idempotency to delivery | Backend | single-send guarantee per event | duplicate send cannot happen for same event |
-| Block stale triggers | Backend + Ops | freshness gate in evaluation | stale/unavailable prices do not fire alerts |
+| Task                             | Owner               | Output                                   | Acceptance                                      |
+| -------------------------------- | ------------------- | ---------------------------------------- | ----------------------------------------------- |
+| Enforce canonical asset identity | Backend             | canonical ids in alert and asset records | evaluations use canonical ids, not display text |
+| Validate state transitions       | Backend + Tech Lead | explicit alert lifecycle checks          | invalid transitions are rejected                |
+| Add idempotency to delivery      | Backend             | single-send guarantee per event          | duplicate send cannot happen for same event     |
+| Block stale triggers             | Backend + Ops       | freshness gate in evaluation             | stale/unavailable prices do not fire alerts     |
 
 ## Phase 3: Observability and Operations
 
@@ -126,9 +178,11 @@ Make runtime health visible and supportable.
 
 ### Tasks
 
-- watch `alert_evaluated`, `notification_send_*`, and `stale_data_detected`
-- keep `/status` monitored from outside the Worker
-- keep `/health` and `/api/v1/prices/latest` in release checks
+- [ ] watch `alert_evaluated`, `notification_send_*`, and `stale_data_detected`
+- [ ] keep `/status` monitored from outside the Worker
+- [ ] keep `/health` and `/api/v1/prices/latest` in release checks
+- [ ] document the incident response path for duplicate send, stale data, and relay failure
+- [ ] verify runbook references are up to date in `docs/OPERATIONS.md` or `docs/OBSERVABILITY.md`
 
 ### Acceptance
 
@@ -138,12 +192,12 @@ Make runtime health visible and supportable.
 
 ### Task Breakdown
 
-| Task | Owner | Output | Acceptance |
-|---|---|---|---|
-| Keep log contract stable | Backend + Ops | structured event names and fields | alert trace can be reconstructed from logs |
-| Keep cron heartbeat external | Ops | GitHub Actions monitor and `/status` | stale cron is detected outside Worker |
-| Define incident playbooks | Ops | short operational response notes | duplicate send, stale data, and relay failure have clear steps |
-| Keep release checks short | Tech Lead + Ops | deploy checklist | every release uses the same health gates |
+| Task                         | Owner           | Output                               | Acceptance                                                     |
+| ---------------------------- | --------------- | ------------------------------------ | -------------------------------------------------------------- |
+| Keep log contract stable     | Backend + Ops   | structured event names and fields    | alert trace can be reconstructed from logs                     |
+| Keep cron heartbeat external | Ops             | GitHub Actions monitor and `/status` | stale cron is detected outside Worker                          |
+| Define incident playbooks    | Ops             | short operational response notes     | duplicate send, stale data, and relay failure have clear steps |
+| Keep release checks short    | Tech Lead + Ops | deploy checklist                     | every release uses the same health gates                       |
 
 ## Phase 4: Controlled Expansion
 
@@ -158,6 +212,14 @@ Add only the next most valuable improvements after the core is stable.
 - broader asset coverage
 - richer Telegram UX improvements
 
+### Tasks
+
+- [ ] add metrics only after stability is confirmed
+- [ ] add price history only if it is clearly useful and not disruptive
+- [ ] expand assets carefully with provider mappings and naming consistency
+- [ ] improve Telegram UX incrementally without changing the core alert flow
+- [ ] require a rollback plan for every expansion item
+
 ### Acceptance
 
 - expansion does not regress the baseline alert and pricing flow
@@ -165,34 +227,23 @@ Add only the next most valuable improvements after the core is stable.
 
 ### Task Breakdown
 
-| Task | Owner | Output | Acceptance |
-|---|---|---|---|
-| Add metrics only after stability | Ops + Backend | metric set for reliability | metrics help decision-making, not noise |
-| Add price history only if useful | Product + Backend | history endpoints or UI | history does not complicate core flow |
-| Expand assets carefully | Product + Backend | new provider mappings | new assets do not break naming or units |
-| Improve Telegram UX incrementally | UX/Content + Backend | small UX releases | no regression in alert creation or delivery |
+| Task                              | Owner                | Output                     | Acceptance                                  |
+| --------------------------------- | -------------------- | -------------------------- | ------------------------------------------- |
+| Add metrics only after stability  | Ops + Backend        | metric set for reliability | metrics help decision-making, not noise     |
+| Add price history only if useful  | Product + Backend    | history endpoints or UI    | history does not complicate core flow       |
+| Expand assets carefully           | Product + Backend    | new provider mappings      | new assets do not break naming or units     |
+| Improve Telegram UX incrementally | UX/Content + Backend | small UX releases          | no regression in alert creation or delivery |
 
 ## Milestone Checklist
 
-### Milestone A
-
-- active docs aligned
-- baseline behavior frozen
-
-### Milestone B
-
-- alert flow explicit and confirm-gated
-
-### Milestone C
-
-- duplicate prevention and stale-data protection stable
-
-### Milestone D
-
-- observability and ops runbooks usable in production
+- [ ] Milestone A: active docs aligned and baseline behavior frozen
+- [ ] Milestone B: alert flow explicit and confirm-gated
+- [ ] Milestone C: duplicate prevention and stale-data protection stable
+- [ ] Milestone D: observability and ops runbooks usable in production
 
 ## How to Use This File
 
-- Use it as the execution layer after reading `PROGRESS.md`.
-- Break each phase into tickets or PRs.
+- Use it as the execution layer together with `PROGRESS.md` and the live docs.
+- Turn each task into a ticket or PR and mark it with `[x]` when done.
+- For automated agents: complete the checklist items in order and only proceed if acceptance criteria are met.
 - Do not add new features before the current phase is accepted.

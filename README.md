@@ -16,7 +16,7 @@
 - برای راه‌اندازی: [docs/QUICK_START_FA.md](docs/QUICK_START_FA.md)
 - برای راهنمای کاربر: [docs/USER_GUIDE_FA.md](docs/USER_GUIDE_FA.md)
 - برای جزئیات فنی: [docs/README.md](docs/README.md)
-- مستندات ریشه‌ی قدیمی و مقطعی در [docs/archive/root/](docs/archive/root/) نگهداری می‌شوند.
+- مستندات قدیمی و retired drafts در خارج از مسیر مستندات فعال نگهداری می‌شوند.
 - برای مسیر سریع ایجنت و چت جدید: [AGENTS.md](AGENTS.md) و [INDEX.md](INDEX.md)
 
 ## مستندات اصلی
@@ -28,6 +28,7 @@
 - [Observability](docs/OBSERVABILITY.md)
 - [Progress](docs/PROGRESS.md)
 
-## آرشیو
+## وضعیت مستندات
 
-مستندات قدیمی، تکراری، یا phase-specific در [docs/archive/](docs/archive/README.md) نگهداری می‌شوند.
+- مستندات فعال باید کوتاه، همسو با کد، و قابل پیگیری باشند.
+- drafts تاریخی جدا از مسیر مستندات فعال نگهداری می‌شوند.

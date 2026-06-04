@@ -24,7 +24,7 @@ Core runtime pieces:
 
 ## Architectural Intent
 
-This project is a product-first, Telegram-centric modular monolith. The architecture should reflect the current codebase and the hardening work documented in the archived improvement reports.
+This project is a product-first, Telegram-centric modular monolith. The architecture should reflect the current codebase and the hardening work distilled into the live docs.
 
 The live architecture aligns with these principles:
 
@@ -51,7 +51,7 @@ The live source of truth is the repository code and the short living docs:
 - `docs/OBSERVABILITY.md`
 - `docs/OPERATIONS.md`
 
-Historical improvement reports are archived and used to justify design choices, but they are not the runtime source of truth.
+The live docs encode the current hardening decisions and runtime design. Retired reports are historical context only and are not required for day-to-day engineering or operations.
 
 ## High-Level Component Model
 
@@ -74,9 +74,11 @@ Application Services
    +--> Redis Queue --> RQ Workers --> Telegram Notifications
 
 ```
+
 ## Core Modules
 
 ### 1. API Layer
+
 Responsibilities:
 
 - expose HTTP endpoints
@@ -95,6 +97,7 @@ Modules:
 - bot webhook
 
 ### 2. Services Layer
+
 Responsibilities:
 
 - enforce business rules
@@ -114,6 +117,7 @@ Expected service modules:
 - `notification_service`
 
 ### 3. Repositories Layer
+
 Responsibilities:
 
 - isolate database access logic
@@ -121,6 +125,7 @@ Responsibilities:
 - keep persistence details out of API handlers
 
 ### 4. Integrations Layer
+
 Responsibilities:
 
 - Telegram API adapter
@@ -129,6 +134,7 @@ Responsibilities:
 - provider abstraction and normalization
 
 ### 5. Worker Layer
+
 Responsibilities:
 
 - process asynchronous jobs
@@ -138,31 +144,41 @@ Responsibilities:
 ## Module Boundaries
 
 ### User Module
+
 Owns:
+
 - Telegram user identity
 - user lifecycle for bot interaction
 
 ### Asset/Price Module
+
 Owns:
+
 - supported assets
 - provider-fed prices
 - latest price state
 - historical price snapshots
 
 ### Alert Module
+
 Owns:
+
 - alert rules
 - condition matching
 - cooldown enforcement
 - alert event creation
 
 ### Notification Module
+
 Owns:
+
 - outgoing Telegram notifications
 - delivery status tracking
 
 ### Bot Integration Module
+
 Owns:
+
 - webhook parsing
 - command handling
 - Telegram-specific formatting and transport
