@@ -9,6 +9,7 @@ class LatestPriceItemOut(BaseModel):
     asset_name: str
     price_value: Decimal
     currency_code: str
+    display_unit: str
     provider: str
     fetched_at: datetime
     is_stale: bool = False

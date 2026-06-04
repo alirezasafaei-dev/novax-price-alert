@@ -27,7 +27,7 @@
 - [x] Phase 1: UX Clarity — alert creation and price/unit clarity
 - [x] Phase 2: Reliability Hardening — duplicate prevention and stale-data protection
 - [x] Phase 3: Observability and Operations — health checks and incident readiness
-- [ ] Phase 4: Controlled Expansion — safe improvements after stability
+- [ ] Phase 4: Controlled Expansion — safe improvements after stability (metrics endpoint and TWA alert UX polish started)
 
 ## چیزهایی که از گزارش‌های بهبود باید مبنا بمانند
 
@@ -44,10 +44,10 @@
 
 ## کارهای باقی‌مانده
 
-- metrics و مانیتورینگ دقیق‌تر
+- metrics و مانیتورینگ دقیق‌تر: endpoint سبک `/metrics` برای counters فعلی با token اختیاری/الزامی در production اضافه شده؛ dashboard/time-series هنوز باقی است.
 - تاریخچه‌ی قیمت
 - گسترش کنترل‌شده‌ی دارایی‌ها و بازارها
-- بهبودهای UX روی summary، edit، و delete flow
+- بهبودهای UX روی summary، edit، و delete flow: summary، نمایش واحد/نام دارایی، escaping خروجی API، و create→confirm flow در TWA اصلاح شده؛ edit کامل و flowهای پیشرفته هنوز باقی است.
 
 ## مرجع‌ها
 

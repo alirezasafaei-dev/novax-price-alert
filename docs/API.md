@@ -26,7 +26,8 @@ GET /health
 
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "db": "connected"
 }
 ```
 
@@ -36,7 +37,7 @@ GET /health
 
 ### `GET /ready`
 
-Dependency readiness check.
+Lightweight process readiness check.
 
 ```http
 GET /ready
@@ -44,19 +45,7 @@ GET /ready
 
 ```json
 {
-  "status": "ready",
-  "database": "ok",
-  "redis": "ok"
-}
-```
-
-Failure example:
-
-```json
-{
-  "status": "not_ready",
-  "database": "ok",
-  "redis": "error"
+  "status": "ready"
 }
 ```
 
@@ -84,11 +73,41 @@ GET /api/v1/prices/latest?asset_code=USDT
       "asset_name": "Tether",
       "price_value": "652000",
       "currency_code": "IRT",
+      "display_unit": "IRT",
       "provider": "mock",
       "fetched_at": "2026-05-18T10:00:00Z",
       "is_stale": false
     }
   ]
+}
+```
+
+---
+
+## Metrics
+
+### `GET /metrics`
+
+Return the current in-process observability counters. This endpoint is intentionally small and is meant as a first controlled-expansion metric surface for reliability counters, not as a durable time-series store.
+
+Access control:
+
+- Set `METRICS_ACCESS_TOKEN` in deployed environments and send it as `X-Metrics-Token`.
+- In `ENVIRONMENT=production`, the endpoint rejects requests if no valid token is configured/provided.
+- Local development can call it without a token when `METRICS_ACCESS_TOKEN` is empty.
+
+```http
+GET /metrics
+X-Metrics-Token: <token>
+```
+
+```json
+{
+  "metrics": {
+    "alert_creation_count": 12,
+    "alert_flow_completion_count": 10,
+    "notification_send_succeeded_count": 9
+  }
 }
 ```
 
@@ -154,6 +173,8 @@ All alert response objects use this shape:
 | `id` | Alert id. |
 | `user_id` | Owner user id from the authenticated Telegram user context. |
 | `asset_id` | Canonical backend asset id resolved from the submitted `asset_code`. |
+| `asset_code` | Optional user-facing asset code included when the response was loaded with asset context. |
+| `asset_name` | Optional user-facing asset name included when the response was loaded with asset context. |
 | `display_asset_name_at_creation` | User-facing asset label snapshotted when the alert was created. |
 | `condition_type` | `above` or `below`. |
 | `target_price` | Normalized positive threshold value. |
@@ -190,6 +211,8 @@ Response example (`201 Created`):
   "id": "21",
   "user_id": "12",
   "asset_id": "asset-usdt",
+  "asset_code": "USDT",
+  "asset_name": "Tether",
   "display_asset_name_at_creation": "Tether",
   "condition_type": "above",
   "target_price": "700000",
@@ -223,7 +246,7 @@ Response example (`201 Created`):
 
 When `confirm=true`, the backend creates the alert and immediately runs the confirmation transition, returning `lifecycle_state="active"`, `is_active=true`, and `confirmed_at` set.
 
-> Warning: new clients should not rely on `confirm=true` for normal UX. Use a two-step create → review → `POST /confirm` flow so the user explicitly sees the asset, condition, normalized target, and unit before activation.
+> Warning: new clients should not rely on `confirm=true` for normal UX. The Telegram Web App uses a two-step client flow: user review, `POST /alerts` to stage the rule, then `POST /confirm` to activate it so the user explicitly sees the asset, condition, normalized target, and unit before activation.
 
 Error cases:
 
@@ -246,6 +269,8 @@ Response example:
   "id": "21",
   "user_id": "12",
   "asset_id": "asset-usdt",
+  "asset_code": "USDT",
+  "asset_name": "Tether",
   "display_asset_name_at_creation": "Tether",
   "condition_type": "above",
   "target_price": "700000",
@@ -283,6 +308,8 @@ GET /api/v1/alerts
       "id": "21",
       "user_id": "12",
       "asset_id": "asset-usdt",
+      "asset_code": "USDT",
+      "asset_name": "Tether",
       "display_asset_name_at_creation": "Tether",
       "condition_type": "above",
       "target_price": "700000",
@@ -323,6 +350,8 @@ Response example:
   "id": "21",
   "user_id": "12",
   "asset_id": "asset-usdt",
+  "asset_code": "USDT",
+  "asset_name": "Tether",
   "display_asset_name_at_creation": "Tether",
   "condition_type": "above",
   "target_price": "710000",

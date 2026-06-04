@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     telegram_relay_secret: str = ""
     telegram_auth_max_age_seconds: int = 86_400
     telegram_send_timeout_seconds: int = 10
+    metrics_access_token: str = ""
 
     alanchand_api_token: str = ""
     alanchand_base_url: str = "https://api.alanchand.com"

@@ -1,3 +1,5 @@
+from typing import Any
+
 from sqlalchemy import Boolean, Integer, String, event
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -33,6 +35,10 @@ class Asset(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 
 @event.listens_for(Asset, "init", propagate=True)
-def _set_default_canonical_id(target, args, kwargs):
+def _set_default_canonical_id(
+    target: "Asset",
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> None:
     if kwargs.get("canonical_id") is None and "symbol" in kwargs:
         kwargs["canonical_id"] = kwargs["symbol"]

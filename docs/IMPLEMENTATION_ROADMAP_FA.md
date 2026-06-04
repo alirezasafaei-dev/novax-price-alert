@@ -214,10 +214,10 @@ Add only the next most valuable improvements after the core is stable.
 
 ### Tasks
 
-- [ ] add metrics only after stability is confirmed
+- [x] add metrics only after stability is confirmed — initial token-protected in-process `/metrics` counter endpoint added
 - [ ] add price history only if it is clearly useful and not disruptive
 - [ ] expand assets carefully with provider mappings and naming consistency
-- [ ] improve Telegram UX incrementally without changing the core alert flow
+- [ ] improve Telegram UX incrementally without changing the core alert flow — TWA summary/unit/delete and create→confirm polish started
 - [ ] require a rollback plan for every expansion item
 
 ### Acceptance
@@ -229,7 +229,7 @@ Add only the next most valuable improvements after the core is stable.
 
 | Task                              | Owner                | Output                     | Acceptance                                  |
 | --------------------------------- | -------------------- | -------------------------- | ------------------------------------------- |
-| Add metrics only after stability  | Ops + Backend        | metric set for reliability | metrics help decision-making, not noise     |
+| Add metrics only after stability  | Ops + Backend        | initial `/metrics` counter endpoint | token-protected counters expose reliability signals without adding time-series complexity |
 | Add price history only if useful  | Product + Backend    | history endpoints or UI    | history does not complicate core flow       |
 | Expand assets carefully           | Product + Backend    | new provider mappings      | new assets do not break naming or units     |
 | Improve Telegram UX incrementally | UX/Content + Backend | small UX releases          | no regression in alert creation or delivery |

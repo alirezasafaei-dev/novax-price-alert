@@ -12,6 +12,10 @@ def record_metric(name: str, value: int = 1) -> None:
     metrics[name] += value
 
 
+def get_metrics_snapshot() -> dict[str, int]:
+    return dict(sorted(metrics.items()))
+
+
 def emit_event(event_name: str, **fields: Any) -> None:
     payload = {"event_name": event_name, **fields}
     logger.info(event_name, extra=payload)

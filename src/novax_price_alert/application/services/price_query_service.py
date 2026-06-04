@@ -18,7 +18,7 @@ class PriceQueryService:
     async def latest_prices(
         self,
         asset_symbol: str | None,
-    ) -> Sequence[Row[tuple[str, str, Decimal, str, datetime, bool]]]:
+    ) -> Sequence[Row[tuple[str, str, Decimal, str, str, datetime, bool]]]:
         """
         Returns joined latest price data.
 
@@ -27,18 +27,20 @@ class PriceQueryService:
             asset_symbol,
             asset_name,
             price,
+            display_unit,
             provider_slug,
             observed_at,
         )
         """
 
         stmt = select(
-            Asset.symbol,
-            Asset.name,
-            LatestPrice.price,
+            Asset.symbol.label("symbol"),
+            Asset.name.label("name"),
+            LatestPrice.price.label("price"),
+            Asset.unit.label("display_unit"),
             Provider.slug.label("provider_slug"),
-            LatestPrice.observed_at,
-            LatestPrice.is_stale,
+            LatestPrice.observed_at.label("observed_at"),
+            LatestPrice.is_stale.label("is_stale"),
         ).join(LatestPrice, LatestPrice.asset_id == Asset.id).outerjoin(
             Provider,
             Provider.id == LatestPrice.provider_id,
