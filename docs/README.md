@@ -17,6 +17,8 @@ This repository keeps a small set of living docs and moves historical/spec draft
 
 - `docs/adr/` contains the durable architecture decisions.
 - `docs/archive/` contains superseded, duplicated, or phase-specific documents that are kept only for reference.
+- Historical improvement reports live in `docs/archive/PROJECT_IMPROVEMENT_REPORT_FA/`.
+- Those reports are the baseline for the current product/UX hardening direction.
 
 ## What changed
 

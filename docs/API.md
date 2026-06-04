@@ -10,7 +10,7 @@ All public business endpoints are versioned under:
 
 The backend alert API now follows the post-hardening lifecycle contract: alert creation is staged, activation requires explicit confirmation, asset identity is canonicalized through the backend asset catalog, price units are explicit, stale prices do not trigger notifications, and delivered alert events are idempotent.
 
-> Authentication note: the current API uses the Telegram/Bale user dependency configured in the app runtime. Examples below focus on request/response shape and omit auth headers.
+> Authentication note: the current API uses the Telegram user dependency configured in the app runtime. Examples below focus on request/response shape and omit auth headers.
 
 ---
 
@@ -96,9 +96,9 @@ GET /api/v1/prices/latest?asset_code=USDT
 
 ## Users
 
-### `GET /api/v1/users/{bale_user_id}`
+### `GET /api/v1/users/{telegram_user_id}`
 
-Fetch a user by Bale user id for debug/admin MVP usage.
+Fetch a user by Telegram user id for debug/admin MVP usage.
 
 ```http
 GET /api/v1/users/123456789
@@ -107,7 +107,7 @@ GET /api/v1/users/123456789
 ```json
 {
   "id": "12",
-  "bale_user_id": "123456789",
+  "telegram_user_id": "123456789",
   "username": "ali_dev",
   "first_name": "Ali",
   "last_name": "Safaei",
@@ -152,7 +152,7 @@ All alert response objects use this shape:
 | Field | Meaning |
 |---|---|
 | `id` | Alert id. |
-| `user_id` | Owner user id from the authenticated Telegram/Bale user context. |
+| `user_id` | Owner user id from the authenticated Telegram user context. |
 | `asset_id` | Canonical backend asset id resolved from the submitted `asset_code`. |
 | `display_asset_name_at_creation` | User-facing asset label snapshotted when the alert was created. |
 | `condition_type` | `above` or `below`. |
