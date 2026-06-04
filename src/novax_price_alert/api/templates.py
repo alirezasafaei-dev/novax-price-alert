@@ -18,7 +18,7 @@ TWA_SHELL_HTML = """
     select,input{width:100%;border:1px solid rgb(148 163 184/.25);background:#0b1220;color:var(--text);border-radius:14px;padding:12px;margin-top:8px;font-size:15px}
     .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ghost{background:#1f2937;color:var(--text)}.danger{background:var(--danger);color:#00111f}.ok{background:var(--ok);color:#00111f}
     .notice{font-size:12px;color:var(--muted);line-height:1.8}.hidden{display:none}
-    .step{display:none}.step.active{display:block}
+    .step{display:none}.step.active{display:block}.mini{font-size:12px;padding:9px 10px;margin-top:8px}.history-list{display:grid;gap:8px;margin-top:10px}.history-row{display:flex;justify-content:space-between;gap:10px;border-top:1px solid rgb(148 163 184/.12);padding-top:8px}.history-row:first-child{border-top:0;padding-top:0}
   </style>
 </head>
 <body>
@@ -29,6 +29,10 @@ TWA_SHELL_HTML = """
   </section>
   <section id="auth" class="card notice hidden">برای ساخت هشدار، این صفحه را داخل تلگرام باز کنید.</section>
   <section class="grid" id="prices"></section>
+  <section id="history-card" class="card hidden" style="margin-top:12px">
+    <div class="row"><div><div class="name" id="history-title">تاریخچه قیمت</div><div class="meta">آخرین snapshotهای ثبت‌شده</div></div><button id="close-history" class="ghost mini" style="width:auto">بستن</button></div>
+    <div id="history-list" class="history-list"></div>
+  </section>
   
   <section class="card" style="margin-top:12px">
     <div class="name">ساخت هشدار</div>
@@ -79,6 +83,10 @@ const auth = document.getElementById("auth");
 const prices = document.getElementById("prices");
 const asset = document.getElementById("asset");
 const alerts = document.getElementById("alerts");
+const historyCard = document.getElementById("history-card");
+const historyTitle = document.getElementById("history-title");
+const historyList = document.getElementById("history-list");
+const closeHistory = document.getElementById("close-history");
 const condition = document.getElementById("condition");
 const target = document.getElementById("target");
 const targetLabel = document.getElementById("target-label");
@@ -98,16 +106,29 @@ function showStep(stepId){document.querySelectorAll(".step").forEach(s=>s.classL
 async function api(path, opts={}){const r=await fetch(path,{...opts,headers:{...headers,...(opts.headers||{})}}); if(!r.ok) throw new Error(await r.text()); return r.json()}
 async function loadPrices(){
   const data = await api("/api/v1/prices/latest"); latest = data.items || [];
-  prices.innerHTML = latest.map(x=>`<article class="card"><div class="row"><div><div class="name">${escapeHtml(x.asset_name)}</div><div class="meta">${escapeHtml(x.asset_code)} · ${x.is_stale?"قدیمی":"به‌روز"}</div></div><div class="price">${fmt.format(Number(x.price_value))} ${escapeHtml(x.display_unit || x.currency_code)}</div></div><div class="meta">آخرین بروزرسانی: ${new Date(x.fetched_at).toLocaleString("fa-IR")}</div></article>`).join("");
+  prices.innerHTML = latest.map(x=>`<article class="card"><div class="row"><div><div class="name">${escapeHtml(x.asset_name)}</div><div class="meta">${escapeHtml(x.asset_code)} · ${x.is_stale?"قدیمی":"به‌روز"}</div></div><div class="price">${fmt.format(Number(x.price_value))} ${escapeHtml(x.display_unit || x.currency_code)}</div></div><div class="meta">آخرین بروزرسانی: ${new Date(x.fetched_at).toLocaleString("fa-IR")}</div><button class="ghost mini" data-history-asset="${escapeHtml(x.asset_code)}">تاریخچه قیمت</button></article>`).join("");
+  prices.querySelectorAll("button[data-history-asset]").forEach(button => button.onclick = () => loadHistory(button.dataset.historyAsset));
   asset.innerHTML = latest.map(x=>`<option value="${escapeHtml(x.asset_code)}">${escapeHtml(x.asset_name)}</option>`).join("");
+}
+async function loadHistory(assetCode){
+  if(!assetCode) return;
+  const selected = latest.find(x=>x.asset_code===assetCode);
+  historyTitle.textContent = `تاریخچه ${selected?.asset_name || assetCode}`;
+  historyList.innerHTML = `<div class="meta">در حال دریافت...</div>`;
+  historyCard.classList.remove("hidden");
+  const data = await api(`/api/v1/prices/history?asset_code=${encodeURIComponent(assetCode)}&limit=10`);
+  const items = data.items || [];
+  historyList.innerHTML = items.length ? items.map(x=>`<div class="history-row"><span>${new Date(x.observed_at).toLocaleString("fa-IR")}</span><strong>${fmt.format(Number(x.price_value))} ${escapeHtml(x.display_unit || x.currency_code)}</strong></div>`).join("") : `<div class="meta">برای این دارایی هنوز تاریخچه‌ای ثبت نشده است.</div>`;
 }
 async function loadAlerts(){
   if(!initData){auth.classList.remove("hidden"); return}
   const data = await api("/api/v1/alerts");
-  alerts.innerHTML = (data.items||[]).map(a=>`<article class="card"><div class="row"><div><div class="name">${escapeHtml(assetLabel(a))}</div><div class="meta">${a.condition_type==="above"?"بالای":"زیر"} ${fmt.format(Number(a.target_price))} ${escapeHtml(a.target_price_display_unit||"")}</div></div><span class="${a.is_active?"ok":"danger"}">${a.is_active?"فعال":"خاموش"}</span></div><button class="ghost" data-alert-id="${escapeHtml(a.id)}">حذف</button></article>`).join("");
+  alerts.innerHTML = (data.items||[]).map(a=>`<article class="card"><div class="row"><div><div class="name">${escapeHtml(assetLabel(a))}</div><div class="meta">${a.condition_type==="above"?"بالای":"زیر"} ${fmt.format(Number(a.target_price))} ${escapeHtml(a.target_price_display_unit||"")}</div></div><span class="${a.is_active?"ok":"danger"}">${a.is_active?"فعال":"خاموش"}</span></div><div class="actions"><button class="ghost" data-edit-alert-id="${escapeHtml(a.id)}" data-current-target="${escapeHtml(a.target_price)}" data-target-unit="${escapeHtml(a.target_price_display_unit||"")}">اصلاح قیمت</button><button class="danger" data-alert-id="${escapeHtml(a.id)}">حذف</button></div></article>`).join("");
   alerts.querySelectorAll("button[data-alert-id]").forEach(button => button.onclick = () => removeAlert(button.dataset.alertId));
+  alerts.querySelectorAll("button[data-edit-alert-id]").forEach(button => button.onclick = () => editAlertTarget(button.dataset.editAlertId, button.dataset.currentTarget, button.dataset.targetUnit));
 }
 async function removeAlert(id){if(!id || !confirm("این هشدار حذف شود؟")) return; await api(`/api/v1/alerts/${id}`,{method:"DELETE"}); await loadAlerts()}
+async function editAlertTarget(id,currentTarget,unit){const next = prompt(`قیمت هدف جدید را وارد کنید (${unit || "واحد فعلی"})`, currentTarget || ""); const val = parseFloat(next); if(!id || !val || val <= 0){return} await api(`/api/v1/alerts/${id}`,{method:"PATCH",body:JSON.stringify({target_price:val})}); await loadAlerts()}
 
 nextAsset.onclick = ()=>{
   const selected = latest.find(x=>x.asset_code===asset.value);
@@ -158,6 +179,8 @@ cancelAlert.onclick = ()=>{
   resetDraft();
   showStep("step-asset");
 };
+
+closeHistory.onclick = ()=>historyCard.classList.add("hidden");
 
 loadPrices().then(loadAlerts).catch(e=>{prices.innerHTML=`<article class="card danger">خطا در دریافت داده: ${e.message}</article>`});
 setInterval(loadPrices, 60000);

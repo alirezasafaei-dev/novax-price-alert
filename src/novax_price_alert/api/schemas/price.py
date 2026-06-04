@@ -17,3 +17,17 @@ class LatestPriceItemOut(BaseModel):
 
 class LatestPricesOut(BaseModel):
     items: list[LatestPriceItemOut]
+
+
+class PriceHistoryItemOut(BaseModel):
+    asset_code: str
+    asset_name: str
+    price_value: Decimal
+    currency_code: str
+    display_unit: str
+    provider: str
+    observed_at: datetime
+
+
+class PriceHistoryOut(BaseModel):
+    items: list[PriceHistoryItemOut]

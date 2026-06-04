@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from novax_price_alert.domain.asset import Asset
 from novax_price_alert.domain.latest_price import LatestPrice
+from novax_price_alert.domain.price_snapshot import PriceSnapshot
 from novax_price_alert.domain.provider import Provider
 
 
@@ -48,6 +49,33 @@ class PriceQueryService:
 
         if asset_symbol:
             stmt = stmt.where(Asset.symbol == asset_symbol)
+
+        result = await self.session.execute(stmt)
+
+        return result.all()
+
+    async def price_history(
+        self,
+        asset_symbol: str,
+        limit: int,
+    ) -> Sequence[Row[tuple[str, str, Decimal, str, str, datetime]]]:
+        """Return recent persisted price snapshots for one asset, newest first."""
+
+        stmt = (
+            select(
+                Asset.symbol.label("symbol"),
+                Asset.name.label("name"),
+                PriceSnapshot.price.label("price"),
+                Asset.unit.label("display_unit"),
+                Provider.slug.label("provider_slug"),
+                PriceSnapshot.observed_at.label("observed_at"),
+            )
+            .join(PriceSnapshot, PriceSnapshot.asset_id == Asset.id)
+            .outerjoin(Provider, Provider.id == PriceSnapshot.provider_id)
+            .where(Asset.symbol == asset_symbol)
+            .order_by(PriceSnapshot.observed_at.desc(), PriceSnapshot.created_at.desc())
+            .limit(limit)
+        )
 
         result = await self.session.execute(stmt)
 

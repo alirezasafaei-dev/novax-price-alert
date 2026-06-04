@@ -84,6 +84,43 @@ GET /api/v1/prices/latest?asset_code=USDT
 
 ---
 
+### `GET /api/v1/prices/history`
+
+Return recent persisted price snapshots for one asset, newest first. This is a
+small read-only history surface backed by the existing `price_snapshots` table;
+it does not add a new storage path or change alert evaluation behavior.
+
+Query params:
+
+- `asset_code` (required): asset code such as `USD_IRT` or `BTC`.
+- `limit` (optional): number of snapshots to return, from `1` to `500`; default `50`.
+
+```http
+GET /api/v1/prices/history?asset_code=USD_IRT&limit=10
+```
+
+```json
+{
+  "items": [
+    {
+      "asset_code": "USD_IRT",
+      "asset_name": "US Dollar",
+      "price_value": "1710000",
+      "currency_code": "IRT",
+      "display_unit": "IRT",
+      "provider": "tgju_scrape",
+      "observed_at": "2026-06-04T10:10:00Z"
+    }
+  ]
+}
+```
+
+Rollback: remove this read-only route from the public API if history proves noisy
+or not useful; the existing snapshot persistence is still used internally and is
+not coupled to this endpoint.
+
+---
+
 ## Metrics
 
 ### `GET /metrics`
@@ -107,6 +144,39 @@ X-Metrics-Token: <token>
     "alert_creation_count": 12,
     "alert_flow_completion_count": 10,
     "notification_send_succeeded_count": 9
+  }
+}
+```
+
+### `GET /metrics/summary`
+
+Return a compact operational summary for rollout checks and lightweight dashboards.
+It uses the same `X-Metrics-Token` access control as `/metrics`.
+
+```http
+GET /metrics/summary
+X-Metrics-Token: <token>
+```
+
+```json
+{
+  "metrics": {
+    "notification_send_failed_count": 2
+  },
+  "alerts_by_state": {
+    "active": 14,
+    "pending_confirmation": 1
+  },
+  "events_by_status": {
+    "failed": 1,
+    "sent": 20
+  },
+  "latest_prices": {
+    "total": 5,
+    "fresh": 4,
+    "stale": 1,
+    "oldest_observed_at": "2026-06-04T10:00:00Z",
+    "newest_observed_at": "2026-06-04T10:10:00Z"
   }
 }
 ```

@@ -90,7 +90,10 @@ Set `METRICS_ACCESS_TOKEN` for deployment and send it with `X-Metrics-Token`. Pr
 
 ```bash
 curl -s -H "X-Metrics-Token: $METRICS_ACCESS_TOKEN" https://api.example.com/metrics
+curl -s -H "X-Metrics-Token: $METRICS_ACCESS_TOKEN" https://api.example.com/metrics/summary
 ```
+
+`/metrics/summary` is the lightweight operational dashboard API. It combines current counters, alert lifecycle counts, alert event status counts, and latest-price freshness counts. Use it for rollout checks before adding heavier durable time-series infrastructure.
 
 ## Cron heartbeat & external monitor
 
