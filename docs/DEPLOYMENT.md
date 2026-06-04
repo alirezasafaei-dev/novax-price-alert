@@ -131,6 +131,22 @@ Expected relay health response:
 
 ## Safe Release Order
 
+Preferred automated backend rollout from the project root:
+
+```bash
+export NOVAX_DEPLOY_HOST=<server-host>
+export NOVAX_DEPLOY_PATH=/opt/novax-price-alert
+export NOVAX_API_BASE_URL=https://<api-domain>
+./scripts/deploy-backend-production.sh
+```
+
+The script runs local release checks, verifies the Cloudflare relay, fetches the
+selected branch on the server, syncs dependencies, creates a PostgreSQL backup
+when `DATABASE_URL` is available, applies migrations, seeds MVP assets, restarts
+the API and worker systemd units, and verifies `/health` plus latest prices.
+
+Manual fallback order:
+
 1. Deploy or verify Cloudflare relay.
 2. Update backend `.env` with relay URL and shared secret.
 3. Pull backend release on server.

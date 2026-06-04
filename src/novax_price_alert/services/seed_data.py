@@ -36,6 +36,15 @@ MVP_ASSETS: list[AssetSeed] = [
         "priority": 10,
     },
     {
+        "symbol": "EUR_IRT",
+        "canonical_id": "EUR_IRT",
+        "name": "Euro",
+        "display_name": "یورو",
+        "category": "currency",
+        "unit": "IRT",
+        "priority": 15,
+    },
+    {
         "symbol": "GOLD_18K_IRT",
         "canonical_id": "GOLD_18K_IRT",
         "name": "18K Gold",

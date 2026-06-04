@@ -16,6 +16,7 @@ async def test_seed_mvp_data_creates_iran_market_assets(db_session: AsyncSession
 
     assert [asset.symbol for asset in assets] == [
         "USD_IRT",
+        "EUR_IRT",
         "GOLD_18K_IRT",
         "SEKKEH_EMAMI_IRT",
         "USDT_IRT",

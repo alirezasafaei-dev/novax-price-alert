@@ -17,6 +17,12 @@ PROVIDER_SYMBOLS: dict[str, dict[str, str]] = {
         "bonbast": "usd",
         "nerkh": "USD",
     },
+    "EUR_IRT": {
+        "category": "currency",
+        "alanchand": "EUR",
+        "api_ir": "EUR",
+        "nerkh": "EUR",
+    },
     "GOLD_18K_IRT": {
         "category": "gold",
         "alanchand": "GOLD18",
@@ -114,6 +120,7 @@ class NerkhProvider(BasePriceProvider):
 class TgjuScrapeProvider(BasePriceProvider):
     paths: dict[str, str] = {
         "USD_IRT": "/profile/price_dollar_rl",
+        "EUR_IRT": "/profile/price_eur",
         "GOLD_18K_IRT": "/profile/geram18",
         "SEKKEH_EMAMI_IRT": "/profile/sekee",
         "USDT_IRT": "/",
