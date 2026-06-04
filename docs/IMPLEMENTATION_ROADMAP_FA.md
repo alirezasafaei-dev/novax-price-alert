@@ -42,10 +42,10 @@ This section defines the executable phase plan for both an automated agent and a
 
 ### چک‌لیست کلی فازها
 
-- [ ] Phase 0: Baseline Freeze
-- [ ] Phase 1: UX Clarity
-- [ ] Phase 2: Reliability Hardening
-- [ ] Phase 3: Observability and Operations
+- [x] Phase 0: Baseline Freeze
+- [x] Phase 1: UX Clarity
+- [x] Phase 2: Reliability Hardening
+- [x] Phase 3: Observability and Operations
 - [ ] Phase 4: Controlled Expansion
 
 ## Goal
@@ -107,11 +107,11 @@ Remove ambiguity from price display and alert creation.
 
 ### Tasks
 
-- [ ] keep the alert wizard step-based
-- [ ] ensure target price and unit are always visible in every alert creation step
-- [ ] keep delete/list flows easy to understand
-- [ ] verify confirmation text displays asset, condition, unit, and target price
-- [ ] update live docs to reflect the current alert flow and wording
+- [x] keep the alert wizard step-based
+- [x] ensure target price and unit are always visible in every alert creation step
+- [x] keep delete/list flows easy to understand
+- [x] verify confirmation text displays asset, condition, unit, and target price
+- [x] update live docs to reflect the current alert flow and wording
 
 ### Acceptance
 
@@ -142,11 +142,11 @@ Protect the system from duplicate alerts, stale data, and ambiguous state transi
 
 ### Tasks
 
-- [ ] keep alert state transitions explicit and validated
-- [ ] keep stale/unavailable data from triggering notifications
-- [ ] keep send retries from creating duplicate user-visible events
-- [ ] add or verify tests for duplicate prevention and stale-data gates
-- [ ] review alert lifecycle coverage in current code and tests
+- [x] keep alert state transitions explicit and validated
+- [x] keep stale/unavailable data from triggering notifications
+- [x] keep send retries from creating duplicate user-visible events
+- [x] add or verify tests for duplicate prevention and stale-data gates
+- [x] review alert lifecycle coverage in current code and tests
 
 ### Acceptance
 
@@ -178,11 +178,11 @@ Make runtime health visible and supportable.
 
 ### Tasks
 
-- [ ] watch `alert_evaluated`, `notification_send_*`, and `stale_data_detected`
-- [ ] keep `/status` monitored from outside the Worker
-- [ ] keep `/health` and `/api/v1/prices/latest` in release checks
-- [ ] document the incident response path for duplicate send, stale data, and relay failure
-- [ ] verify runbook references are up to date in `docs/OPERATIONS.md` or `docs/OBSERVABILITY.md`
+- [x] watch `alert_evaluated`, `notification_send_*`, and `stale_data_detected`
+- [x] keep `/status` monitored from outside the Worker
+- [x] keep `/health` and `/api/v1/prices/latest` in release checks
+- [x] document the incident response path for duplicate send, stale data, and relay failure
+- [x] verify runbook references are up to date in `docs/OPERATIONS.md` or `docs/OBSERVABILITY.md`
 
 ### Acceptance
 
@@ -236,10 +236,10 @@ Add only the next most valuable improvements after the core is stable.
 
 ## Milestone Checklist
 
-- [ ] Milestone A: active docs aligned and baseline behavior frozen
-- [ ] Milestone B: alert flow explicit and confirm-gated
-- [ ] Milestone C: duplicate prevention and stale-data protection stable
-- [ ] Milestone D: observability and ops runbooks usable in production
+- [x] Milestone A: active docs aligned and baseline behavior frozen
+- [x] Milestone B: alert flow explicit and confirm-gated
+- [x] Milestone C: duplicate prevention and stale-data protection stable
+- [x] Milestone D: observability and ops runbooks usable in production
 
 ## How to Use This File
 

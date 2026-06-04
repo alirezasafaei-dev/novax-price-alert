@@ -24,9 +24,9 @@
 ## وضعیت فازبندی
 
 - [x] Phase 0: Baseline Freeze — active docs aligned, no direct archive dependencies
-- [ ] Phase 1: UX Clarity — alert creation and price/unit clarity
-- [ ] Phase 2: Reliability Hardening — duplicate prevention and stale-data protection
-- [ ] Phase 3: Observability and Operations — health checks and incident readiness
+- [x] Phase 1: UX Clarity — alert creation and price/unit clarity
+- [x] Phase 2: Reliability Hardening — duplicate prevention and stale-data protection
+- [x] Phase 3: Observability and Operations — health checks and incident readiness
 - [ ] Phase 4: Controlled Expansion — safe improvements after stability
 
 ## چیزهایی که از گزارش‌های بهبود باید مبنا بمانند
