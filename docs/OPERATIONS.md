@@ -106,7 +106,7 @@ npx wrangler secret put TELEGRAM_SECRET_TOKEN
 
 ## Current Telegram Production State
 
-See `docs/TELEGRAM_RUNBOOK.md` for the live Telegram bot runbook.
+The live system is a Telegram bot and relay flow backed by the FastAPI backend.
 
 Current verified public endpoints:
 
@@ -224,7 +224,7 @@ Pause rollout immediately if any of the following occur:
 
 ### Next-Step Planning
 
-The detailed post-hardening roadmap and task backlog are maintained in `docs/NEXT_STEPS_AND_ROADMAP_FA.md`.
+The detailed post-hardening roadmap and task backlog are maintained in `docs/IMPLEMENTATION_ROADMAP_FA.md`.
 
 ## Post-hardening Alert Operations
 
@@ -232,12 +232,12 @@ The hardened alert contract is now the release baseline:
 
 - Alert creation is staged. A newly created backend alert starts as `pending_confirmation` and the Telegram Worker keeps pending alert data in session state until the user confirms the summary.
 - Activation requires explicit confirmation. Operators should treat any `active` alert without `confirmed_at` as suspicious.
-- Asset identity is canonical. Use `asset_id` in backend records and `canonical_asset_id` (`market:symbol`) in Worker KV/logs; display labels are snapshots for user readability.
+- Asset identity is canonical. Use `asset_id` in backend records and the canonical asset id in Worker KV/logs; display labels are snapshots for user readability.
 - Price units are explicit through `target_price_display_unit`; do not infer units from asset names.
 - Stale, missing, or unavailable provider data must not trigger alerts. Look for `stale_data_detected` logs.
 - Delivered one-shot alerts are finalized and disabled; later cron/evaluation runs must not re-send them.
 
-For release gates and incident response, use `docs/RELEASE_READINESS_FA.md`. For log events and operator queries, use `docs/OBSERVABILITY.md`.
+For release gates and incident response, use `docs/OBSERVABILITY.md`. For roadmap and execution planning, use `docs/IMPLEMENTATION_ROADMAP_FA.md`.
 
 ## Alert Rollout Commands
 

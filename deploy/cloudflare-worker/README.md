@@ -95,6 +95,6 @@ Do not paste or print token values when sharing verification output.
 
 Operational references:
 
-- `docs/TELEGRAM_RUNBOOK.md`
-- `docs/RELEASE_READINESS_FA.md`
+- `docs/OBSERVABILITY.md`
+- `docs/IMPLEMENTATION_ROADMAP_FA.md`
 - `docs/OBSERVABILITY.md`

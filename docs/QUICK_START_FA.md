@@ -51,7 +51,7 @@ https://t.me/novax_price_bot
 
 - **راهنمای کامل کاربر**: `docs/USER_GUIDE_COMPLETE_FA.md`
 - **چک‌لیست تولید**: `docs/PRODUCTION_CHECKLIST_FA.md`
-- **راهنمای فنی**: `docs/TELEGRAM_RUNBOOK.md`
+- **راهنمای فنی**: `docs/OBSERVABILITY.md` و `docs/OPERATIONS.md`
 
 ## ✅ وضعیت فعلی
 

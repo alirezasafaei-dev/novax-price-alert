@@ -16,6 +16,7 @@
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 - [docs/OPERATIONS.md](docs/OPERATIONS.md)
 - [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md)
+- [docs/IMPLEMENTATION_ROADMAP_FA.md](docs/IMPLEMENTATION_ROADMAP_FA.md)
 
 ## Durable Decisions
 
@@ -41,4 +42,3 @@
 - Crypto pricing uses Binance.
 - Fiat and gold pricing use TGJU.
 - The active docs set is intentionally small.
-
