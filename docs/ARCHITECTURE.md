@@ -19,56 +19,47 @@ Core runtime pieces:
 - PostgreSQL database
 - Redis queue
 - RQ workers
-- Bale integration adapter
+- Telegram integration adapter
 - price provider adapter(s)
 
 ## Architectural Intent
 
-The new project reuses the **architectural foundation direction** of `rubika-bot-saas` where it is product-agnostic.
+This project is a product-first, Telegram-centric modular monolith. The architecture should reflect the current codebase and the hardening work documented in the archived improvement reports.
 
-That means reusing or aligning with these confirmed patterns from the old repository documentation:
+The live architecture aligns with these principles:
 
 - FastAPI-based modular backend
 - `/api/v1` versioned routing
 - environment-based configuration
 - PostgreSQL + SQLAlchemy + Alembic
-- Redis + RQ for background jobs
-- centralized validation/error-handling intent
-- structured logging intent
-- self-hostable, local-first deployment model
-- production-aware defaults for MVP
+- background workers for price fetch, alert evaluation, and notification dispatch
+- canonical asset identity for alert evaluation
+- explicit price units and snapshots in alert data
+- freshness-aware triggering
+- idempotent notification delivery
+- structured logging and rollout-friendly observability
+- self-hostable deployment with a Cloudflare relay for Telegram sends
 
-## Truth from the Old Repository
+## Source of Truth
 
-Based on the currently available evidence from `rubika-bot-saas` documentation, the following are explicitly stated:
+The live source of truth is the repository code and the short living docs:
 
-### Confirmed from available repo material
-- the old system is intended as a modular monolith
-- FastAPI is the API framework
-- SQLAlchemy 2 + Alembic are the persistence foundations
-- PostgreSQL is the primary database
-- Redis + RQ are intended for background jobs
-- API versioning uses `/api/v1`
-- environment-based configuration is a core design rule
-- centralized operational concerns such as logging and error handling are intended principles
-- the old project is self-hostable and local-first
+- `src/novax_price_alert/`
+- `deploy/cloudflare-worker/`
+- `docs/PROGRESS.md`
+- `docs/API.md`
+- `docs/OBSERVABILITY.md`
+- `docs/OPERATIONS.md`
 
-### Not yet confirmed from code-level inspection
-- how completely these patterns are implemented in code
-- exact project maturity
-- actual abstraction boundaries in services/repositories/workers
-- quality and completeness of tests
-- consistency between docs and code
-
-This new architecture document therefore reuses **confirmed direction** and avoids claiming code-level reuse that has not been verified.
+Historical improvement reports are archived and used to justify design choices, but they are not the runtime source of truth.
 
 ## High-Level Component Model
 
 ```text
-Bale User
+Telegram User
    |
    v
-Bale Bot / Webhook
+Telegram Bot / Webhook
    |
    v
 FastAPI API Layer
@@ -80,7 +71,7 @@ Application Services
    |
    +--> Provider Integrations --> External / Mock Providers
    |
-   +--> Redis Queue --> RQ Workers --> Bale Notifications
+   +--> Redis Queue --> RQ Workers --> Telegram Notifications
 
 ```
 ## Core Modules
@@ -132,9 +123,9 @@ Responsibilities:
 ### 4. Integrations Layer
 Responsibilities:
 
-- Bale API adapter
-- Bale payload parsing
-- Bale message formatting
+- Telegram API adapter
+- Telegram payload parsing
+- Telegram message formatting
 - provider abstraction and normalization
 
 ### 5. Worker Layer
@@ -148,7 +139,7 @@ Responsibilities:
 
 ### User Module
 Owns:
-- Bale user identity
+- Telegram user identity
 - user lifecycle for bot interaction
 
 ### Asset/Price Module
@@ -167,14 +158,14 @@ Owns:
 
 ### Notification Module
 Owns:
-- outgoing Bale notifications
+- outgoing Telegram notifications
 - delivery status tracking
 
 ### Bot Integration Module
 Owns:
 - webhook parsing
 - command handling
-- Bale-specific formatting and transport
+- Telegram-specific formatting and transport
 
 ## Request Flow
 
@@ -192,14 +183,14 @@ HTTP Request
 ## Webhook Flow
 
 text
-Bale webhook
+Telegram webhook
 -> /api/v1/bot/webhook
 -> defensive payload parser
 -> user extraction
 -> command detection
 -> command handler/service
 -> optional DB update
--> optional Bale response send
+-> optional Telegram response send
 -> safe HTTP response
 
 Principles:
@@ -238,8 +229,8 @@ evaluate_alerts job
 text
 send_notifications job
 -> load AlertEvent + User
--> format Bale message
--> Bale client send
+-> format Telegram message
+-> Telegram client send
 -> create NotificationDelivery record
 -> update event/delivery status
 
@@ -299,4 +290,4 @@ Queue responsibilities:
 - high-frequency market ingestion
 - highly dynamic workflow builders
 - complex end-user conversational flows
-- multi-channel notification routing beyond Bale
+- multi-channel notification routing beyond Telegram
