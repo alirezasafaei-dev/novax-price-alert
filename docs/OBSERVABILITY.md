@@ -161,3 +161,35 @@ For each alert lifecycle trace, collect as many of these fields as the runtime e
 3. Review failures: `notification_send_failed`, provider errors, and `stale_data_detected` volume.
 4. Confirm no `duplicate_send_detected` occurred for production users.
 5. Inspect a delivered alert in KV/DB and verify it is disabled/finalized.
+
+## Key Incident Runbooks (distilled from PROJECT_IMPROVEMENT_REPORT_FA 04-06)
+
+### Duplicate alert / send
+- Symptoms: user receives same alert multiple times; `duplicate_trigger_detected` or `duplicate_send_detected` in logs/metrics.
+- Immediate: pause worker if high volume; investigate last_triggered_at vs observed_at in rule/event; check rowcount on claims.
+- Containment: the code already has unique constraints + claim (UPDATE rowcount==1) + observed_at guard + IntegrityError catch. Verify no two workers processing same asset window.
+- Recovery: mark affected events DELIVERED/FAILED as appropriate; notify user once if needed via manual.
+- Prevention: the T-204/T-205 hardening (idempotency_key, atomic claim in dispatcher, eval guards).
+
+### Stale / unavailable price triggering or bad display
+- Symptoms: `stale_data_detected`; alerts on old prices; users complain prices differ from market.
+- Detection: /metrics summary freshness counts; classify_latest_price returns not FRESH and evaluation_allowed=false.
+- Response: worker skips eval for non-FRESH (policy: only FRESH for trigger by default). For display, show "قدیمی/نامعتبر" + last observed time (now surfaced in /latest freshness field).
+- Tuning: adjust FreshnessPolicy thresholds (cadence 5m, fresh 10m, stale 30m, unavailable 2h) in services/freshness.py only with tests.
+- Runbook: check provider health (ingest logs), GitHub Action price-fetcher success, LatestPrice.observed_at.
+
+### Provider outage or ingest failure
+- Symptoms: many UNAVAILABLE in freshness; /health or ingest returns errors; GH Action fails.
+- Containment: alerts not fired (good); prices show stale in TWA.
+- Recovery: manual trigger of price fetcher or direct POST /api/v1/prices/ingest with token; verify after.
+- Alerting: monitor `provider_error_rate` or high stale_evaluation_count.
+
+### Worker backlog or stuck jobs
+- Symptoms: queue_backlog high; notification_send_started but no succeeded/failed; cron not advancing.
+- Check: PM2 logs for novax-worker; /metrics/summary; Redis if used for queue.
+- Recovery: restart only novax-worker (pm2 restart novax-worker --update-env); investigate long running eval.
+- Prevention: the claim + retry_backoff + max_attempts in NotificationDispatcherService.
+
+Always cross-check with structured events (alert_id, user_id, worker_run_id, event_id, freshness) for full trace.
+
+Update this section after any real incident or after fاز 3/4 work.

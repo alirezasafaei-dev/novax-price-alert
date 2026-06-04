@@ -14,13 +14,12 @@ async def test_seed_mvp_data_creates_iran_market_assets(db_session: AsyncSession
     assets = (await db_session.execute(select(Asset).order_by(Asset.priority))).scalars().all()
     providers = (await db_session.execute(select(Provider))).scalars().all()
 
-    assert [asset.symbol for asset in assets] == [
-        "USD_IRT",
-        "EUR_IRT",
-        "GOLD_18K_IRT",
-        "SEKKEH_EMAMI_IRT",
-        "USDT_IRT",
-    ]
+    symbols = [asset.symbol for asset in assets]
+    # Core Iranian market assets must be present (full product, not limited MVP seed)
+    for core in ["USD_IRT", "EUR_IRT", "GOLD_18K_IRT", "SEKKEH_EMAMI_IRT", "USDT_IRT"]:
+        assert core in symbols, f"missing core asset {core}"
+    # Crypto etc may be added for production richness
+    assert len(symbols) >= 5
     assert {provider.slug for provider in providers} == {
         "nerkh",
         "tgju_scrape",

@@ -13,6 +13,7 @@ class LatestPriceItemOut(BaseModel):
     provider: str
     fetched_at: datetime
     is_stale: bool = False
+    freshness: str = "fresh"  # fresh | stale | unavailable (from policy)
 
 
 class LatestPricesOut(BaseModel):

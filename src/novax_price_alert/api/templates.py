@@ -163,7 +163,7 @@ function showStep(stepId){document.querySelectorAll(".step").forEach(s=>s.classL
 async function api(path, opts={}){const r=await fetch(path,{...opts,headers:{...headers,...(opts.headers||{})}}); if(!r.ok) throw new Error(await r.text()); return r.json()}
 async function loadPrices(){
   const data = await api("/api/v1/prices/latest"); latest = data.items || [];
-  prices.innerHTML = latest.map(x=>`<article class="card"><div class="row"><div><div class="name">${escapeHtml(x.asset_name)}</div><div class="meta">${escapeHtml(x.asset_code)} · ${x.is_stale?"قدیمی":"به‌روز"}</div></div><div class="price">${fmt.format(Number(x.price_value))} ${escapeHtml(x.display_unit || x.currency_code)}</div></div><div class="meta">آخرین بروزرسانی: ${new Date(x.fetched_at).toLocaleString("fa-IR")}</div><button class="ghost mini" data-history-asset="${escapeHtml(x.asset_code)}">تاریخچه قیمت</button></article>`).join("");
+  prices.innerHTML = latest.map(x=>`<article class="card"><div class="row"><div><div class="name">${escapeHtml(x.asset_name)}</div><div class="meta">${escapeHtml(x.asset_code)} · ${ (x.freshness|| (x.is_stale?'stale':'fresh')) === 'fresh' ? 'تازه' : 'قدیمی/نامعتبر' }</div></div><div class="price">${fmt.format(Number(x.price_value))} ${escapeHtml(x.display_unit || x.currency_code)}</div></div><div class="meta">آخرین بروزرسانی: ${new Date(x.fetched_at).toLocaleString("fa-IR")}</div><button class="ghost mini" data-history-asset="${escapeHtml(x.asset_code)}">تاریخچه قیمت</button></article>`).join("");
   prices.querySelectorAll("button[data-history-asset]").forEach(button => button.onclick = () => loadHistory(button.dataset.historyAsset));
   asset.innerHTML = latest.map(x=>`<option value="${escapeHtml(x.asset_code)}">${escapeHtml(x.asset_name)}</option>`).join("");
 }
@@ -394,14 +394,15 @@ function renderAdvancedMultiChart(days) {
     return;
   }
   // fetch history for selected and render
-  Promise.all(codes.map(code => api(`/api/v1/prices/history?asset_code=${code}&limit=100`)))
+  const rangeParam = days ? `&range=${days}d` : '';
+  Promise.all(codes.map(code => api(`/api/v1/prices/history?asset_code=${code}&limit=120${rangeParam}`)))
     .then(results => {
       const datasets = [];
       const allLabels = new Set();
       results.forEach((res, i) => {
         const code = codes[i];
         const name = latest.find(x=>x.asset_code===code)?.asset_name || code;
-        const items = (res.items || []).slice(0, Math.max(5, Math.floor(100 / Math.max(1,days/7)) )); // rough filter
+        const items = (res.items || []);
         items.forEach(it => allLabels.add(new Date(it.observed_at).toLocaleDateString('fa-IR')));
         const data = items.map(it => Number(it.price_value));
         datasets.push({
@@ -411,12 +412,12 @@ function renderAdvancedMultiChart(days) {
           tension: 0.2
         });
       });
-      const labels = Array.from(allLabels).slice(-20);
+      const labels = Array.from(allLabels);
       const ctx = document.getElementById('adv-chart').getContext('2d');
       if (advChartInstance) advChartInstance.destroy();
       advChartInstance = new Chart(ctx, {
         type: 'line',
-        data: { labels: labels.slice(-20), datasets },
+        data: { labels: labels.slice(-30), datasets },
         options: { responsive:true, plugins:{legend:{position:'top'}}, scales:{x:{ticks:{font:{size:10}}}, y:{ticks:{font:{size:10}}}} }
       });
     });

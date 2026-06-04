@@ -2,7 +2,7 @@ import os
 from fastapi import APIRouter, Depends, Query, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from novax_price_alert.api.deps import get_db
 from novax_price_alert.api.schemas.price import (
@@ -15,7 +15,9 @@ from novax_price_alert.application.services.price_query_service import PriceQuer
 from novax_price_alert.application.services.price_service import PriceService
 from novax_price_alert.core.settings import settings
 from novax_price_alert.db.models import Asset, Provider
+from novax_price_alert.domain.latest_price import LatestPrice
 from novax_price_alert.infra.providers.base import PricePoint
+from novax_price_alert.services.freshness import classify_latest_price
 from sqlalchemy import select
 
 router = APIRouter(prefix="/prices", tags=["prices"])
@@ -30,19 +32,23 @@ async def get_latest_prices(
 
     rows = await service.latest_prices(asset_code)
 
-    items = [
-        LatestPriceItemOut(
-            asset_code=row.symbol,
-            asset_name=row.name,
-            price_value=row.price,
-            currency_code=row.display_unit,
-            display_unit=row.display_unit,
-            provider=row.provider_slug,
-            fetched_at=row.observed_at,
-            is_stale=row.is_stale,
+    items = []
+    for row in rows:
+        # Lightweight freshness for display (full policy classify available in evaluator)
+        freshness = "stale" if row.is_stale else "fresh"
+        items.append(
+            LatestPriceItemOut(
+                asset_code=row.symbol,
+                asset_name=row.name,
+                price_value=row.price,
+                currency_code=row.display_unit,
+                display_unit=row.display_unit,
+                provider=row.provider_slug,
+                fetched_at=row.observed_at,
+                is_stale=row.is_stale,
+                freshness=freshness,
+            )
         )
-        for row in rows
-    ]
 
     return LatestPricesOut(items=items)
 
@@ -51,11 +57,19 @@ async def get_latest_prices(
 async def get_price_history(
     asset_code: str = Query(min_length=1),
     limit: int = Query(default=50, ge=1, le=500),
+    range: str | None = Query(default=None, description="e.g. 1d,7d,30d,90d for chart efficiency"),
     db: AsyncSession = Depends(get_db),
 ) -> PriceHistoryOut:
     service = PriceQueryService(db)
 
-    rows = await service.price_history(asset_code, limit)
+    since: datetime | None = None
+    if range:
+        now = datetime.now(timezone.utc)
+        days = {"1d": 1, "7d": 7, "30d": 30, "90d": 90}.get(range.lower(), None)
+        if days:
+            since = now - timedelta(days=days)
+
+    rows = await service.price_history(asset_code, limit, since=since)
 
     items = [
         PriceHistoryItemOut(

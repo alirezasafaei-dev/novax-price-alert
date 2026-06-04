@@ -58,8 +58,11 @@ class PriceQueryService:
         self,
         asset_symbol: str,
         limit: int,
+        since: datetime | None = None,
     ) -> Sequence[Row[tuple[str, str, Decimal, str, str, datetime]]]:
-        """Return recent persisted price snapshots for one asset, newest first."""
+        """Return recent persisted price snapshots for one asset, newest first.
+        Optionally filter by observed_at >= since for range-based efficiency (e.g. for charts).
+        """
 
         stmt = (
             select(
@@ -73,9 +76,10 @@ class PriceQueryService:
             .join(PriceSnapshot, PriceSnapshot.asset_id == Asset.id)
             .outerjoin(Provider, Provider.id == PriceSnapshot.provider_id)
             .where(Asset.symbol == asset_symbol)
-            .order_by(PriceSnapshot.observed_at.desc(), PriceSnapshot.created_at.desc())
-            .limit(limit)
         )
+        if since is not None:
+            stmt = stmt.where(PriceSnapshot.observed_at >= since)
+        stmt = stmt.order_by(PriceSnapshot.observed_at.desc(), PriceSnapshot.created_at.desc()).limit(limit)
 
         result = await self.session.execute(stmt)
 
