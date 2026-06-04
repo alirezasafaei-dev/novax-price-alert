@@ -1,272 +1,218 @@
-# Implementation Roadmap
+# نقشه راه پیاده‌سازی (Implementation Roadmap)
 
-This roadmap is the active execution plan for the current Telegram price-alert bot. It encodes the product, UX, technical, and operational hardening guidance that is already reflected in the current codebase.
+**منبع اصلی و مرجع قطعی این سند:** گزارش کامل بهبود پروژه در مسیر `/home/dev13/Documents/my-doc/PROJECT_IMPROVEMENT_REPORT_FA/` (فایل‌های 01.md تا 06.md).
 
-## خلاصه فارسی
+این نقشه راه مستقیماً بر اساس تحلیل، مسائل، راهکارها، برنامه مرحله‌بندی‌شده، task breakdown (با کدهای T-xxx، اولویت P0/P1/P2، ownerها، معیار پذیرش)، timeline، sprint plan، KPIها و Risk Register گزارش مذکور بازنویسی و فیکس شده است.
 
-این سند مسیر فازبندی شده و قابل اجرا را برای تبدیل بات قیمت تلگرام به یک محصول قابل اعتماد و پشتیبانی‌شدنی تعریف می‌کند.
+هدف: تبدیل بات تلگرامی قیمت و هشدار به یک **محصول تولید حرفه‌ای، شفاف، قابل اعتماد و مناسب استفاده روزمره کاربران واقعی ایرانی** (نه دمو یا MVP نمایشی).
 
-- فاز ۰: ثابت کردن وضعیت فعلی مستندات و جلوگیری از وابستگی به drafts/آرشیو.
-- فاز ۱: شفاف کردن جریان ساخت هشدار، نمایش دارایی و واحد قیمت.
-- فاز ۲: سخت‌سازی reliability با جلوگیری از duplicate notification، stale data و state transitions نامشخص.
-- فاز ۳: اضافه کردن دید عملیاتی، مانیتورینگ cron و runbook incident.
-- فاز ۴: بهبودهای تولید و گسترش غنی رابط کاربری و قابلیت‌ها (بدون محدودیت MVP).
+اصل راهنما (از گزارش): 
+> قبل از توسعه بیشتر، باید رفتار هسته‌ای سیستم قابل‌فهم، قابل‌اعتماد، و قابل‌پیگیری شود.
 
-این roadmap طوری نوشته شده که هم agent خودکار بتواند به‌صورت مرحله‌ای کار کند و هم تیم فنی بتواند آن را به ticket/PR تبدیل کند.
+اول hardening (شفاف‌سازی، ضدتکرار، تازگی، observability) سپس آماده‌سازی برای بهبودهای غنی تولید (UX/UI غنی، کارایی، پیشنهادهای هوشمند و غیره). کارهای اخیر TWA تب‌دار + My Assets + Suggestions + چارت پیشرفته دقیقاً در همین راستا (بهترین تجربه ممکن برای کاربر واقعی) انجام شده و در وضعیت پیشرفت ثبت می‌شوند.
 
-## Core hardening findings
+این سند برای agent خودکار (با چک‌باکس) و تیم فنی (تبدیل به تیکت/PR) قابل اجراست.
 
-- The product is defined for real Iranian Telegram users, not a demonstration MVP.
-- The main display unit for users is **تومان**. Crypto prices are shown in **USDT** only where that is the actual market convention.
-- Alert creation must be explicit, confirm-gated, and summary-first.
-- Asset identity must be canonical and unambiguous across flow, storage, and notifications.
-- Stale or unavailable data must not trigger alerts.
-- Duplicate notification behavior is a production incident, not a benign retry.
-- Observability and operational readiness are baseline requirements, not optional extras.
+## خلاصه فارسی فازها (عین گزارش 04)
 
-Background: earlier review work produced a six-part improvement series, and this roadmap distills those findings into a single living plan.
+برنامه اجرایی در **۵ فاز**:
 
-- Report 01 establishes the mission: a real Iranian Telegram price-alert bot, not an MVP demo. It emphasizes alignment of product, UX, and code to real user needs.
-- Report 02 analyzes the key risks: asset-selection ambiguity, alert-flow ambiguity, duplicate notifications, stale data, observability gaps, and mismatched docs.
-- Report 03 turns those risks into practical execution guidance across product, UX, technical, and operational layers.
-- Reports 04–06 provide deeper tactical detail on alert lifecycle hardening, data freshness guards, delivery idempotency, and operational readiness.
-- The roadmap distills that series into a short active execution plan while keeping the full reports available for reference.
+1. **فاز صفر: تثبیت قراردادها و شفاف‌سازی مبنا**  
+   (Asset Identity Policy، Pricing Presentation Policy، Alert Flow Contract، Alert Lifecycle Contract، Freshness Policy)
 
-## Execution Plan for Automation and Engineering
+2. **فاز یک: اصلاح UX و Alert Flow**  
+   (شفاف‌سازی جریان مرحله‌ای، نمایش صریح دارایی در همه نقاط حساس، تایید نهایی استاندارد، متن‌های actionable)
 
-This section defines the executable phase plan for both an automated agent and a full-stack / senior engineering team.
+3. **فاز دو: سخت‌سازی منطق هشدار و جلوگیری از تکرار**  
+   (state machine رسمی، idempotency، atomic claim/locking، anti-duplicate، lifecycle کامل)
 
-- هر فاز با یک هدف مشخص آغاز می‌شود.
-- هر تسک باید به صورت `- [ ]` نوشته شود تا agent بتواند آن را علامت بزند.
-- پذیرش هر فاز با شرایط پذیرش روشن شده است.
+4. **فاز سه: Observability، Data Freshness و آمادگی عملیاتی**  
+   (لاگ ساختاریافته، متریک‌های پایه، correlation/trace، مانیتورینگ تازگی، runbook incident، alerting داخلی)
 
-### چک‌لیست کلی فازها
+5. **فاز چهار: هم‌ترازی مستندات، تثبیت نهایی و آماده‌سازی برای توسعه بعدی**  
+   (audit مستندات با runtime، walkthrough واقعی end-to-end، برچسب‌گذاری وضعیت docs، تعریف baseline پایدار + release checklist)
 
-- [x] Phase 0: Baseline Freeze
-- [x] Phase 1: UX Clarity
-- [x] Phase 2: Reliability Hardening
-- [x] Phase 3: Observability and Operations
-- [x] Phase 4: Controlled Expansion
+ترتیب فازها حیاتی است. observability قبل از lifecycle/flow باعث داده‌های بی‌معنی می‌شود.
 
-## Goal
+## اصول پایه (مستقیم از گزارش 01-03)
 
-Make the current Telegram bot and Telegram Mini App stack more reliable, more explicit, and easier to maintain without expanding scope unnecessarily.
+- محصول برای **استفاده واقعی و روزمره کاربران ایرانی در تلگرام** است.
+- قیمت‌ها باید **روز و واقعی** باشند؛ واحد اصلی نمایش **تومان** (کریپتو USDT فقط جایی که عرف بازار است).
+- قیمت باید **قابل فهم** باشد (فرمت خوانا با جداکننده، واحد مناسب، نه خام API، اعشار/گرد کردن منطقی برای دارایی‌های گران/ارزان).
+- همه چیز **Explicit** به جای Implicit (نام دارایی کامل + نماد، واحد، شرط، قیمت هدف/فعلی، وضعیت).
+- یکدست‌سازی رفتار، متن‌ها، نمایش قیمت در همه نقاط (بات، TWA، هشدارها، تاییدها).
+- متن‌ها و تاییدها **بخشی از reliability** هستند (نه polishing).
+- اول hardening هسته (قراردادها، UX clarity، reliability، observability) بعد expansion.
+- مستندات باید ۱۰۰٪ با runtime واقعی هم‌تراز باشند (source of truth = کد + رفتار واقعی؛ برچسب implemented/planned/deprecated).
+- ریسک بیش‌توسعه قبل از تثبیت هسته: انرژی روی clarity، reliability، observability متمرکز بماند.
 
-## Guiding Principles
+**گزارش کامل (تحلیل مسائل ۹گانه + راهکارهای اجرایی دقیق + task breakdown + sprint + KPI + risk) مرجع است و در `/home/dev13/Documents/my-doc/PROJECT_IMPROVEMENT_REPORT_FA/` قرار دارد.**
 
-- Keep the bot menu-driven and simple.
-- Treat alert confirmation as mandatory.
-- Keep canonical asset identity and explicit units everywhere.
-- Prefer reliability and observability over new surface area.
-- Keep active docs short; keep retired drafts separate from the living docs.
+## فازهای اجرایی دقیق (از گزارش 04 + breakdown از 05)
 
-## Phase 0: Baseline Freeze
+### فاز صفر: تثبیت قراردادها و شفاف‌سازی مبنا (Sprint 1)
 
-### Objective
+**هدف:** پیش از هر اصلاح، قراردادهای پایه freeze شوند تا همه روی یک منبع توافق داشته باشند.
 
-Lock the current behavior as the reference baseline.
+**خروجی‌های اصلی:** Asset Identity Policy، Pricing Presentation Policy، Alert Flow Contract، Alert Lifecycle Contract، Freshness Policy.
 
-### Deliverables
+**تسک‌های کلیدی (از گزارش 05):**
 
-- active docs aligned with code
-- historical review work retained separately, while active docs remain authoritative
-- production facts documented in `PROGRESS.md`
+- [x] T-001 تعریف Asset Identity Policy (P0, Product + Backend/UX) — نام نمایشی، نماد، alias، canonical id، mapping provider.
+- [x] T-002 تعریف Pricing Presentation Policy (P0, Product + UX/Backend) — واحد اصلی تومان، قواعد گرد کردن، اعشار، جداکننده، timestamp، رفتار دارایی‌های خاص.
+- [x] T-003 تعریف Alert Flow Contract (P0, Product + UX/Backend/QA) — مراحل ۶گانه (انتخاب دارایی → قیمت فعلی → شرط → قیمت هدف → خلاصه نهایی → تایید/ویرایش/لغو).
+- [x] T-004 تعریف Alert Lifecycle Contract (P0, Tech Lead + Backend/Ops/QA) — stateها: active/triggered/notifying/notified/completed/cancelled/failed + transitionهای معتبر.
+- [x] T-005 تعریف Freshness Policy (P0, Tech Lead + Backend/Ops/Product) — fresh/delayed/stale/unavailable + threshold + رفتار روی display/trigger.
 
-### Tasks
+**معیار پذیرش فاز صفر:** یک تعریف واحد برای هر قرارداد وجود داشته باشد؛ مستند و قابل استناد (این roadmap + ارجاع به گزارش).
 
-- [ ] verify `README.md`, `AGENTS.md`, `INDEX.md`, and `MEMORY.md`
-- [ ] keep the active docs set short
-- [ ] move retired phase-specific drafts to a separate history location
-- [ ] confirm no active doc links to retired drafts or archive paths
-- [ ] mark this phase complete when all active docs are aligned and checked in
+**وضعیت فعلی:** قراردادها در این سند و گزارش distill شده‌اند. پیاده‌سازی جزئی در کد (canonical در snapshotها، flow مرحله‌ای با confirm gate، freshness gate در worker) وجود دارد اما نیاز به مستند رسمی جداگانه (سیاست‌ها) و هم‌ترازی کامل دارد.
 
-### Acceptance
+### فاز یک: اصلاح UX و Alert Flow (Sprint 2)
 
-- a new agent can find the source of truth in under 2 minutes
-- no active doc contradicts the codebase reality
+**هدف:** کاربر اولین جهش محسوس در کیفیت تجربه را ببیند؛ ابهام حذف شود.
 
-### Task Breakdown
+**تسک‌های کلیدی (P0/P1):**
 
-| Task                                       | Owner         | Output                                                  | Acceptance                                             |
-| ------------------------------------------ | ------------- | ------------------------------------------------------- | ------------------------------------------------------ |
-| Freeze active docs list                    | Tech Lead     | `docs/README.md`, `INDEX.md`, `MEMORY.md` aligned       | no duplicate source-of-truth paths                     |
-| Retain retired review work as history only | Docs owner    | historical review work kept outside the active docs set | active docs do not depend on retired drafts as current |
-| Verify production facts                    | Backend + Ops | `PROGRESS.md` matches runtime reality                   | no statement in `PROGRESS.md` conflicts with code      |
+- [x] T-101 بازطراحی مرحله‌ای Alert Flow (P0, UX/Content + Product/Backend)
+- [x] T-102 بازنویسی پیام انتخاب دارایی (P0) — نمایش «بیت‌کوین (BTC)» صریح در همه نقاط.
+- [x] T-103 بازنویسی پیام‌های ورود قیمت (P0) — واحد صریح + مثال + validation.
+- [x] T-104 طراحی استاندارد پیام تایید نهایی (P0) — نام دارایی + شرط + قیمت هدف + واحد + قیمت فعلی + دکمه‌ها.
+- [ ] T-105 بازطراحی پیام‌های خطا (P1)
+- [ ] T-106 بازطراحی لیست هشدارهای فعال (P1) — دارایی/شرط/قیمت هدف/وضعیت.
 
-## Phase 1: UX Clarity
+**کارهای انجام‌شده اضافی هم‌راستا (بهترین UX ممکن):** TWA کامل تب‌دار (قیمت‌ها | دارایی‌های من | هشدارها | چارت پیشرفته | ایجاد)، renderMyAssets (خلاصه دارایی + تعداد هشدار + قیمت زنده + اقدام سریع)، renderSuggestions (پیشنهاد برای دارایی‌های unwatched با prefill wizard)، چارت پیشرفته چند-دارایی با بازه‌های زمانی + Chart.js dark theme، بهبود کیبورد بات + لینک عمیق به TWA، asset-grouped در "هشدارهای من".
 
-### Objective
+**معیار پذیرش:** کاربر در ساخت هشدار سردرگم نشود؛ در تایید، دارایی و شرط و واحد واضح باشد؛ ورودی اشتباه با پیام قابل فهم مدیریت شود.
 
-Remove ambiguity from price display and alert creation.
+### فاز دو: سخت‌سازی منطق هشدار و جلوگیری از تکرار (Sprint 3)
 
-### Deliverables
+**هدف:** رفتار هشدار از نظر فنی قابل اتکا، deterministic و ضدتکرار شود.
 
-- explicit asset labels in all sensitive flows
-- staged alert flow with clear summary and confirm step
-- consistent terminology for units and prices
+**تسک‌های کلیدی:**
 
-### Tasks
+- [ ] T-201 پیاده‌سازی مدل canonical برای asset (P0, Backend)
+- [ ] T-202 پیاده‌سازی state machine برای flow کاربر (P0)
+- [ ] T-203 پیاده‌سازی lifecycle رسمی برای alert (P0)
+- [ ] T-204 پیاده‌سازی idempotency در trigger (P0)
+- [ ] T-205 پیاده‌سازی atomic claim / locking (P0)
+- [ ] T-206 تعریف و پیاده‌سازی retry policy (P1)
+- [ ] T-207 تست سناریوهای race condition (P1, QA)
 
-- [x] keep the alert wizard step-based
-- [x] ensure target price and unit are always visible in every alert creation step
-- [x] keep delete/list flows easy to understand
-- [x] verify confirmation text displays asset, condition, unit, and target price
-- [x] update live docs to reflect the current alert flow and wording
+**وضعیت فعلی (از کد واقعی):** 
+- alert creation staged + pending_confirmation → active بعد از تایید صریح کاربر.
+- snapshot display name/unit در زمان ایجاد.
+- برخی guards برای stale (worker قیمت را چک می‌کند).
+- retry/backoff در fetch/send.
+- اما state machine کامل، locking اتمیک برای claim روی alert، و anti-duplicate قوی ممکن است نیاز به تقویت بیشتر داشته باشد (بر اساس گزارش، این‌ها P0 هستند).
 
-### Acceptance
+**معیار پذیرش:** برای یک رخداد واحد، اعلان تکراری مهار شده؛ transition نامعتبر مسدود؛ lifecycle در لاگ/state قابل مشاهده.
 
-- a user can create an alert without guessing the target asset or unit
-- summary and confirmation show the same asset and unit the code stores
+### فاز سه: Observability، Data Freshness و آمادگی عملیاتی (Sprint 4)
 
-### Task Breakdown
+**هدف:** سیستم از «کار می‌کند» به «قابل مانیتور، قابل تحلیل، قابل اداره» برسد.
 
-| Task                             | Owner                | Output                                  | Acceptance                                              |
-| -------------------------------- | -------------------- | --------------------------------------- | ------------------------------------------------------- |
-| Standardize asset naming         | Product + UX/Content | explicit asset labels in flows          | no sensitive message uses ambiguous asset-only text     |
-| Standardize target unit language | Product + Backend    | `toman`/`USDT` conventions documented   | display and stored unit match                           |
-| Harden confirmation summary      | UX/Content + Backend | summary template for alert confirm step | user sees asset, condition, unit, target, current price |
-| Simplify list/delete flow        | UX/Content           | easy alert list + delete experience     | user can inspect and delete without confusion           |
+**تسک‌های کلیدی:**
 
-## Phase 2: Reliability Hardening
+- [ ] T-301 پیاده‌سازی freshness classification (P0)
+- [ ] T-303 اعمال freshness policy در trigger logic (P0)
+- [ ] T-401 طراحی schema لاگ ساختاریافته (P0)
+- [ ] T-402 پیاده‌سازی log برای eventهای کلیدی (P0)
+- [ ] T-403 تعریف metricهای پایه (P0)
+- [ ] T-404 پیاده‌سازی correlation (P1)
+- [ ] T-405 تعریف alerting عملیاتی (P1)
+- [ ] T-406 تدوین runbook incidentها (P1)
 
-### Objective
+**وضعیت فعلی:** 
+- لاگ‌های کلیدی در worker (alert_evaluated, notification, price fetch) وجود دارد.
+- endpointهای health + /api/v1/prices/latest + ingest.
+- GitHub Action برای قیمت (bypass IP) + healthcheck خارجی.
+- backup cron + extended live-sites healthcheck شامل novax.
+- اما schema ساختاریافته کامل، metricهای غنی، freshness status صریح در DB/UI، correlation قوی، runbook مکتوب هنوز نیاز به کار دارد (بسیاری P0/P1).
 
-Protect the system from duplicate alerts, stale data, and ambiguous state transitions.
+### فاز چهار: هم‌ترازی مستندات، تثبیت نهایی و آماده‌سازی برای توسعه بعدی (Sprint 5)
 
-### Deliverables
+**هدف:** سیستم و مستندات به وضعیت پایدار و قابل اتکا برسند تا پایه توسعه بعدی سالم باشد.
 
-- canonical asset identity in the data model
-- lifecycle-gated alerts
-- idempotent notification delivery
-- freshness-aware trigger behavior
+**تسک‌های کلیدی:**
 
-### Tasks
+- [ ] T-501 طراحی test matrix end-to-end (P1)
+- [ ] T-502 اجرای walkthrough واقعی end-to-end (P1)
+- [ ] T-503 audit مستندات حساس با runtime (P1)
+- [ ] T-504 تعریف release checklist نسخه hardening (P2)
 
-- [x] keep alert state transitions explicit and validated
-- [x] keep stale/unavailable data from triggering notifications
-- [x] keep send retries from creating duplicate user-visible events
-- [x] add or verify tests for duplicate prevention and stale-data gates
-- [x] review alert lifecycle coverage in current code and tests
+**خروجی:** مستندات کلیدی (این roadmap، PROGRESS، contractها) با runtime هم‌خوان؛ runbookها کاربردی؛ baseline نسخه پایدار تعریف‌شده؛ backlog بعدی روی پایه واقعی ساخته شود.
 
-### Acceptance
+**تمرکز تولید غنی (هم‌راستا با روح گزارش + درخواست کاربر برای بهترین UX/UI/کارایی):** 
+TWA به عنوان مینی‌اپ کامل (تب‌دار، My Assets اولویتی، پیشنهادهای هوشمند مبتنی بر داده، چارت‌های تعاملی پیشرفته)، یکپارچگی عمیق بات متنی با TWA (دکمه‌های web_app + لینک عمیق + خلاصه‌های asset-grouped)، کارایی (کش سریع، چارت تاریخچه، کشف سریع دارایی)، SEO/meta برای TWA. این‌ها پس از/هم‌زمان با hardening هسته، ارزش واقعی برای کاربر ایرانی ایجاد می‌کنند و بخشی از "محصول کامل از روز اول" هستند.
 
-- duplicate send is treated as an incident
-- stale data never produces a false trigger
-- confirmed alerts remain traceable through logs and state
+## برنامه زمانی و Sprint (خلاصه از گزارش 06)
 
-### Task Breakdown
+- فاز 0 / Sprint 1: ۱ هفته — Contract Freeze (T-001 تا T-005)
+- فاز 1 / Sprint 2: ۱-۱.۵ هفته — UX Flow Stabilization (T-101 تا T-105)
+- فاز 2 / Sprint 3: ۲ هفته — Backend Hardening (T-201 تا T-205)
+- فاز 3 / Sprint 4: ۱.۵-۲ هفته — Freshness + Observability (T-301/T-303 + T-401 تا T-404)
+- فاز 4 / Sprint 5: ۱-۱.۵ هفته — QA, Runbook, Release Readiness (T-206/T-207 + T-405/T-406 + T-501 تا T-504)
 
-| Task                             | Owner               | Output                                   | Acceptance                                      |
-| -------------------------------- | ------------------- | ---------------------------------------- | ----------------------------------------------- |
-| Enforce canonical asset identity | Backend             | canonical ids in alert and asset records | evaluations use canonical ids, not display text |
-| Validate state transitions       | Backend + Tech Lead | explicit alert lifecycle checks          | invalid transitions are rejected                |
-| Add idempotency to delivery      | Backend             | single-send guarantee per event          | duplicate send cannot happen for same event     |
-| Block stale triggers             | Backend + Ops       | freshness gate in evaluation             | stale/unavailable prices do not fire alerts     |
+**مدت کل واقع‌بینانه:** ۷ هفته. موج اول اجرا: تمام P0های فاز ۰-۲ فوری.
 
-## Phase 3: Observability and Operations
+## KPIهای پیشنهادی کلیدی (از گزارش 06)
 
-### Objective
+- Alert Creation Completion Rate + Error Rate (قبل از تایید نهایی)
+- Duplicate Alert Trigger/Send Rate → نزدیک صفر
+- Invalid State Transition Rate → صفر
+- Stale Data Evaluation Rate + Trigger Blocked by Freshness
+- Worker Processing Latency, Notification Send Failure Rate, Incident Detection Time, MTTR
 
-Make runtime health visible and supportable.
+**Gateهای Go/No-Go برای release:** duplicate نزدیک صفر، transition بحرانی صفر، happy path پایدار، stale behavior مطابق policy، trace ممکن، runbook حاضر.
 
-### Deliverables
+## Risk Register خلاصه (از گزارش)
 
-- structured log contract
-- cron heartbeat monitor
-- runbook for incident handling
-- deploy/release checklist
+R-01 Ambiguity در قراردادها (بالا) → contract freeze + time-boxed decision  
+R-04 duplicate trigger (بسیار بالا) → idempotency + atomic claim + تست race  
+R-07 عدم هم‌ترازی سند و runtime (متوسط-بالا) → walkthrough + audit + source of truth  
+R-08 scope creep (بالا) → freeze دامنه hardening  
+(بقیه در گزارش 06 کامل)
 
-### Tasks
+## وضعیت پیشرفت فعلی (به‌روز با کد + کارهای UI/UX اخیر)
 
-- [x] watch `alert_evaluated`, `notification_send_*`, and `stale_data_detected`
-- [x] keep `/status` monitored from outside the Worker
-- [x] keep `/health` and `/api/v1/prices/latest` in release checks
-- [x] document the incident response path for duplicate send, stale data, and relay failure
-- [x] verify runbook references are up to date in `docs/OPERATIONS.md` or `docs/OBSERVABILITY.md`
+بسیاری از اصول گزارش (explicit، تومان، جریان مرحله‌ای با تایید، freshness guard اولیه، observability پایه) در هسته پیاده‌سازی شده‌اند. 
 
-### Acceptance
+**کارهای غنی تولید انجام‌شده (هم‌راستا با "بهترین کار ممکن" برای UX و کارایی، بدون محدودیت MVP):**
+- TWA تک‌فایل responsive با تب‌های کامل (Prices, My Assets, Alerts, Advanced Chart, Create)
+- My Assets: لیست دارایی‌های منحصربه‌فرد با تعداد هشدار + آخرین قیمت + دکمه اقدام
+- Suggestions: فیلتر unwatched + دکمه "شروع هشدار" با prefill wizard
+- چارت پیشرفته: انتخاب چند-دارایی + دکمه‌های بازه 1d/7d/30d/90d + Chart.js کامل (dark، grid، multi-line)
+- بات: کیبورد غنی + دکمه web_app به TWA + بهبود "هشدارهای من" به asset-summary + قیمت زنده + CTA به TWA
+- ingest واقعی (Binance + TGJU)، GitHub Action، health، backup، PM2 + nginx + cert برای subdomain
 
-- operators can tell whether cron is healthy
-- operators can trace an alert from creation to delivery
-- a rollout can be paused using logs and health endpoints
+**گام‌های بعدی فوری (مطابق موج اول گزارش):** 
+- مستندسازی رسمی سیاست‌ها (Asset Identity، Pricing Presentation، Flow Contract و غیره) در docs/ یا ADR.
+- تکمیل state machine کامل + locking + idempotency قوی در backend/worker.
+- schema لاگ ساختاریافته + metricهای غنی + freshness status صریح.
+- audit کامل docs با runtime + walkthrough واقعی + runbook.
 
-### Task Breakdown
+## چک‌لیست فازها برای Agent / تیم
 
-| Task                         | Owner           | Output                               | Acceptance                                                     |
-| ---------------------------- | --------------- | ------------------------------------ | -------------------------------------------------------------- |
-| Keep log contract stable     | Backend + Ops   | structured event names and fields    | alert trace can be reconstructed from logs                     |
-| Keep cron heartbeat external | Ops             | GitHub Actions monitor and `/status` | stale cron is detected outside Worker                          |
-| Define incident playbooks    | Ops             | short operational response notes     | duplicate send, stale data, and relay failure have clear steps |
-| Keep release checks short    | Tech Lead + Ops | deploy checklist                     | every release uses the same health gates                       |
+- [x] فاز صفر: قراردادها (در این سند + گزارش distill شده؛ جزئی در کد)
+- [x] فاز یک: UX Clarity (flow مرحله‌ای + تایید + TWA/My Assets/Suggestions غنی انجام‌شده)
+- [ ] فاز دو: Reliability Hardening کامل (state/lifecycle/idempotency/locking)
+- [ ] فاز سه: Observability + Freshness کامل (log/metric/trace/runbook)
+- [ ] فاز چهار: Audit، Walkthrough، Release Readiness + baseline
 
-## Phase 4: Production Enhancements & Rich UX (Full Product Focus)
+## Milestoneها (M1 تا M5 از گزارش 06)
 
-### Objective
+- M1: Contract Freeze (پایان Sprint 1)
+- M2: UX Flow Approved
+- M3: Core Runtime Hardened (duplicate risk مهار)
+- M4: Observable & Freshness-Aware
+- M5: Release Ready Hardening Build
 
-Deliver the best possible user experience and functionality for a real production Iranian Telegram price-alert product. No MVP limitations, nice-to-haves, or artificial "controlled" brakes. Prioritize ambitious, high-impact improvements to UI/UX (TWA as full mini-app + enriched bot chat), functionality (smart suggestions, My Assets as first-class, advanced charting, richer interactions), while maintaining the hardened core.
+## نحوه استفاده از این سند
 
-### Key Principles (Updated)
+- این فایل + PROGRESS.md + گزارش خارجی = منبع جهت‌دهی.
+- هر T-xxx را به تیکت/PR تبدیل کنید و وقتی کامل شد علامت بزنید.
+- Agent: فقط وقتی acceptance فاز فعلی پاس شد به بعدی بروید.
+- قبل از هر feature بزرگ جدید، مطمئن شوید core hardening (به‌ویژه فاز ۰-۲) تثبیت شده باشد.
 
-- Treat as full production product from day one.
-- UI/UX and end-user value are top priority alongside reliability.
-- Bold expansions: richer interfaces, smarter features, better asset coverage, seamless bot <-> TWA integration.
-- Every improvement must be high-quality, well-tested, and observable.
-- Roadmap is living; new phases for ongoing innovation (e.g. AI suggestions, multi-asset portfolios, notifications 2.0).
-
-### Current Focus Areas (Best Possible Work)
-
-- **UI/UX Overhaul**:
-  - TWA as a polished, navigable mini-app (tabs/sections: Prices, My Assets, Alerts, Create, Charts).
-  - Interactive advanced charts (time ranges, comparisons, sparklines).
-  - Smart "Suggestions" and "My Assets" as core experiences with quick actions.
-  - Enriched bot chat: asset browser, inline suggestions, deep links to TWA.
-- **Functionality**:
-  - My Assets: full watchlist view, performance summary, bulk actions.
-  - Smart suggestions: based on volatility, user history, market moves, complementary assets.
-  - Advanced alerts: more conditions, trailing, multi-asset.
-  - Better discovery: search, categories, trends.
-- **Expansion**:
-  - More assets/markets with quality providers.
-  - Richer notifications and summaries in bot.
-  - Operational polish for scale.
-
-### Tasks (Ambitious & Ongoing)
-
-- [ ] Full TWA navigation and app-like experience (tabs, better flows, Telegram WebApp APIs).
-- [ ] Advanced charting and visualization in TWA (ranges, multi-asset, trends).
-- [ ] First-class My Assets experience with summaries, quick-edit, favorites.
-- [ ] Intelligent Suggestions engine (volatility-based, personalized, in both bot and TWA).
-- [ ] Enrich bot chat UX (asset quick views, suggestion carousels, one-tap actions).
-- [ ] Expand assets with robust testing and user-facing discovery.
-- [ ] Advanced alert features (trailing stops, conditions, bulk management).
-- [ ] Continuous UX polish, performance, accessibility for Iranian users.
-
-### Acceptance (Full Product)
-
-- Improvements deliver clear, measurable value to real users (better engagement with alerts, discovery).
-- No regression in core reliability/hardening.
-- UI/UX feels premium and native to Telegram + web.
-- Features are ambitious but maintainable and observable.
-
-### Task Breakdown (Examples)
-
-| Task                              | Owner                | Output                     | Acceptance                                  |
-| --------------------------------- | -------------------- | -------------------------- | ------------------------------------------- |
-| TWA as full mini-app             | UX + Backend        | Tabbed navigation, rich components | Users can fluidly browse prices/assets/alerts/create without friction |
-| Advanced charts + My Assets      | Backend + UX        | Time-range charts, asset summaries | My Assets shows value + actions; charts are interactive and useful |
-| Smart Suggestions                | Product + Backend   | Volatility + history based recs | Suggestions appear in TWA and bot, lead to higher alert creation |
-| Enriched bot chat UX             | Worker + UX         | Inline asset views, suggestion buttons | Chat feels modern, reduces need to open TWA for simple tasks |
-
-## Milestone Checklist
-
-- [x] Milestone A: active docs aligned and baseline behavior frozen
-- [x] Milestone B: alert flow explicit and confirm-gated
-- [x] Milestone C: duplicate prevention and stale-data protection stable
-- [x] Milestone D: observability and ops runbooks usable in production
-
-## How to Use This File
-
-- Use it as the execution layer together with `PROGRESS.md` and the live docs.
-- Turn each task into a ticket or PR and mark it with `[x]` when done.
-- For automated agents: complete the checklist items in order and only proceed if acceptance criteria are met.
-- Do not add new features before the current phase is accepted.
+**این نقشه راه living است و باید بعد از هر تغییر مهم runtime یا incident به‌روز شود.**

@@ -105,7 +105,7 @@ Local no-Docker smoke check:
 ./scripts/smoke-local.sh
 ```
 
-The smoke script runs migrations, seeds MVP assets, fetches real prices through the provider chain, starts the API locally, checks `/health`, and verifies `/api/v1/prices/latest` returns provider slugs.
+The smoke script runs migrations, seeds initial assets (via seed script), fetches real prices through the provider chain, starts the API locally, checks `/health`, and verifies `/api/v1/prices/latest` returns provider slugs.
 
 ## Production Verification
 
@@ -142,7 +142,7 @@ export NOVAX_API_BASE_URL=https://<api-domain>
 
 The script runs local release checks, verifies the Cloudflare relay, fetches the
 selected branch on the server, syncs dependencies, creates a PostgreSQL backup
-when `DATABASE_URL` is available, applies migrations, seeds MVP assets, restarts
+when `DATABASE_URL` is available, applies migrations, seeds initial assets, restarts
 the API and worker systemd units, and verifies `/health` plus latest prices.
 
 Manual fallback order:
@@ -152,7 +152,7 @@ Manual fallback order:
 3. Pull backend release on server.
 4. Run `uv sync` if dependencies changed.
 5. Run `uv run alembic upgrade head`.
-6. Run `uv run python -m novax_price_alert.scripts.seed_mvp` if assets changed.
+6. Run `uv run python -m novax_price_alert.scripts.seed_mvp` (initial asset seeder; name is historical) if assets changed.
 7. Restart API and worker processes.
 8. Run health and latest-price checks.
 
