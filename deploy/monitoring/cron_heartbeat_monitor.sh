@@ -38,12 +38,17 @@ send_alert() {
     echo "$(date -u +%FT%TZ) suppressed (cooldown): $text"
     return 0
   fi
-  curl -fsS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-    -H "Content-Type: application/json" \
-    -d "$(printf '{"chat_id":"%s","text":%s,"disable_web_page_preview":true}' \
-        "$OPS_CHAT_ID" "$(printf '%s' "🚨 $text" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))')")" \
-    >/dev/null && echo "$now" > "$STATE_FILE"
-  echo "$(date -u +%FT%TZ) ALERT sent: $text"
+  # \u062a\u0646\u0647\u0627 \u062f\u0631 \u0635\u0648\u0631\u062a \u0627\u0631\u0633\u0627\u0644 \u0645\u0648\u0641\u0642 cooldown \u0631\u0627 \u0628\u0646\u0648\u06cc\u0633 \u0648 \u0645\u0648\u0641\u0642\u06cc\u062a \u0631\u0627 \u06af\u0632\u0627\u0631\u0634 \u06a9\u0646. \u0627\u06af\u0631 \u062a\u0644\u06af\u0631\u0627\u0645\n  # \u062f\u0631 \u062f\u0633\u062a\u0631\u0633 \u0646\u0628\u0627\u0634\u062f (\u0645\u062b\u0644\u0627\u064b \u0641\u06cc\u0644\u062a\u0631)\u060c \u0648\u0627\u0642\u0639\u06cc\u062a \u0631\u0627 \u06af\u0632\u0627\u0631\u0634 \u06a9\u0646 \u0648 \u0628\u0627 \u06a9\u062f \u063a\u06cc\u0631\u0635\u0641\u0631 \u062e\u0627\u0631\u062c \u0634\u0648.\n  local text_json payload
+  text_json="$(printf '%s' "🚨 $text" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))')"
+  payload="$(printf '{"chat_id":"%s","text":%s,"disable_web_page_preview":true}' "$OPS_CHAT_ID" "$text_json")"
+  if curl -fsS -m 20 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" -H "Content-Type: application/json" -d "$payload" >/dev/null 2>&1; then
+    echo "$now" > "$STATE_FILE"
+    echo "$(date -u +%FT%TZ) ALERT sent: $text"
+    return 0
+  else
+    echo "$(date -u +%FT%TZ) ALERT send FAILED (telegram unreachable?): $text" >&2
+    return 1
+  fi
 }
 
 # 1) در دسترس بودن Worker + وضعیت ضربان.
@@ -57,7 +62,7 @@ curl_rc=$?
 
 if [[ $curl_rc -ne 0 || -z "$http_code" || "$http_code" == "000" ]]; then
   send_alert "novax monitor: Worker در دسترس نیست (${WORKER_URL}/status بدون پاسخ، rc=${curl_rc})."
-  exit 0
+  exit $?  # exit code = whether telegram alert was delivered (red CI job = fallback signal)
 fi
 
 # 503 = ضربان کهنه (طبق منطق /status).
@@ -66,7 +71,7 @@ read -r st age last <<<"$status"
 
 if [[ "$http_code" == "503" || "$st" == "stale" || "$st" == "unknown" ]]; then
   send_alert "novax monitor: ضربان cron کهنه/نامشخص است (status=${st}, age=${age}s, last=${last})."
-  exit 0
+  exit $?
 fi
 
 echo "$(date -u +%FT%TZ) OK status=${st} age=${age}s last=${last}"

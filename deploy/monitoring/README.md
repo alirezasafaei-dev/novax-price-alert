@@ -33,7 +33,27 @@
 کهنه‌بودن ضربان، به همان گروه ops تلگرام هشدار می‌دهد (با cooldown برای جلوگیری
 از اسپم).
 
-### اجرا روی VPS (cron)
+> **مهم — محل اجرا:** این مانیتور باید جایی اجرا شود که هم به Cloudflare و هم به
+> `api.telegram.org` دسترسی داشته باشد. روی VPSهای داخل ایران معمولاً تلگرام فیلتر
+> است و ارسال هشدار شکست می‌خورد؛ پس روشِ توصیه‌شده **GitHub Actions** است (پایین).
+
+### روش توصیه‌شده: GitHub Actions (بدون سرور)
+
+فایل `.github/workflows/cron-heartbeat-monitor.yml` همین اسکریپت را روی رانرهای
+GitHub (خارج از ایران) هر ۱۵ دقیقه اجرا می‌کند — مستقل از Cloudflare cron و رایگان.
+
+راه‌اندازی فقط دو Secret لازم دارد
+(`Settings → Secrets and variables → Actions → New repository secret`):
+
+| Secret | مقدار |
+|---|---|
+| `OPS_BOT_TOKEN` | توکن همان بات تلگرام |
+| `OPS_CHAT_ID` | chat id گروه ops (مثلاً `-1003773212865`) |
+
+پس از افزودن، می‌توانی از تب **Actions → Cron heartbeat monitor → Run workflow**
+یک اجرای دستی برای تست بگیری.
+
+### روش جایگزین: cron روی یک سرور (خارج از ایران)
 
 ```bash
 # نصب وابستگی‌ها (curl و python3 معمولاً نصب‌اند)
