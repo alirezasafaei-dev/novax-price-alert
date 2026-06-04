@@ -215,10 +215,10 @@ Add only the next most valuable improvements after the core is stable.
 ### Tasks
 
 - [x] add metrics only after stability is confirmed — initial token-protected in-process `/metrics` counter endpoint added
-- [ ] add price history only if it is clearly useful and not disruptive
-- [ ] expand assets carefully with provider mappings and naming consistency
-- [ ] improve Telegram UX incrementally without changing the core alert flow — TWA summary/unit/delete and create→confirm polish started
-- [ ] require a rollback plan for every expansion item
+- [x] add price history only if it is clearly useful and not disruptive — read-only `/api/v1/prices/history` endpoint added on existing snapshots and exposed in TWA
+- [x] expand assets carefully with provider mappings and naming consistency — documented EUR support aligned in backend seed/provider mappings with tests
+- [x] improve Telegram UX incrementally without changing the core alert flow — TWA summary/unit/delete, target edit, history panel, and create→confirm polish completed
+- [x] require a rollback plan for every expansion item — each controlled-expansion API surface documents a remove/disable path
 
 ### Acceptance
 

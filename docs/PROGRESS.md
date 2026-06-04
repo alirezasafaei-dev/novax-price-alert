@@ -45,9 +45,9 @@
 ## کارهای باقی‌مانده
 
 - metrics و مانیتورینگ دقیق‌تر: endpoint سبک `/metrics` برای counters فعلی با token اختیاری/الزامی در production اضافه شده؛ dashboard/time-series هنوز باقی است.
-- تاریخچه‌ی قیمت
-- گسترش کنترل‌شده‌ی دارایی‌ها و بازارها
-- بهبودهای UX روی summary، edit، و delete flow: summary، نمایش واحد/نام دارایی، escaping خروجی API، و create→confirm flow در TWA اصلاح شده؛ edit کامل و flowهای پیشرفته هنوز باقی است.
+- تاریخچه‌ی قیمت: endpoint خواندنی `/api/v1/prices/history` روی snapshotهای موجود اضافه شده و TWA اکنون تاریخچه ۱۰ snapshot اخیر هر دارایی را نمایش می‌دهد؛ نمودار پیشرفته هنوز nice-to-have است.
+- گسترش کنترل‌شده‌ی دارایی‌ها و بازارها: دارایی مستندشده‌ی EUR در backend seed و provider mappings هم‌راستا شد؛ گسترش بازارهای جدید فقط با mapping/test جدا انجام شود.
+- بهبودهای UX روی summary، edit، و delete flow: summary، نمایش واحد/نام دارایی، escaping خروجی API، create→confirm flow، حذف، و اصلاح قیمت هدف هشدار در TWA انجام شده؛ flowهای پیشرفته‌تر nice-to-have هستند.
 
 ## مرجع‌ها
 

@@ -84,6 +84,43 @@ GET /api/v1/prices/latest?asset_code=USDT
 
 ---
 
+### `GET /api/v1/prices/history`
+
+Return recent persisted price snapshots for one asset, newest first. This is a
+small read-only history surface backed by the existing `price_snapshots` table;
+it does not add a new storage path or change alert evaluation behavior.
+
+Query params:
+
+- `asset_code` (required): asset code such as `USD_IRT` or `BTC`.
+- `limit` (optional): number of snapshots to return, from `1` to `500`; default `50`.
+
+```http
+GET /api/v1/prices/history?asset_code=USD_IRT&limit=10
+```
+
+```json
+{
+  "items": [
+    {
+      "asset_code": "USD_IRT",
+      "asset_name": "US Dollar",
+      "price_value": "1710000",
+      "currency_code": "IRT",
+      "display_unit": "IRT",
+      "provider": "tgju_scrape",
+      "observed_at": "2026-06-04T10:10:00Z"
+    }
+  ]
+}
+```
+
+Rollback: remove this read-only route from the public API if history proves noisy
+or not useful; the existing snapshot persistence is still used internally and is
+not coupled to this endpoint.
+
+---
+
 ## Metrics
 
 ### `GET /metrics`
