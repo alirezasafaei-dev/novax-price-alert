@@ -11,7 +11,12 @@ name: Cron heartbeat monitor
 on:
   schedule:
     - cron: "*/15 * * * *" # هر ۱۵ دقیقه (GitHub ممکن است کمی با تأخیر اجرا کند).
-  workflow_dispatch: {} # امکان اجرای دستی برای تست.
+  workflow_dispatch:
+    inputs:
+      force_test_alert:
+        description: "یک پیام تستِ یک‌باره به گروه ops بفرست تا تحویل تلگرام تأیید شود"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -31,10 +36,19 @@ jobs:
           OPS_CHAT_ID: ${{ secrets.OPS_CHAT_ID }}
           COOLDOWN_SEC: "0"
           STATE_DIR: ${{ runner.temp }}
+          FORCE_TEST_ALERT: ${{ inputs.force_test_alert }}
         run: |
           if [[ -z "$BOT_TOKEN" || -z "$OPS_CHAT_ID" ]]; then
             echo "::error::OPS_BOT_TOKEN / OPS_CHAT_ID secrets are not set; skipping."
             exit 1
+          fi
+          # حالت تست: یک پیام واقعی به گروه ops می‌فرستد تا مسیر GitHub → Telegram تأیید شود.
+          if [[ "$FORCE_TEST_ALERT" == "true" ]]; then
+            echo "force_test_alert: sending a one-off test message to ops chat"
+            payload="$(OPS_CHAT_ID="$OPS_CHAT_ID" python3 -c 'import json,os;print(json.dumps({"chat_id":os.environ["OPS_CHAT_ID"],"text":"\u2705 \u062a\u0633\u062a \u0645\u0627\u0646\u06cc\u062a\u0648\u0631 novax: \u0645\u0633\u06cc\u0631 GitHub Actions \u2192 Telegram \u0633\u0627\u0644\u0645 \u0627\u0633\u062a.","disable_web_page_preview":True}))')"
+            curl -fsS -m 20 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" -H "Content-Type: application/json" -d "$payload" >/dev/null
+            echo "test message sent to ops chat"
+            exit 0
           fi
           chmod +x deploy/monitoring/cron_heartbeat_monitor.sh
           deploy/monitoring/cron_heartbeat_monitor.sh
