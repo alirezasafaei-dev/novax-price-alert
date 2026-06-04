@@ -56,3 +56,24 @@ async def test_latest_prices_returns_provider_slug(db_session: AsyncSession) -> 
 
     assert len(rows) == 1
     assert rows[0].provider_slug == "tgju_scrape"
+
+
+@pytest.mark.anyio
+async def test_latest_prices_returns_display_unit(db_session: AsyncSession) -> None:
+    session = db_session
+    observed_at = datetime.now(timezone.utc)
+    asset = Asset(id="asset-usdt", symbol="USDT", name="Tether", unit="USDT")
+    provider = Provider(id="provider-binance", slug="binance", name="Binance", priority=1)
+    latest = LatestPrice(
+        asset_id=asset.id,
+        provider_id=provider.id,
+        price=Decimal("1.00"),
+        observed_at=observed_at,
+    )
+    session.add_all([asset, provider, latest])
+    await session.commit()
+
+    rows = await PriceQueryService(session).latest_prices("USDT")
+
+    assert len(rows) == 1
+    assert rows[0].display_unit == "USDT"

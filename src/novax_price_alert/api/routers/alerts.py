@@ -15,10 +15,20 @@ from novax_price_alert.api.schemas.alert import (
 from novax_price_alert.application.services.alert_crud_service import AlertCRUDService
 from novax_price_alert.application.services.user_resolver_service import UserResolverService
 from novax_price_alert.domain.alert_rule import AlertRule, InvalidAlertTransitionError
+from novax_price_alert.domain.asset import Asset
 from novax_price_alert.domain.enums import AlertLifecycleState
 from novax_price_alert.domain.user import User
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
+
+
+def _alert_out(alert: AlertRule, asset: Asset | None = None) -> AlertOut:
+    resolved_asset = asset or getattr(alert, "asset", None)
+    alert_out = AlertOut.model_validate(alert)
+    if resolved_asset is not None:
+        alert_out.asset_code = resolved_asset.symbol
+        alert_out.asset_name = resolved_asset.display_name or resolved_asset.name
+    return alert_out
 
 
 @router.post("", response_model=AlertOut, status_code=status.HTTP_201_CREATED)
@@ -52,7 +62,7 @@ async def create_alert(
         confirmed = await alerts.confirm(created.id, current_user.id)
         if confirmed is not None:
             created = confirmed
-    return AlertOut.model_validate(created)
+    return _alert_out(created, asset)
 
 
 @router.post("/{alert_id}/confirm", response_model=AlertOut)
@@ -68,7 +78,7 @@ async def confirm_alert(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if confirmed is None:
         raise NotFoundError("alert not found")
-    return AlertOut.model_validate(confirmed)
+    return _alert_out(confirmed)
 
 
 @router.get("", response_model=AlertListOut)
@@ -78,7 +88,7 @@ async def list_alerts(
 ) -> AlertListOut:
     alerts = AlertCRUDService(db)
     rows = await alerts.list_alerts(current_user.id)
-    return AlertListOut(items=[AlertOut.model_validate(row) for row in rows])
+    return AlertListOut(items=[_alert_out(row) for row in rows])
 
 
 @router.patch("/{alert_id}", response_model=AlertOut)
@@ -101,7 +111,7 @@ async def update_alert(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if updated is None:
         raise NotFoundError("alert not found")
-    return AlertOut.model_validate(updated)
+    return _alert_out(updated)
 
 
 @router.delete("/{alert_id}", response_model=DeleteAlertOut)

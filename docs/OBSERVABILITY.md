@@ -82,6 +82,16 @@ Since each line is JSON, you can also filter by level, e.g. only errors:
 npx wrangler tail --format json | grep '"level":"error"'
 ```
 
+## Runtime counters
+
+The backend exposes a minimal `GET /metrics` JSON endpoint for in-process counters recorded through `record_metric()`. Treat it as a lightweight rollout signal for counts such as alert creation, alert confirmation, invalid transitions, and notification delivery. It is not a durable dashboard or time-series system; add those only as a later controlled expansion if the operational value is clear.
+
+Set `METRICS_ACCESS_TOKEN` for deployment and send it with `X-Metrics-Token`. Production requests are rejected when a valid token is not configured and provided.
+
+```bash
+curl -s -H "X-Metrics-Token: $METRICS_ACCESS_TOKEN" https://api.example.com/metrics
+```
+
 ## Cron heartbeat & external monitor
 
 A stopped cron cannot be detected from inside the Worker (no run → no log). The
