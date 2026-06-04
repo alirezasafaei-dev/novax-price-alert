@@ -46,7 +46,7 @@ This section defines the executable phase plan for both an automated agent and a
 - [x] Phase 1: UX Clarity
 - [x] Phase 2: Reliability Hardening
 - [x] Phase 3: Observability and Operations
-- [ ] Phase 4: Controlled Expansion
+- [x] Phase 4: Controlled Expansion
 
 ## Goal
 
@@ -214,7 +214,7 @@ Add only the next most valuable improvements after the core is stable.
 
 ### Tasks
 
-- [x] add metrics only after stability is confirmed — initial token-protected in-process `/metrics` counter endpoint added
+- [x] add metrics only after stability is confirmed — token-protected `/metrics` counters and `/metrics/summary` operational dashboard API added
 - [x] add price history only if it is clearly useful and not disruptive — read-only `/api/v1/prices/history` endpoint added on existing snapshots and exposed in TWA
 - [x] expand assets carefully with provider mappings and naming consistency — documented EUR support aligned in backend seed/provider mappings with tests
 - [x] improve Telegram UX incrementally without changing the core alert flow — TWA summary/unit/delete, target edit, history panel, and create→confirm polish completed

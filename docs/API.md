@@ -148,6 +148,39 @@ X-Metrics-Token: <token>
 }
 ```
 
+### `GET /metrics/summary`
+
+Return a compact operational summary for rollout checks and lightweight dashboards.
+It uses the same `X-Metrics-Token` access control as `/metrics`.
+
+```http
+GET /metrics/summary
+X-Metrics-Token: <token>
+```
+
+```json
+{
+  "metrics": {
+    "notification_send_failed_count": 2
+  },
+  "alerts_by_state": {
+    "active": 14,
+    "pending_confirmation": 1
+  },
+  "events_by_status": {
+    "failed": 1,
+    "sent": 20
+  },
+  "latest_prices": {
+    "total": 5,
+    "fresh": 4,
+    "stale": 1,
+    "oldest_observed_at": "2026-06-04T10:00:00Z",
+    "newest_observed_at": "2026-06-04T10:10:00Z"
+  }
+}
+```
+
 ---
 
 ## Users

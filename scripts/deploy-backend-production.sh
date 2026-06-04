@@ -142,6 +142,7 @@ curl -fsS "${NOVAX_API_BASE_URL%/}/api/v1/prices/latest" >/dev/null
 if [[ -n "${METRICS_ACCESS_TOKEN:-}" ]]; then
   log "Verifying protected metrics endpoint"
   curl -fsS -H "X-Metrics-Token: ${METRICS_ACCESS_TOKEN}" "${NOVAX_API_BASE_URL%/}/metrics" >/dev/null
+  curl -fsS -H "X-Metrics-Token: ${METRICS_ACCESS_TOKEN}" "${NOVAX_API_BASE_URL%/}/metrics/summary" >/dev/null
 else
   log "Skipping /metrics verification because METRICS_ACCESS_TOKEN is not set"
 fi
