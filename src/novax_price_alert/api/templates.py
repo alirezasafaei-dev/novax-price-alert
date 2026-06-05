@@ -320,24 +320,35 @@ function renderMyAssets(){
 function renderSuggestions(){
   const container = document.getElementById('suggestions-card');
   const listEl = document.getElementById('suggestions-list');
-  if(!container || !listEl || !latest.length) return;
-  const watched = new Set(userAlerts.map(a => a.asset_code));
-  const candidates = latest.filter(p => !watched.has(p.asset_code)).slice(0, 3);
-  if(!candidates.length){
-    container.classList.add('hidden');
-    return;
-  }
-  const html = candidates.map(p => `
-    <article class="card mini">
-      <div class="row">
-        <div class="name">${escapeHtml(p.asset_name)}</div>
-        <span class="meta">${fmt.format(Number(p.price_value))} ${p.display_unit}</span>
-      </div>
-      <button class="ghost mini" onclick="startAlertForAsset('${p.asset_code}')">شروع هشدار</button>
-    </article>
-  `).join('');
-  listEl.innerHTML = html;
-  container.classList.remove('hidden');
+  if(!container || !listEl) return;
+  const watched = (userAlerts||[]).map(a => a.asset_code).join(',');
+  // Use server smart suggestions with change % for data-driven recs (volatility/move signals)
+  api(`/api/v1/prices/suggestions?limit=4&watched=${encodeURIComponent(watched)}`)
+    .then(res => {
+      const items = (res.items || []).slice(0,4);
+      if(!items.length){ container.classList.add('hidden'); return; }
+      const html = items.map(p => `
+        <article class="card mini">
+          <div class="row">
+            <div class="name">${escapeHtml(p.asset_name)}</div>
+            <span class="meta">${fmt.format(Number(p.price_value))} ${p.display_unit} ${p.change_pct!=null ? (p.change_pct>0?'+':'')+p.change_pct+'%' : ''}</span>
+          </div>
+          <button class="ghost mini" onclick="startAlertForAsset('${p.asset_code}')">شروع هشدار</button>
+        </article>
+      `).join('');
+      listEl.innerHTML = html;
+      container.classList.remove('hidden');
+    })
+    .catch(() => {
+      // graceful fallback to previous client logic
+      if(!latest.length) return;
+      const wset = new Set((userAlerts||[]).map(a=>a.asset_code));
+      const cands = latest.filter(p=>!wset.has(p.asset_code)).slice(0,3);
+      if(!cands.length){ container.classList.add('hidden'); return; }
+      const html = cands.map(p => `<article class="card mini"><div class="row"><div class="name">${escapeHtml(p.asset_name)}</div><span class="meta">${fmt.format(Number(p.price_value))} ${p.display_unit}</span></div><button class="ghost mini" onclick="startAlertForAsset('${p.asset_code}')">شروع هشدار</button></article>`).join('');
+      listEl.innerHTML = html;
+      container.classList.remove('hidden');
+    });
 }
 
 function startAlertForAsset(code){

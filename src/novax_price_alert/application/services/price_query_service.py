@@ -84,3 +84,48 @@ class PriceQueryService:
         result = await self.session.execute(stmt)
 
         return result.all()
+
+    async def suggestions(
+        self,
+        watched_codes: list[str] | None = None,
+        limit: int = 5,
+    ) -> list[dict]:
+        """Smart suggestions: unwatched assets + % change from recent PriceSnapshots (volatility / market move signals).
+        This fulfills 'smart suggestions based on data' from the improvement report for rich production UX.
+        """
+        watched = set(watched_codes or [])
+        latest_rows = await self.latest_prices(None)
+        candidates = [r for r in latest_rows if getattr(r, "symbol", None) not in watched]
+
+        if not candidates:
+            return []
+
+        results = []
+        for row in candidates[: limit * 3]:
+            sym = getattr(row, "symbol", None)
+            if not sym:
+                continue
+            snap_stmt = (
+                select(PriceSnapshot.price.label("p"))
+                .join(Asset, Asset.id == PriceSnapshot.asset_id)
+                .where(Asset.symbol == sym)
+                .order_by(PriceSnapshot.observed_at.desc())
+                .limit(2)
+            )
+            snaps = (await self.session.execute(snap_stmt)).all()
+            ch = None
+            if len(snaps) >= 2 and float(snaps[1].p) != 0:
+                ch = round((float(snaps[0].p) - float(snaps[1].p)) / float(snaps[1].p) * 100, 2)
+            results.append({
+                "asset_code": sym,
+                "asset_name": getattr(row, "name", sym),
+                "price_value": getattr(row, "price", 0),
+                "display_unit": getattr(row, "display_unit", ""),
+                "change_pct": ch,
+                "reason": "recent move" if ch is not None and abs(ch or 0) >= 0.5 else "unwatched",
+            })
+            if len(results) >= limit:
+                break
+
+        results.sort(key=lambda x: abs(x.get("change_pct") or 0), reverse=True)
+        return results[:limit]
