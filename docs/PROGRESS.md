@@ -85,6 +85,13 @@
 
 **گزارش کامل بهبود:** `/home/dev13/Documents/my-doc/PROJECT_IMPROVEMENT_REPORT_FA/` (01-06) — همیشه اول این را بخوانید.
 
+## Final Deploy (2026-06-05)
+- rsync to /home/deploy/novax-price-alert (safe, no impact on 3 live sites)
+- pm2 restart novax-api + novax-worker --update-env
+- Verified: PM2 online, http://127.0.0.1:8001/health = 200 {"status":"ok","db":"connected"}
+- Subdomain: https://novax.alirezasafaeisystems.ir/health = 200, TWA HTML served, /metrics protected (401)
+- All phases complete per user checklist. Production ready.
+
 ## فاز چهار: Test Matrix & Walkthrough Summary (for release readiness) - EXECUTED
 Core scenarios covered + executed via pytest (38 tests) + code review + runbooks (T-501/T-502):
 - Happy path: create (PENDING) -> confirm (ACTIVE) -> eval match -> trigger -> dispatch claim -> DELIVERED. (test_alert_hardening, evaluator) [RUN]
