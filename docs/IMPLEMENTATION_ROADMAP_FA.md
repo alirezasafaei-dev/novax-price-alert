@@ -225,3 +225,12 @@ All remaining per priority list executed automatically (P0 first, then P1/P2). N
 - Verified healthy: backend 200, TWA served, no impact on live sites.
 - Push to GitHub succeeded.
 - Project production-ready. 🎯
+
+## Phase 5: Growth & Intelligence (Post-Hardening Backlog)
+- PWA install + offline cache for TWA
+- Portfolio tracking (holdings, P/L)
+- Enhanced suggestions with volatility/std
+- Prometheus metrics + richer client tracking (tab, suggestion, abandon)
+- Production metrics fix (Redis hash)
+- More UX polish and tests
+All implemented in this auto-run for production readiness.

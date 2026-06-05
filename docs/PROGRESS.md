@@ -92,6 +92,17 @@
 - Subdomain: https://novax.alirezasafaeisystems.ir/health = 200, TWA HTML served, /metrics protected (401)
 - All phases complete per user checklist. Production ready.
 
+## Phase 5 Growth Features Implemented (auto)
+- PWA manifest + install prompt + basic offline note
+- Portfolio tab (local demo with prices calc)
+- Enhanced suggestions (volatility std + score)
+- Client tracking for tab/suggestion/abandon -> /metrics/track
+- Prometheus /metrics/prometheus
+- Metrics persistence improved (Redis HINCRBY no double count)
+- UX errors more actionable
+- Tests expanded, docs updated with Phase 5
+- Full lint/tests/deploy verified.
+
 ## فاز چهار: Test Matrix & Walkthrough Summary (for release readiness) - EXECUTED
 Core scenarios covered + executed via pytest (38 tests) + code review + runbooks (T-501/T-502):
 - Happy path: create (PENDING) -> confirm (ACTIVE) -> eval match -> trigger -> dispatch claim -> DELIVERED. (test_alert_hardening, evaluator) [RUN]
@@ -117,3 +128,49 @@ Manual on VPS: health ok, metrics visible, TWA shows fresh labels.
 6. Verify no dups, freshness respected, user notified.
 
 All phases per report now baseline complete. Future: add durable metrics, more assets, AI recs etc. as growth (post fاز4).
+## همگام سازی و قرارگیری در نمونه کارهای واقعی (post-completion) - EXECUTED
+- Workspace sync (/home/dev13/my-project):
+  - ops/workspace/PROJECTS.tsv: added novax entry with live URL + "keep as live example and portfolio case"
+  - README.md: listed under Secondary Projects with link + note
+- Portfolio site placement (/home/dev13/my-project/sites/live/alirezasafaeisystems):
+  - Created full case study: src/app/case-studies/novax-price-alert/page.tsx (bilingual, structured sections per report, JsonLd project/article/breadcrumb, live link)
+  - Added to case-studies listing (EN/FA)
+  - Featured on homepage via FeaturedCaseStudies component (prominent card + grid, with summary highlighting rich TWA features: My Assets, suggestions, portfolio, advanced charts, hardening, safe co-deploy)
+  - Added to "Live Product Network" cross-site links
+  - Updated site README + sitemap manifest + regenerated json
+- Committed + pushed in both the live sub-repo and outer workspace repo.
+- Source canonical: sites/secondary/novax-price-alert (already inside my-project tree)
+- Result: Novax is now discoverable as a real production delivery in alirezasafaeisystems.ir "نمونه کارهای واقعی" (case studies + featured on home), while source + registry updated in control workspace.
+All per user request after full phases + production deploy.
+
+## 2026-06-xx: NovaX Mini-App (Alert Studio) deliverable received
+
+User delivered `/home/dev13/Downloads/novax-mini-app.zip` (extracted to `mini-app/` in repo).
+
+**خلاصه:** یک پروتوتایپ full-stack مدرن (React 19 + Vite + Express server.ts با @google/genai) با تمرکز روی تجربه تعاملی غنی:
+- داشبورد قیمت با چارت‌های SVG area/line زنده + high/low + اسپارک‌لاین‌های کوچک.
+- پلی‌گراند اسلایدر دستی قیمت (trigger-manual) برای تست فوری هشدارها بدون بازار واقعی (هر ۱۰ ثانیه drift + چک تریگر در بک‌اند شبیه‌سازی).
+- Alert Center با فرم گام‌به‌گام، تبدیل خودکار ارقام فارسی، یادداشت شخصی، فعال/غیرفعال، لیست + استریم لاگ وقایع تریگر.
+- شبیه‌ساز نوتیفیکیشن تلگرام (پاپ‌آپ انیمیشنی branded @novax_price_bot + سنتز صدا با Web Audio API chime).
+- دستیار AI جمینای 3.5-flash سرور‌ساید با context قیمت‌های زنده + دانش پروژه (هشدارها، کرون ۱۰ دقیقه، وب‌هوک، ریپو).
+- تب راهنمای استقرار VPS + .env + دموهای تستی.
+
+**وضعیت فنی:** 
+- `npm install + tsc --noEmit + npm run build` کاملاً سبز و بدون خطا.
+- کاملاً self-contained با in-memory store (assets + alerts + logs). هیچ اتصالی به بک‌اند واقعی پایتون (alert_rules, LatestPrice, evaluator) ندارد.
+- asset symbols کمی متفاوت از seed اصلی (TON اضافه، نام‌گذاری GOLD18/COIN_EMAMI).
+
+**رابطه با چک‌لیست اولویت‌دار ۳ ماهه (فاز ۱-۴):**
+- قوی روی UX polish، نوتیفیکیشن غنی (شبیه‌سازی)، ابزار تست، و پیشنهاد/تحلیل هوشمند (فاز ۱ + فاز ۳).
+- هنوز هیچ‌کدام از اولویت‌های اصلی فاز ۱ (سیستم بازخورد واقعی + جدول Feedback + آمار per-user + لاگ‌های رشد) یا فاز ۲ (Subscription + زرین‌پال) را پوشش نمی‌دهد.
+- عالی به عنوان ابزار development/demo برای validation قبل از monetization.
+
+**تصمیم‌گیری معلق:** کاربر گفت «فعلا کاری انجام نده تا دیتای بعدی... بعد تصمیم میگیریم». گزینه‌های اصلی:
+1. نگه‌داری به عنوان companion/demo جدا (توصیه اولیه – کم‌ریسک، مفید برای تست و نمایش).
+2. پورت الگوهای کلیدی (simulator، sanitizer، popup، چارت SVG، AI) به TWA فعلی (تک‌فایلی).
+3. تبدیل به TWA اصلی (رفکتور بزرگ‌تر، نیاز به bridge APIها در FastAPI + simulation mode).
+4. Hybrid (live mode + sim mode).
+
+جزئیات کامل تحلیل + پیشنهادها در چت عامل ثبت شده. آماده اجرای گزینه انتخابی کاربر هستیم (با رعایت AGENTS.md و اصول سبک‌وزن پروژه).
+
+فایل‌های کلیدی جدید: `mini-app/server.ts` (هسته شبیه‌سازی + Gemini)، کامپوننت‌های React، README به‌روزشده داخل mini-app.

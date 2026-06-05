@@ -43,15 +43,35 @@ class TelegramNotificationSender(BaseNotificationSender):
             raise RuntimeError("alert rule for event was not found")
         rule, user, asset = row
         chat_id = user.telegram_user_id
+
+        display_name = asset.display_name or asset.name or asset.symbol or rule.canonical_asset_id
+        condition_text = "بالاتر یا مساوی" if rule.condition_type == "above" else "پایین‌تر یا مساوی"
+        unit = asset.unit or rule.target_price_display_unit or ""
+
         text = (
-            "🔔 هشدار قیمت فعال شد\n"
-            f"دارایی: {asset.display_name or asset.name}\n"
-            f"شرط: {'بالاتر یا مساوی' if rule.condition_type == 'above' else 'پایین‌تر یا مساوی'} "
-            f"{rule.target_price:,}\n"
-            f"قیمت فعلی: {event.triggered_price:,} {asset.unit}"
+            "🔔 هشدار قیمت NovaX فعال شد\n\n"
+            f"دارایی: {display_name} ({rule.canonical_asset_id or ''})\n"
+            f"شرط: {condition_text} {rule.target_price:,} {unit}\n"
+            f"قیمت تریگر: {event.triggered_price:,} {unit}\n\n"
+            "هشدار شما اجرا شد. برای مدیریت بیشتر از دکمه‌ها استفاده کنید."
         )
 
-        payload = await self._send_message(chat_id=chat_id, text=text)
+        # Rich inline keyboard for triggered notification (roadmap فاز ۱)
+        # Uses url buttons (widely supported). Full callback actions (disable/edit) can be wired in CF worker later.
+        app_url = "https://novax.alirezasafaeisystems.ir"
+        reply_markup = {
+            "inline_keyboard": [
+                [
+                    {"text": "📈 چارت و قیمت‌ها در اپ", "url": app_url},
+                    {"text": "🔔 مدیریت هشدارها", "url": app_url},
+                ],
+                [
+                    {"text": "📋 باز کردن Alert Studio (تستی)", "url": app_url},
+                ],
+            ]
+        }
+
+        payload = await self._send_message(chat_id=chat_id, text=text, reply_markup=reply_markup)
         telegram_result = payload.get("result")
         message_id = (
             telegram_result.get("message_id") if isinstance(telegram_result, dict) else None
@@ -59,14 +79,20 @@ class TelegramNotificationSender(BaseNotificationSender):
         if message_id is not None:
             event.telegram_message_id = str(message_id)
 
-    async def _send_message(self, *, chat_id: str, text: str) -> dict[str, object]:
+    async def _send_message(
+        self, *, chat_id: str, text: str, reply_markup: dict | None = None
+    ) -> dict[str, object]:
+        payload: dict = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+
         if self.relay_url:
             headers = {"X-Relay-Secret": self.relay_secret} if self.relay_secret else {}
             async with httpx.AsyncClient(timeout=self.timeout_seconds, trust_env=False) as client:
                 response = await client.post(
                     f"{self.relay_url}/send",
                     headers=headers,
-                    json={"chat_id": chat_id, "text": text},
+                    json=payload,
                 )
                 response.raise_for_status()
             relay_payload = response.json()
@@ -77,10 +103,10 @@ class TelegramNotificationSender(BaseNotificationSender):
         async with httpx.AsyncClient(timeout=self.timeout_seconds, trust_env=False) as client:
             response = await client.post(
                 f"https://api.telegram.org/bot{self.bot_token}/sendMessage",
-                json={"chat_id": chat_id, "text": text},
+                json=payload,
             )
             response.raise_for_status()
-        payload = response.json()
-        if isinstance(payload, dict):
-            return payload
+        resp_payload = response.json()
+        if isinstance(resp_payload, dict):
+            return resp_payload
         raise RuntimeError("telegram api returned an invalid response")
