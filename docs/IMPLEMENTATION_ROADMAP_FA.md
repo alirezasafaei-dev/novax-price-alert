@@ -218,3 +218,10 @@ All remaining per priority list executed automatically (P0 first, then P1/P2). N
 - قبل از هر feature بزرگ جدید، مطمئن شوید core hardening (به‌ویژه فاز ۰-۲) تثبیت شده باشد.
 
 **این نقشه راه living است و باید بعد از هر تغییر مهم runtime یا incident به‌روز شود.**
+
+## Final Production Deploy (2026-06-05)
+- All 5 phases completed per report (P0-P2 tasks auto-executed).
+- Final rsync + PM2 restart on VPS.
+- Verified healthy: backend 200, TWA served, no impact on live sites.
+- Push to GitHub succeeded.
+- Project production-ready. 🎯
