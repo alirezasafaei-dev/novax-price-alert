@@ -128,3 +128,17 @@ Manual on VPS: health ok, metrics visible, TWA shows fresh labels.
 6. Verify no dups, freshness respected, user notified.
 
 All phases per report now baseline complete. Future: add durable metrics, more assets, AI recs etc. as growth (post fاز4).
+## همگام سازی و قرارگیری در نمونه کارهای واقعی (post-completion) - EXECUTED
+- Workspace sync (/home/dev13/my-project):
+  - ops/workspace/PROJECTS.tsv: added novax entry with live URL + "keep as live example and portfolio case"
+  - README.md: listed under Secondary Projects with link + note
+- Portfolio site placement (/home/dev13/my-project/sites/live/alirezasafaeisystems):
+  - Created full case study: src/app/case-studies/novax-price-alert/page.tsx (bilingual, structured sections per report, JsonLd project/article/breadcrumb, live link)
+  - Added to case-studies listing (EN/FA)
+  - Featured on homepage via FeaturedCaseStudies component (prominent card + grid, with summary highlighting rich TWA features: My Assets, suggestions, portfolio, advanced charts, hardening, safe co-deploy)
+  - Added to "Live Product Network" cross-site links
+  - Updated site README + sitemap manifest + regenerated json
+- Committed + pushed in both the live sub-repo and outer workspace repo.
+- Source canonical: sites/secondary/novax-price-alert (already inside my-project tree)
+- Result: Novax is now discoverable as a real production delivery in alirezasafaeisystems.ir "نمونه کارهای واقعی" (case studies + featured on home), while source + registry updated in control workspace.
+All per user request after full phases + production deploy.
