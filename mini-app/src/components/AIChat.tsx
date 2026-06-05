@@ -98,12 +98,15 @@ How can I help you today? You can ask queries like:
       }
     } catch (err: any) {
       console.error(err);
+      // Prefer server-provided error (e.g. geo restriction friendly msg) over generic key hint
+      const serverErr = err?.message || (typeof err === "string" ? err : "");
+      const useServer = serverErr && !serverErr.toLowerCase().includes("failed to generate");
       const errorMsg: ChatMessage = {
         id: `msg-err-${Date.now()}`,
         sender: 'assistant',
-        text: isFa 
+        text: useServer ? serverErr : (isFa 
           ? 'متأسفانه مشکلی در ارتباط با سرور هوش مصنوعی پیش آمد. لطفاً از فعال بودن کلید GEMINI_API_KEY در بخش تنظیمات مطمئن شوید.' 
-          : 'Sorry, there was a problem connecting to the AI agent. Please make sure your GEMINI_API_KEY is configured in the secrets menu.',
+          : 'Sorry, there was a problem connecting to the AI agent. Please make sure your GEMINI_API_KEY is configured in the secrets menu.'),
         timestamp: new Date().toISOString()
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -128,7 +131,7 @@ How can I help you today? You can ask queries like:
               {isFa ? 'دستیار هوش مصنوعی NovaX' : 'NovaX AI Financial Analyst'}
               <span className="text-[10px] bg-slate-800 text-teal-400 font-mono px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
                 <Cpu size={10} />
-                GEMINI 3.5
+                GEMINI 2.5
               </span>
             </h3>
             <p className="text-zinc-400 text-xs mt-0.5">

@@ -21,11 +21,6 @@ function getGemini(): GoogleGenAI {
     }
     aiClient = new GoogleGenAI({
       apiKey: key || "",
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        }
-      }
     });
   }
   return aiClient;
@@ -259,7 +254,7 @@ ${JSON.stringify(assets.map(a => `${a.nameFa} (${a.symbol}): price ${a.price.toL
 Include specific prices and calculations if they ask for trends or comparisons. Make sure your Persian rendering is beautiful, and formatting works cleanly with markdown.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: message,
       config: {
         systemInstruction: systemPrompt,
@@ -270,9 +265,18 @@ Include specific prices and calculations if they ask for trends or comparisons. 
     res.json({ text: response.text });
   } catch (error: any) {
     console.error("Gemini Assistant Error:", error);
+    const msg = (error?.message || "").toLowerCase();
+    const isGeo = msg.includes("location") || msg.includes("not supported") || msg.includes("failed_precondition");
+    const isDenied = msg.includes("denied") || msg.includes("permission") || msg.includes("403");
+    let userError = "خطایی در برقراری ارتباط با هوش مصنوعی رخ داده است.";
+    if (isGeo) {
+      userError = "تحلیل‌گر هوشمند فعلاً در این منطقه در دسترس نیست (محدودیت ارائه‌دهنده). از ابزارهای دستی و هشدارهای ربات استفاده کنید.";
+    } else if (isDenied) {
+      userError = "دسترسی به هوش مصنوعی محدود شده. لطفاً کلید GEMINI_API_KEY معتبر را بررسی کنید.";
+    }
     res.status(500).json({
-      error: "خطایی در برقراری ارتباط با هوش مصنوعی رخ داده است.",
-      details: error.message
+      error: userError,
+      details: isGeo || isDenied ? undefined : error.message
     });
   }
 });
