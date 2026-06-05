@@ -188,9 +188,11 @@ R-08 scope creep (بالا) → freeze دامنه hardening
 
 **گام‌های بعدی فوری (مطابق موج اول گزارش):** 
 - مستندسازی رسمی سیاست‌ها (Asset Identity، Pricing Presentation، Flow Contract و غیره) **DONE**: see docs/CONTRACTS_AND_POLICIES.md (short living file).
-- تکمیل state machine کامل + locking + idempotency قوی در backend/worker.
-- schema لاگ ساختاریافته + metricهای غنی + freshness status صریح.
-- audit کامل docs با runtime + walkthrough واقعی + runbook.
+- تکمیل state machine کامل + locking + idempotency قوی در backend/worker. **DONE**.
+- schema لاگ ساختاریافته + metricهای غنی + freshness status صریح. **DONE** (Redis + flush + more records + surface).
+- audit کامل docs با runtime + walkthrough واقعی + runbook. **DONE** (tests executed, matrix updated, runbooks expanded, checklist created).
+
+All remaining per priority list executed automatically (P0 first, then P1/P2). No stop. See todos and commits.
 
 ## چک‌لیست فازها برای Agent / تیم
 
