@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { Asset, Alert } from './types';
 import PriceBoard from './components/PriceBoard';
 import AlertManager from './components/AlertManager';
-import AIChat from './components/AIChat';
 import TelegramSimulator from './components/TelegramSimulator';
-import { Coins, Bell, HelpCircle, Bot, Globe, Smartphone, User, Sparkles, X, Wifi } from 'lucide-react';
+import { Coins, Bell, HelpCircle, Smartphone, User, Sparkles, X, Wifi } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Chime synthesized audio helper for alert triggers
@@ -40,7 +39,7 @@ function playChime() {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'prices' | 'alerts' | 'chat' | 'vps'>('prices');
+  const [activeTab, setActiveTab] = useState<'prices' | 'alerts' | 'vps'>('prices');
   const [language, setLanguage] = useState<'fa' | 'en'>('fa');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -365,18 +364,6 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => setActiveTab('chat')}
-            className={`flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold transition-all text-xs tracking-wide shrink-0 cursor-pointer ${
-              activeTab === 'chat'
-                ? 'bg-gradient-to-r from-teal-500/15 via-indigo-500/15 to-indigo-600/10 border border-teal-500/30 text-teal-300 shadow-xl'
-                : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <Bot size={14} />
-            {isFa ? 'دستیار هوش مصنوعی نووا' : 'NovaX AI Analyst'}
-          </button>
-
-          <button
             onClick={() => setActiveTab('vps')}
             className={`flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold transition-all text-xs tracking-wide shrink-0 cursor-pointer ${
               activeTab === 'vps'
@@ -427,21 +414,6 @@ export default function App() {
                   onToggleAlert={handleToggleAlert}
                   selectedAssetForAlert={selectedAssetForAlert}
                   clearSelectedAsset={() => setSelectedAssetForAlert(null)}
-                />
-              </motion.div>
-            )}
-
-            {activeTab === 'chat' && (
-              <motion.div
-                key="chat"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.2 }}
-              >
-                <AIChat
-                  assets={assets}
-                  language={language}
                 />
               </motion.div>
             )}
