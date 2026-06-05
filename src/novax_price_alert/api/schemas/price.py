@@ -32,3 +32,16 @@ class PriceHistoryItemOut(BaseModel):
 
 class PriceHistoryOut(BaseModel):
     items: list[PriceHistoryItemOut]
+
+
+class SuggestionItemOut(BaseModel):
+    asset_code: str
+    asset_name: str
+    price_value: Decimal
+    display_unit: str
+    change_pct: float | None = None  # simple recent % change for "smart"
+    reason: str = "unwatched"
+
+
+class SuggestionsOut(BaseModel):
+    items: list[SuggestionItemOut]

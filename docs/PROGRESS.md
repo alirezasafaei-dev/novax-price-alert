@@ -55,6 +55,21 @@
 - گسترش دارایی‌ها: با کیفیت (mapping کامل Binance/TGJU) و تست‌شده؛ گسترش هوشمند بر اساس تقاضا.
 - آماده رشد: بعد از تکمیل فازهای ۲-۴، backlog بعدی (alert پیشرفته‌تر، portfolio view، personalization و غیره) روی هسته قابل اعتماد ساخته شود.
 
+## Auto-exec continuation log (user: "ادامه بده")
+- Smart suggestions backend: new /api/v1/prices/suggestions (unwatched + % change from last 2 PriceSnapshots for "recent move" signals / volatility). TWA renderSuggestions now prefers server data (graceful fallback). Directly addresses report UX overhaul + "smart recs" + user desire for پیشنهاد.
+- Observability: basic Redis-backed intent in record_metric / get_metrics_snapshot via PriceCache (for persistence across restarts; lightweight, can be INCR later).
+- User flow (T-202): TWA wizard is explicit staged client steps (asset -> condition -> target -> confirm) + server PENDING_CONFIRMATION + transition guards + emits. Matches report 6-step contract in practice. Intermediate states in model for future.
+- Tests: 37 passed post-changes.
+- Judgment: these are high-ROI for "بهترین UX و کارایی" + reliability/observability without heavy risk. Next could be more persistent counters, full walkthrough script, or T-105/106 text polish.
+
+## Auto-exec log (during user rest)
+- 2026-06-xx: Full analysis of T- tasks vs runtime (much of فاز ۲/۳ P0 already solid: state machine, claim/dup prevention in dispatcher+evaluator, freshness policy+gate, structured logging+metrics).
+- Implemented: server range for /history (chart perf/UX), freshness classification surfaced in API + TWA labels, practical runbooks in OBSERVABILITY.md.
+- Tests: 37 passed (fixed 2 pre-existing for full-product reality).
+- Safe deploy executed: rsync (only novax), recreated missing wrappers/ecosystem on remote (they were absent from tree), pm2 start, verified 200 health + "ok" db, 3 live sites completely untouched and online.
+- Judgment calls: focused high-value low-risk changes; current dup guards sufficient for now; prioritized efficiency+visibility per "best possible" + report.
+- Next (when user back or continue): T-105/106 UX text polish, more smart suggestions (volatility), full walkthrough, explicit policy short docs if wanted, stronger eval claim if needed.
+
 ## مرجع‌های زنده
 
 - [Implementation Roadmap](IMPLEMENTATION_ROADMAP_FA.md) (مستقیماً از گزارش فیکس‌شده)

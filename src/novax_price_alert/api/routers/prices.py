@@ -10,6 +10,8 @@ from novax_price_alert.api.schemas.price import (
     LatestPricesOut,
     PriceHistoryItemOut,
     PriceHistoryOut,
+    SuggestionItemOut,
+    SuggestionsOut,
 )
 from novax_price_alert.application.services.price_query_service import PriceQueryService
 from novax_price_alert.application.services.price_service import PriceService
@@ -85,6 +87,32 @@ async def get_price_history(
     ]
 
     return PriceHistoryOut(items=items)
+
+
+@router.get("/suggestions", response_model=SuggestionsOut)
+async def get_suggestions(
+    watched: str | None = Query(default=None, description="comma-separated watched asset_codes to exclude"),
+    limit: int = Query(default=4, ge=1, le=10),
+    db: AsyncSession = Depends(get_db),
+) -> SuggestionsOut:
+    """Smart suggestions for unwatched assets with recent move signals (change %).
+    Powers 'پیشنهادهای هوشمند' in TWA for better discovery and alert creation rate.
+    """
+    service = PriceQueryService(db)
+    watched_list = [w.strip() for w in (watched or "").split(",") if w.strip()]
+    raw = await service.suggestions(watched_list, limit)
+    items = [
+        SuggestionItemOut(
+            asset_code=r["asset_code"],
+            asset_name=r["asset_name"],
+            price_value=r["price_value"],
+            display_unit=r["display_unit"],
+            change_pct=r.get("change_pct"),
+            reason=r.get("reason", "unwatched"),
+        )
+        for r in raw
+    ]
+    return SuggestionsOut(items=items)
 
 
 @router.post("/ingest")
