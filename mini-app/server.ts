@@ -1,30 +1,16 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT || "3002", 10);
 
 app.use(express.json());
 
-// Initialize Gemini client safely with lazy checks or try-catch
-let aiClient: GoogleGenAI | null = null;
-function getGemini(): GoogleGenAI {
-  if (!aiClient) {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key || key === "MY_GEMINI_API_KEY") {
-      console.warn("⚠️ GEMINI_API_KEY is not defined or is placeholder. Gemini helper will fallback.");
-    }
-    aiClient = new GoogleGenAI({
-      apiKey: key || "",
-    });
-  }
-  return aiClient;
-}
+// Gemini disabled temporarily (see /api/chat handler)
 
 // In-Memory Data Store for simulation and alerts
 interface SimulatedAsset {
@@ -230,55 +216,12 @@ app.post("/api/prices/trigger-manual", (req, res) => {
   res.json({ success: true, asset: matchedAsset });
 });
 
-// POST Gemini AI Chat Assistant
+// POST Gemini AI Chat Assistant (temporarily disabled)
 app.post("/api/chat", async (req, res) => {
-  const { message, chatHistory } = req.body;
-
-  if (!message) {
-    return res.status(400).json({ error: "Message is required." });
-  }
-
-  try {
-    const ai = getGemini();
-    const systemPrompt = `You are "NovaX Financial Assistant", an AI-powered financial market advisor integrated into the NovaX Telegram Bot (@novax_price_bot) and Mini App.
-The NovaX project repository is hosted on GitHub (https://github.com/alirezasafaei-dev/novax-price-alert).
-Your goals:
-- Answer user questions regarding cryptocurrency (Binance quotes: BTC, ETH, TON, SOL) and Iranian local markets (TGJU quotes: Toman, gold, coins).
-- Provide analytical, intelligent, and safe technical outlooks. Remind users everything is educational and not financial advice (سلب مسئولیت مالی).
-- Support fluent Persian (Farsi) as the primary language, but you can also respond in English if asked. Under-the-hood, talk to them with a warm, expert, professional Persian tone.
-- Explain how NovaX registered alerts work: users select assets, set upper or lower target boundaries (مثلاً بیت‌کوین هدف ۷۰ هزار دلار), and our cron schedules check every 10 minutes (or immediately via Webhook) and send a stylish Telegram push notifier.
-- Refer to their repository (alirezasafaei-dev/novax-price-alert) if developers ask about hosting. It's written in TypeScript/Node and runs beautifully on a VPS, Render, or Cloudflare Workers.
-
-Here is the current live asset prices matrix to help make your analysis extremely real and factual:
-${JSON.stringify(assets.map(a => `${a.nameFa} (${a.symbol}): price ${a.price.toLocaleString()} ${a.type === 'crypto' ? 'USD' : 'Toman'} with 24h change of ${a.change24h}%`), null, 2)}
-Include specific prices and calculations if they ask for trends or comparisons. Make sure your Persian rendering is beautiful, and formatting works cleanly with markdown.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: message,
-      config: {
-        systemInstruction: systemPrompt,
-        temperature: 0.7,
-      },
-    });
-
-    res.json({ text: response.text });
-  } catch (error: any) {
-    console.error("Gemini Assistant Error:", error);
-    const msg = (error?.message || "").toLowerCase();
-    const isGeo = msg.includes("location") || msg.includes("not supported") || msg.includes("failed_precondition");
-    const isDenied = msg.includes("denied") || msg.includes("permission") || msg.includes("403");
-    let userError = "خطایی در برقراری ارتباط با هوش مصنوعی رخ داده است.";
-    if (isGeo) {
-      userError = "تحلیل‌گر هوشمند فعلاً در این منطقه در دسترس نیست (محدودیت ارائه‌دهنده). از ابزارهای دستی و هشدارهای ربات استفاده کنید.";
-    } else if (isDenied) {
-      userError = "دسترسی به هوش مصنوعی محدود شده. لطفاً کلید GEMINI_API_KEY معتبر را بررسی کنید.";
-    }
-    res.status(500).json({
-      error: userError,
-      details: isGeo || isDenied ? undefined : error.message
-    });
-  }
+  // Temporarily disabled per request. Feature can be re-enabled later by restoring the Gemini call.
+  return res.status(503).json({
+    error: "این قابلیت (دستیار هوش مصنوعی) موقتاً غیرفعال است."
+  });
 });
 
 

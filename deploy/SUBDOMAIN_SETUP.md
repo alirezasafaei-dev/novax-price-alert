@@ -19,7 +19,7 @@ sudo certbot certificates | grep -A 5 alirezasafaeisystems.ir
 The nginx config is already deployed at /etc/nginx/sites-enabled/novax.alirezasafaeisystems.ir.conf (also saved in this repo under deploy/nginx/).
 
 ## 3. Deploy the updated Cloudflare Worker (to activate the new bot button)
-This makes the "🌐 اپ وب پیشرفته (چارت + تاریخچه)" button appear in the Telegram bot main menu.
+This makes the "🌐 استودیو پیشرفته" button appear in the Telegram bot main menu.
 
 cd /home/dev13/my-project/sites/secondary/novax-price-alert/deploy/cloudflare-worker
 
