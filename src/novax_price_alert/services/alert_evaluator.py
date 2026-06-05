@@ -2,13 +2,13 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novax_price_alert.core.observability import emit_event, record_metric
 from novax_price_alert.domain.alert_event import AlertEvent
-from novax_price_alert.domain.alert_rule import AlertRule
+from novax_price_alert.domain.alert_rule import AlertRule, InvalidAlertTransitionError
 from novax_price_alert.domain.enums import (
     AlertCondition,
     AlertEventStatus,
@@ -89,10 +89,36 @@ class AlertEvaluatorService:
             if self._cooldown_active(rule, now):
                 continue
 
-            if rule.last_triggered_at == latest.observed_at:
+            # Atomic claim on rule to prevent concurrent workers deciding to trigger same event
+            # (strengthens T-205 per roadmap/report for eval-side idempotency)
+            claim_stmt = (
+                update(AlertRule)
+                .where(
+                    AlertRule.id == rule.id,
+                    or_(
+                        AlertRule.last_triggered_at.is_(None),
+                        AlertRule.last_triggered_at < latest.observed_at,
+                    ),
+                )
+                .values(
+                    last_triggered_at=latest.observed_at,
+                    triggered_at=latest.observed_at,
+                )
+            )
+            claim_res = await self.session.execute(claim_stmt)
+            if getattr(claim_res, "rowcount", 0) != 1:
                 record_metric("duplicate_trigger_count")
+                emit_event(
+                    "duplicate_trigger_detected",
+                    alert_id=rule.id,
+                    user_id=rule.user_id,
+                    worker_run_id=worker_run_id,
+                    reason="claim_failed_on_rule",
+                )
                 continue
 
+            # re-fetch rule for transition (after claim)
+            await self.session.refresh(rule)
             event_id = self._event_id(rule.id, latest.observed_at)
             event = AlertEvent(
                 alert_rule_id=rule.id,
@@ -104,13 +130,10 @@ class AlertEvaluatorService:
             )
 
             self.session.add(event)
-            rule.last_triggered_at = latest.observed_at
-            rule.triggered_at = latest.observed_at
-            rule.transition_to(AlertLifecycleState.TRIGGERED)
-
             try:
+                rule.transition_to(AlertLifecycleState.TRIGGERED)
                 await self.session.commit()
-            except IntegrityError:
+            except (IntegrityError, InvalidAlertTransitionError) as exc:
                 await self.session.rollback()
                 record_metric("duplicate_trigger_count")
                 emit_event(
@@ -119,6 +142,7 @@ class AlertEvaluatorService:
                     user_id=rule.user_id,
                     event_id=event_id,
                     worker_run_id=worker_run_id,
+                    reason=str(type(exc).__name__),
                 )
                 continue
 

@@ -79,7 +79,9 @@ class PriceQueryService:
         )
         if since is not None:
             stmt = stmt.where(PriceSnapshot.observed_at >= since)
-        stmt = stmt.order_by(PriceSnapshot.observed_at.desc(), PriceSnapshot.created_at.desc()).limit(limit)
+        stmt = stmt.order_by(
+            PriceSnapshot.observed_at.desc(), PriceSnapshot.created_at.desc()
+        ).limit(limit)
 
         result = await self.session.execute(stmt)
 
@@ -90,8 +92,8 @@ class PriceQueryService:
         watched_codes: list[str] | None = None,
         limit: int = 5,
     ) -> list[dict]:
-        """Smart suggestions: unwatched assets + % change from recent PriceSnapshots (volatility / market move signals).
-        This fulfills 'smart suggestions based on data' from the improvement report for rich production UX.
+        """Smart suggestions: unwatched assets + % change from recent PriceSnapshots
+        (volatility / market move signals). Fulfills report 'smart suggestions' for UX.
         """
         watched = set(watched_codes or [])
         latest_rows = await self.latest_prices(None)

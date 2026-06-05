@@ -1,8 +1,10 @@
 import os
-from fastapi import APIRouter, Depends, Query, HTTPException, Header
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
 from datetime import datetime, timedelta, timezone
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from novax_price_alert.api.deps import get_db
 from novax_price_alert.api.schemas.price import (
@@ -17,10 +19,7 @@ from novax_price_alert.application.services.price_query_service import PriceQuer
 from novax_price_alert.application.services.price_service import PriceService
 from novax_price_alert.core.settings import settings
 from novax_price_alert.db.models import Asset, Provider
-from novax_price_alert.domain.latest_price import LatestPrice
 from novax_price_alert.infra.providers.base import PricePoint
-from novax_price_alert.services.freshness import classify_latest_price
-from sqlalchemy import select
 
 router = APIRouter(prefix="/prices", tags=["prices"])
 
@@ -91,7 +90,9 @@ async def get_price_history(
 
 @router.get("/suggestions", response_model=SuggestionsOut)
 async def get_suggestions(
-    watched: str | None = Query(default=None, description="comma-separated watched asset_codes to exclude"),
+    watched: str | None = Query(
+        default=None, description="comma-separated watched asset_codes to exclude"
+    ),
     limit: int = Query(default=4, ge=1, le=10),
     db: AsyncSession = Depends(get_db),
 ) -> SuggestionsOut:
@@ -127,14 +128,20 @@ async def ingest_prices(
     to avoid IP blocking on Iranian VPS.
     """
     # Verify API token (prefer real os.environ as PM2 may set it after settings cache)
-    expected_token = os.environ.get("METRICS_ACCESS_TOKEN") or getattr(settings, "metrics_access_token", None)
+    expected_token = os.environ.get("METRICS_ACCESS_TOKEN") or getattr(
+        settings, "metrics_access_token", None
+    )
     if not expected_token:
         raise HTTPException(status_code=500, detail="METRICS_ACCESS_TOKEN not configured")
     
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header required")
     
-    token = authorization.replace('Bearer ', '') if authorization.startswith('Bearer ') else authorization
+    token = (
+        authorization.replace("Bearer ", "")
+        if authorization.startswith("Bearer ")
+        else authorization
+    )
     if token != expected_token:
         raise HTTPException(status_code=403, detail="Invalid API token")
     
@@ -200,7 +207,7 @@ async def ingest_prices(
             
             price_value = float(item.get("price_value") or item.get("price") or 0)
             currency_code = item.get("currency_code", "USDT")
-            display_unit = item.get("display_unit", currency_code)
+            display_unit = item.get("display_unit", currency_code)  # noqa: F841 (used for future or consistency)
             
             fetched_at_str = item.get("fetched_at")
             if fetched_at_str:

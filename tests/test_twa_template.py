@@ -25,7 +25,8 @@ def test_twa_template_exposes_price_history_panel() -> None:
     assert 'data-history-asset="${escapeHtml(x.asset_code)}"' in TWA_SHELL_HTML
     assert 'async function loadHistory(assetCode)' in TWA_SHELL_HTML
     assert '/api/v1/prices/history?asset_code=' in TWA_SHELL_HTML
-    assert 'historyCard.classList.add("hidden")' in TWA_SHELL_HTML  # close logic present (may be in template literal)
+    # close logic present (may be in template literal)
+    assert 'historyCard.classList.add("hidden")' in TWA_SHELL_HTML
 
 
 def test_twa_template_supports_alert_target_edit() -> None:
