@@ -92,6 +92,17 @@
 - Subdomain: https://novax.alirezasafaeisystems.ir/health = 200, TWA HTML served, /metrics protected (401)
 - All phases complete per user checklist. Production ready.
 
+## Phase 5 Growth Features Implemented (auto)
+- PWA manifest + install prompt + basic offline note
+- Portfolio tab (local demo with prices calc)
+- Enhanced suggestions (volatility std + score)
+- Client tracking for tab/suggestion/abandon -> /metrics/track
+- Prometheus /metrics/prometheus
+- Metrics persistence improved (Redis HINCRBY no double count)
+- UX errors more actionable
+- Tests expanded, docs updated with Phase 5
+- Full lint/tests/deploy verified.
+
 ## فاز چهار: Test Matrix & Walkthrough Summary (for release readiness) - EXECUTED
 Core scenarios covered + executed via pytest (38 tests) + code review + runbooks (T-501/T-502):
 - Happy path: create (PENDING) -> confirm (ACTIVE) -> eval match -> trigger -> dispatch claim -> DELIVERED. (test_alert_hardening, evaluator) [RUN]

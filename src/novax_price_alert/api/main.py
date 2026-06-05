@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from novax_price_alert.api.routers.alerts import router as alerts_router
 from novax_price_alert.api.routers.health import router as health_router
@@ -33,6 +33,28 @@ def create_app() -> FastAPI:
     app.include_router(prices_router, prefix="/api/v1")
     app.include_router(alerts_router, prefix="/api/v1")
     app.include_router(webhook_router, prefix="/api/v1")
+
+    @app.get("/manifest.json", response_class=JSONResponse)
+    async def twa_manifest():
+        return {
+            "name": "Novax",
+            "short_name": "Novax",
+            "start_url": "/",
+            "display": "standalone",
+            "background_color": "#070b16",
+            "theme_color": "#070b16",
+            "icons": [
+                {
+                    "src": (
+                        "data:image/svg+xml,"
+                        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+                        '<text y=".9em" font-size="90">📈</text></svg>'
+                    ),
+                    "sizes": "any",
+                    "type": "image/svg+xml",
+                }
+            ]
+        }
 
     @app.get("/", response_class=HTMLResponse)
     async def twa_shell() -> str:

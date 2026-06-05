@@ -111,6 +111,7 @@ async def get_suggestions(
             price_value=r["price_value"],
             display_unit=r["display_unit"],
             change_pct=r.get("change_pct"),
+            volatility=r.get("volatility"),
             reason=r.get("reason", "unwatched"),
         )
         for r in raw

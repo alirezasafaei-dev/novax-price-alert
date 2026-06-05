@@ -46,6 +46,7 @@ TWA_SHELL_HTML = """
   <div style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap;" id="main-tabs">
     <button onclick="showMainTab('tab-prices')" class="tab-btn active">💰 قیمت‌ها</button>
     <button onclick="showMainTab('tab-assets')" class="tab-btn">📁 دارایی‌های من</button>
+    <button onclick="showMainTab('tab-portfolio')" class="tab-btn">💼 پورتفولیو</button>
     <button onclick="showMainTab('tab-alerts')" class="tab-btn">🔔 هشدارها</button>
     <button onclick="showMainTab('tab-chart')" class="tab-btn">📈 چارت پیشرفته</button>
     <button onclick="showMainTab('tab-create')" class="tab-btn">➕ ایجاد</button>
@@ -59,6 +60,18 @@ TWA_SHELL_HTML = """
     <section id="my-assets-card" class="card">
       <div class="name">دارایی‌های من</div>
       <div id="my-assets-list" class="grid"></div>
+    </section>
+  </div>
+
+  <div id="tab-portfolio" class="tab-content">
+    <section class="card">
+      <div class="name">پورتفولیو ساده (demo با localStorage)</div>
+      <div style="margin:8px 0;">
+        <input id="port-holding" placeholder="مثال: BTC 0.5" style="width:60%;">
+        <button onclick="addHolding()" class="ghost mini" style="width:auto;">افزودن</button>
+      </div>
+      <div id="portfolio-list"></div>
+      <div id="portfolio-total" class="meta" style="margin-top:8px;"></div>
     </section>
   </div>
 
@@ -274,6 +287,7 @@ editTarget.onclick = ()=>showStep("step-target");
 cancelAlert.onclick = ()=>{
   resetDraft();
   showStep("step-asset");
+  fetch('/api/v1/metrics/track', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({event: 'alert_abandon'})}).catch(()=>{});
 };
 
 closeHistory.onclick = ()=>{ 
@@ -332,7 +346,7 @@ function renderSuggestions(){
         <article class="card mini">
           <div class="row">
             <div class="name">${escapeHtml(p.asset_name)}</div>
-            <span class="meta">${fmt.format(Number(p.price_value))} ${p.display_unit} ${p.change_pct!=null ? (p.change_pct>0?'+':'')+p.change_pct+'%' : ''}</span>
+            <span class="meta">${fmt.format(Number(p.price_value))} ${p.display_unit} ${p.change_pct!=null ? (p.change_pct>0?'+':'')+p.change_pct+'%' : ''} ${p.volatility!=null ? 'vol:'+p.volatility : ''}</span>
           </div>
           <button class="ghost mini" onclick="startAlertForAsset('${p.asset_code}')">شروع هشدار</button>
         </article>
@@ -453,6 +467,50 @@ loadPrices().then(() => {
     }
   }, 300);
 }).catch(e=>{prices.innerHTML=`<article class="card danger">خطا در دریافت داده: ${e.message}. لطفاً صفحه را رفرش کنید یا بعداً امتحان کنید. اگر قیمت‌ها قدیمی هستند، صبر کنید تا ingest بعدی (هر ۱۰ دقیقه).</article>`});
+
+// Simple Portfolio (localStorage demo)
+function addHolding() {
+  const input = document.getElementById('port-holding');
+  if (!input || !input.value) return;
+  const parts = input.value.trim().split(' ');
+  if (parts.length < 2) return;
+  const code = parts[0].toUpperCase();
+  const amt = parseFloat(parts[1]);
+  if (!amt) return;
+  let holdings = JSON.parse(localStorage.getItem('novax_portfolio') || '{}');
+  holdings[code] = (holdings[code] || 0) + amt;
+  localStorage.setItem('novax_portfolio', JSON.stringify(holdings));
+  input.value = '';
+  renderPortfolio();
+}
+function renderPortfolio() {
+  const list = document.getElementById('portfolio-list');
+  const totalEl = document.getElementById('portfolio-total');
+  if (!list || !totalEl) return;
+  let holdings = JSON.parse(localStorage.getItem('novax_portfolio') || '{}');
+  let html = '';
+  let totalVal = 0;
+  Object.keys(holdings).forEach(code => {
+    const amt = holdings[code];
+    const p = (window.prices || []).find(x => x.asset_code === code);
+    const val = p ? amt * Number(p.price_value) : 0;
+    totalVal += val;
+    html += `<div class="history-row"><span>${code} ${amt}</span><strong>${fmt.format(val)} ${p ? p.display_unit : ''}</strong></div>`;
+  });
+  list.innerHTML = html || '<div class="meta">هیچ holdingی اضافه نشده.</div>';
+  totalEl.textContent = `ارزش کل: ${fmt.format(totalVal)} تومان (تقریبی)`;
+}
+window.addEventListener('load', () => { setTimeout(renderPortfolio, 1000); });
+setInterval(renderPortfolio, 30000);
+
+// PWA install prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // show install button if wanted, or auto prompt on user action
+  console.log('PWA install available');
+});
 setInterval(loadPrices, 60000);
 </script>
 </body>

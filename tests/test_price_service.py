@@ -175,3 +175,4 @@ async def test_suggestions_returns_unwatched_with_change(db_session: AsyncSessio
     sug1 = next((x for x in res if x["asset_code"] == "SUG1"), None)
     assert sug1 is not None
     assert sug1["change_pct"] == 10.0
+    assert "volatility" in sug1
