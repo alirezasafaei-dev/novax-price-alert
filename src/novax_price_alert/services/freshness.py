@@ -3,14 +3,15 @@ from datetime import datetime, timedelta, timezone
 
 from novax_price_alert.domain.enums import PriceFreshness
 from novax_price_alert.domain.latest_price import LatestPrice
+from novax_price_alert.domain.policies import FreshnessThresholds
 
 
 @dataclass(frozen=True)
 class FreshnessPolicy:
-    expected_update_cadence: timedelta = timedelta(minutes=5)
-    fresh_threshold: timedelta = timedelta(minutes=10)
-    stale_threshold: timedelta = timedelta(minutes=30)
-    unavailable_threshold: timedelta = timedelta(hours=2)
+    expected_update_cadence: timedelta = FreshnessThresholds.EXPECTED_UPDATE_CADENCE
+    fresh_threshold: timedelta = FreshnessThresholds.FRESH
+    stale_threshold: timedelta = FreshnessThresholds.STALE
+    unavailable_threshold: timedelta = FreshnessThresholds.UNAVAILABLE
 
 
 @dataclass(frozen=True)

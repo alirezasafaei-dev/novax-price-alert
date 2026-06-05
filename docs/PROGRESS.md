@@ -31,7 +31,7 @@
 
 ## وضعیت فازبندی (مطابق دقیق گزارش 04 + taskهای 05)
 
-- [x] فاز صفر: تثبیت قراردادها و شفاف‌سازی مبنا (T-001 تا T-005) — **DONE**: official short policies in docs/CONTRACTS_AND_POLICIES.md (referenced from roadmap). Implementation in code (canonical, snapshots, gating, freshness).
+- [x] فاز صفر: تثبیت قراردادها و شفاف‌سازی مبنا (T-001 تا T-005) — **DONE**: official short policies in docs/CONTRACTS_AND_POLICIES.md + codified in src/novax_price_alert/domain/policies.py (units, thresholds, format helpers). Implementation in code (canonical, snapshots, gating, freshness, defaults in models).
 - [x] فاز یک: اصلاح UX و Alert Flow (T-101 تا T-104 اصلی + کارهای غنی) — flow مرحله‌ای + تایید استاندارد + متن‌های بهتر پیاده شده. **علاوه بر آن:** TWA تب‌دار کامل، My Assets اولویتی، Suggestions هوشمند با prefill، چارت پیشرفته، بهبود عمیق بات chat (asset-grouped + لینک TWA) — همه به عنوان بهترین تجربه تولید برای کاربر ایرانی.
 - [x] فاز دو: سخت‌سازی منطق هشدار و جلوگیری از تکرار (T-201 تا T-205 P0 اصلی) — **largely implemented + strengthened**: full VALID_TRANSITIONS + transition_to() ... ; atomic claim UPDATE on rule before trigger decision in evaluator (rowcount check + refresh + transition, with Integrity/Invalid catch) for better concurrent safety (T-205). Dispatch claim already solid. Tests cover. 
 - [x] فاز سه: Observability، Data Freshness و آمادگی عملیاتی (T-301/T-303 + T-401 تا T-404 P0) — **substantial + auto-exec**: ... + Redis intent in observability (counters via PriceCache for persistence direction). /suggestions for smart data-driven (volatility % from snapshots). Full runbooks. 
