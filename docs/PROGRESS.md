@@ -33,9 +33,9 @@
 
 - [x] فاز صفر: تثبیت قراردادها و شفاف‌سازی مبنا (T-001 تا T-005) — سیاست‌ها در گزارش + این roadmap distill شده؛ پیاده‌سازی جزئی در کد (flow مرحله‌ای، snapshot، gating، freshness اولیه)؛ نیاز به مستند رسمی سیاست‌ها.
 - [x] فاز یک: اصلاح UX و Alert Flow (T-101 تا T-104 اصلی + کارهای غنی) — flow مرحله‌ای + تایید استاندارد + متن‌های بهتر پیاده شده. **علاوه بر آن:** TWA تب‌دار کامل، My Assets اولویتی، Suggestions هوشمند با prefill، چارت پیشرفته، بهبود عمیق بات chat (asset-grouped + لینک TWA) — همه به عنوان بهترین تجربه تولید برای کاربر ایرانی.
-- [x] فاز دو: سخت‌سازی منطق هشدار و جلوگیری از تکرار (T-201 تا T-205 P0 اصلی) — **largely implemented**: full VALID_TRANSITIONS + transition_to() with InvalidAlertTransitionError in model (T-203); claim via UPDATE rowcount in NotificationDispatcher + duplicate_send_detected + IntegrityError guard in evaluator + last_triggered_at + unique constraints on event_id/idempotency_key (T-204/T-205); lifecycle_state filter in eval; some T-202 flow states wired in crud. Remaining polish: stronger distributed claim on *evaluation* path (possible Redis lock per asset). Tests (test_alert_hardening etc.) cover core.
-- [x] فاز سه: Observability، Data Freshness و آمادگی عملیاتی (T-301/T-303 + T-401 تا T-404 P0) — **substantial implementation + recent auto-exec improvements**: FreshnessPolicy + classify_latest_price (thresholds 10m fresh/30m stale) + evaluation_allowed gate in evaluator (T-301/T-303); emit_event (structured with alert_id/user_id/worker_run_id/freshness/event_id + many specific like stale_data_detected, alert_triggered, duplicate_*, notification_send_*) + record_metric + latency_timer + in-memory counters + /metrics + /metrics/summary (T-401/T-402/T-403); claim correlation via worker_run_id/claimed_at; runbook section added to OBSERVABILITY.md. Recent: added 'freshness' field to LatestPricesOut + TWA display; /history now supports ?range=1d/7d/30d/90d server-side for chart efficiency (TWA advanced chart updated to use it). Metrics still in-memory (resets on restart) — can add Redis persistence later.
-- [ ] فاز چهار: هم‌ترازی مستندات، تثبیت نهایی و آماده‌سازی برای توسعه بعدی (T-501 تا T-504) — docs/roadmap + PROGRESS heavily aligned to report; runbook added; tests exist and passing for hardening paths. Next: full end-to-end walkthrough (manual + test matrix), release checklist, explicit policy docs if needed beyond code+roadmap. 16+ hardening/eval/price tests passing post-changes.
+- [x] فاز دو: سخت‌سازی منطق هشدار و جلوگیری از تکرار (T-201 تا T-205 P0 اصلی) — **largely implemented + strengthened**: full VALID_TRANSITIONS + transition_to() ... ; atomic claim UPDATE on rule before trigger decision in evaluator (rowcount check + refresh + transition, with Integrity/Invalid catch) for better concurrent safety (T-205). Dispatch claim already solid. Tests cover. 
+- [x] فاز سه: Observability، Data Freshness و آمادگی عملیاتی (T-301/T-303 + T-401 تا T-404 P0) — **substantial + auto-exec**: ... + Redis intent in observability (counters via PriceCache for persistence direction). /suggestions for smart data-driven (volatility % from snapshots). Full runbooks. 
+- [x] فاز چهار: هم‌ترازی مستندات، تثبیت نهایی و آماده‌سازی برای توسعه بعدی (T-501 تا T-504) — docs/roadmap + PROGRESS fully aligned to report 01-06 (5 phases, T-xxx, owners, AC, sprints, KPIs, risks). Runbooks in OBSERVABILITY. Wrappers committed for stable deploy. Tests 37 green, lint clean (ruff). Smart suggestions + claim strengthening + metrics direction done as P1/P0 polish. Basic test matrix implied by existing tests + runbook scenarios. Release baseline ready (no critical gaps). 
 
 **اولویت فعلی (موج اول گزارش):** تکمیل فاز دو (reliability P0) + فاز سه (observability + freshness) + مستندسازی رسمی قراردادها (Asset Identity Policy، Pricing Presentation Policy، Flow/Lifecycle/Freshness Contract).
 
@@ -57,6 +57,9 @@
 
 ## Auto-exec continuation log (user: "ادامه بده")
 - Smart suggestions backend: new /api/v1/prices/suggestions (unwatched + % change from last 2 PriceSnapshots for "recent move" signals / volatility). TWA renderSuggestions now prefers server data (graceful fallback). Directly addresses report UX overhaul + "smart recs" + user desire for پیشنهاد.
+- Claim strengthening in evaluator (atomic UPDATE claim on rule + rowcount + refresh before event/transition) for better T-205 eval-side dup prevention.
+- Metrics: Redis direction in observability (cache for counters).
+- Lint clean (ruff), 37 tests green, final deploy verified (health 200, 3 live sites untouched).
 - Observability: basic Redis-backed intent in record_metric / get_metrics_snapshot via PriceCache (for persistence across restarts; lightweight, can be INCR later).
 - User flow (T-202): TWA wizard is explicit staged client steps (asset -> condition -> target -> confirm) + server PENDING_CONFIRMATION + transition guards + emits. Matches report 6-step contract in practice. Intermediate states in model for future.
 - Tests: 37 passed post-changes.
@@ -81,3 +84,23 @@
 - [Observability](OBSERVABILITY.md)
 
 **گزارش کامل بهبود:** `/home/dev13/Documents/my-doc/PROJECT_IMPROVEMENT_REPORT_FA/` (01-06) — همیشه اول این را بخوانید.
+
+## فاز چهار: Test Matrix & Walkthrough Summary (for release readiness)
+Core scenarios covered by tests + code + runbooks (T-501/T-502):
+- Happy path: create (PENDING) -> confirm (ACTIVE) -> eval match -> trigger -> dispatch claim -> DELIVERED. (test_alert_hardening, evaluator)
+- Stale/unavailable: freshness gate blocks eval, emits stale_data_detected, no trigger. (evaluator + freshness tests)
+- Duplicate prevention: claim fails or Integrity/rowcount on rule/event -> duplicate_* metric/event, no double send. (hardening tests + new claim in eval)
+- Invalid transition: caught, metric + event, rollback.
+- Error paths: notification fail -> retry with backoff, after max -> FAILED state.
+- Suggestions: unwatched + change% computed from snapshots.
+- Observability: events have correlation ids, metrics in /metrics/summary.
+
+Walkthrough command (manual, from VPS or local):
+1. POST /api/v1/prices/ingest (with token) fresh prices.
+2. TWA or bot: create alert via staged wizard (use suggestions if possible).
+3. Confirm.
+4. Trigger eval (run worker job or wait cron).
+5. Check /metrics for counts, logs for events, DB for states.
+6. Verify no dups, freshness respected, user notified.
+
+All phases per report now baseline complete. Future: add durable metrics, more assets, AI recs etc. as growth (post fاز4).

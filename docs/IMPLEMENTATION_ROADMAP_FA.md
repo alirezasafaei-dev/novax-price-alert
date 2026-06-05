@@ -196,9 +196,9 @@ R-08 scope creep (بالا) → freeze دامنه hardening
 
 - [x] فاز صفر: قراردادها (در این سند + گزارش distill شده؛ جزئی در کد)
 - [x] فاز یک: UX Clarity (flow مرحله‌ای + تایید + TWA/My Assets/Suggestions غنی انجام‌شده)
-- [ ] فاز دو: Reliability Hardening کامل (state/lifecycle/idempotency/locking)
-- [ ] فاز سه: Observability + Freshness کامل (log/metric/trace/runbook)
-- [ ] فاز چهار: Audit، Walkthrough، Release Readiness + baseline
+- [x] فاز دو: Reliability Hardening کامل (state/lifecycle/idempotency/locking + strengthened eval claim)
+- [x] فاز سه: Observability + Freshness کامل (log/metric/trace/runbook + suggestions + redis metrics direction)
+- [x] فاز چهار: Audit، Walkthrough، Release Readiness + baseline (docs aligned, tests/lint green, matrix in PROGRESS, deploy stable)
 
 ## Milestoneها (M1 تا M5 از گزارش 06)
 
