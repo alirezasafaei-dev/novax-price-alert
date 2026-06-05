@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from novax_price_alert.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from novax_price_alert.domain.enums import AlertCondition, AlertLifecycleState
+from novax_price_alert.domain.policies import AssetUnit
 
 
 class InvalidAlertTransitionError(ValueError):
@@ -108,7 +109,7 @@ class AlertRule(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     target_price_display_unit: Mapped[str] = mapped_column(
         String(16),
         nullable=False,
-        default="IRT",
+        default=AssetUnit.TOMAN,
     )
 
     display_asset_name_at_creation: Mapped[str | None] = mapped_column(

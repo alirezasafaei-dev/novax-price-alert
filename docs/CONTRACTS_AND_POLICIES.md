@@ -58,6 +58,6 @@
 - In responses: include freshness field.
 - Monitoring: count stale/unavailable in metrics.
 
-**Implementation notes:** Policies enforced in code (evaluator, crud, query services, TWA). Any change requires update here + tests + docs.
+**Implementation notes:** Policies enforced in code via src/novax_price_alert/domain/policies.py (evaluator, crud, query services, TWA, models, routers). Import and use the constants/helpers (e.g. AssetUnit, FreshnessThresholds, format_price). Any change requires update here + tests + docs.
 
 **Last updated:** Per auto-execution of roadmap.

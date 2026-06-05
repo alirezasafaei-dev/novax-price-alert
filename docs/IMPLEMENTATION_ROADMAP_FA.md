@@ -187,7 +187,7 @@ R-08 scope creep (بالا) → freeze دامنه hardening
 - ingest واقعی (Binance + TGJU)، GitHub Action، health، backup، PM2 + nginx + cert برای subdomain
 
 **گام‌های بعدی فوری (مطابق موج اول گزارش):** 
-- مستندسازی رسمی سیاست‌ها (Asset Identity، Pricing Presentation، Flow Contract و غیره) **DONE**: see docs/CONTRACTS_AND_POLICIES.md (short living file).
+- مستندسازی رسمی سیاست‌ها (Asset Identity، Pricing Presentation، Flow Contract و غیره) **DONE**: see docs/CONTRACTS_AND_POLICIES.md and src/novax_price_alert/domain/policies.py (codified for runtime use).
 - تکمیل state machine کامل + locking + idempotency قوی در backend/worker. **DONE**.
 - schema لاگ ساختاریافته + metricهای غنی + freshness status صریح. **DONE** (Redis + flush + more records + surface).
 - audit کامل docs با runtime + walkthrough واقعی + runbook. **DONE** (tests executed, matrix updated, runbooks expanded, checklist created).

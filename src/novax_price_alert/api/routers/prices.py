@@ -20,6 +20,7 @@ from novax_price_alert.application.services.price_service import PriceService
 from novax_price_alert.core.observability import emit_event, record_metric
 from novax_price_alert.core.settings import settings
 from novax_price_alert.db.models import Asset, Provider
+from novax_price_alert.domain.policies import AssetUnit
 from novax_price_alert.infra.providers.base import PricePoint
 
 router = APIRouter(prefix="/prices", tags=["prices"])
@@ -207,7 +208,7 @@ async def ingest_prices(
                 await db.refresh(provider)
             
             price_value = float(item.get("price_value") or item.get("price") or 0)
-            currency_code = item.get("currency_code", "USDT")
+            currency_code = item.get("currency_code", AssetUnit.USDT)
             display_unit = item.get("display_unit", currency_code)  # noqa: F841 (used for future or consistency)
             
             fetched_at_str = item.get("fetched_at")
