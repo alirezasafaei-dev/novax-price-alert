@@ -37,7 +37,7 @@
 - [x] فاز سه: Observability، Data Freshness و آمادگی عملیاتی (T-301/T-303 + T-401 تا T-404 P0) — **substantial + auto-exec**: ... + Redis intent in observability (counters via PriceCache for persistence direction). /suggestions for smart data-driven (volatility % from snapshots). Full runbooks. 
 - [x] فاز چهار: هم‌ترازی مستندات، تثبیت نهایی و آماده‌سازی برای توسعه بعدی (T-501 تا T-504) — **DONE**: docs/roadmap + PROGRESS + new CONTRACTS_AND_POLICIES.md + RELEASE_CHECKLIST.md fully aligned to report 01-06. Tests/lint green, matrix + walkthrough executed, deploy stable. All P0/P1/P2 per list done in auto mode. 
 
-**اولویت فعلی (موج اول گزارش):** تکمیل فاز دو (reliability P0) + فاز سه (observability + freshness) + مستندسازی رسمی قراردادها (Asset Identity Policy، Pricing Presentation Policy، Flow/Lifecycle/Freshness Contract).
+**اولویت فعلی (موج اول گزارش):** ALL DONE (P0 policies+locking+metrics, P1 display+tests+ops+UX, P2 audit+retry+checklist). See CONTRACTS_AND_POLICIES.md, RELEASE_CHECKLIST.md, auto execution commits. Roadmap complete per report.
 
 ## چیزهایی که از گزارش‌های بهبود مبنا هستند (01-06)
 
