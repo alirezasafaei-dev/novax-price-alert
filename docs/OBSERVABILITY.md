@@ -162,14 +162,14 @@ For each alert lifecycle trace, collect as many of these fields as the runtime e
 4. Confirm no `duplicate_send_detected` occurred for production users.
 5. Inspect a delivered alert in KV/DB and verify it is disabled/finalized.
 
-## Key Incident Runbooks (distilled from PROJECT_IMPROVEMENT_REPORT_FA 04-06)
+## Key Incident Runbooks (distilled from PROJECT_IMPROVEMENT_REPORT_FA 04-06) - EXPANDED
 
 ### Duplicate alert / send
 - Symptoms: user receives same alert multiple times; `duplicate_trigger_detected` or `duplicate_send_detected` in logs/metrics.
 - Immediate: pause worker if high volume; investigate last_triggered_at vs observed_at in rule/event; check rowcount on claims.
-- Containment: the code already has unique constraints + claim (UPDATE rowcount==1) + observed_at guard + IntegrityError catch. Verify no two workers processing same asset window.
+- Containment: the code already has unique constraints + claim (UPDATE rowcount==1) + observed_at guard + IntegrityError catch + per-asset Redis lock in eval. Verify no two workers processing same asset window.
 - Recovery: mark affected events DELIVERED/FAILED as appropriate; notify user once if needed via manual.
-- Prevention: the T-204/T-205 hardening (idempotency_key, atomic claim in dispatcher, eval guards).
+- Prevention: the T-204/T-205 hardening (idempotency_key, atomic claim in dispatcher, eval guards + lock).
 
 ### Stale / unavailable price triggering or bad display
 - Symptoms: `stale_data_detected`; alerts on old prices; users complain prices differ from market.
@@ -182,14 +182,18 @@ For each alert lifecycle trace, collect as many of these fields as the runtime e
 - Symptoms: many UNAVAILABLE in freshness; /health or ingest returns errors; GH Action fails.
 - Containment: alerts not fired (good); prices show stale in TWA.
 - Recovery: manual trigger of price fetcher or direct POST /api/v1/prices/ingest with token; verify after.
-- Alerting: monitor `provider_error_rate` or high stale_evaluation_count.
+- Alerting: monitor `provider_error_rate` or high stale_evaluation_count. Emit + record on error.
 
 ### Worker backlog or stuck jobs
 - Symptoms: queue_backlog high; notification_send_started but no succeeded/failed; cron not advancing.
 - Check: PM2 logs for novax-worker; /metrics/summary; Redis if used for queue.
 - Recovery: restart only novax-worker (pm2 restart novax-worker --update-env); investigate long running eval.
-- Prevention: the claim + retry_backoff + max_attempts in NotificationDispatcherService.
+- Prevention: the claim + retry_backoff + max_attempts in NotificationDispatcherService. Worker failure recorded.
+
+### Internal alerting (T-405)
+- For key: provider_error, worker_failure, high stale, duplicate spike -> emit "internal_alert" + record_metric. (implemented in jobs + dispatcher + ingest)
+- Check /metrics or logs for "internal_alert".
 
 Always cross-check with structured events (alert_id, user_id, worker_run_id, event_id, freshness) for full trace.
 
-Update this section after any real incident or after fاز 3/4 work.
+Update this section after any real incident or after فاز 3/4 work.

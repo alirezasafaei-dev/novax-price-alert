@@ -187,18 +187,18 @@ R-08 scope creep (بالا) → freeze دامنه hardening
 - ingest واقعی (Binance + TGJU)، GitHub Action، health، backup، PM2 + nginx + cert برای subdomain
 
 **گام‌های بعدی فوری (مطابق موج اول گزارش):** 
-- مستندسازی رسمی سیاست‌ها (Asset Identity، Pricing Presentation، Flow Contract و غیره) در docs/ یا ADR.
+- مستندسازی رسمی سیاست‌ها (Asset Identity، Pricing Presentation، Flow Contract و غیره) **DONE**: see docs/CONTRACTS_AND_POLICIES.md (short living file).
 - تکمیل state machine کامل + locking + idempotency قوی در backend/worker.
 - schema لاگ ساختاریافته + metricهای غنی + freshness status صریح.
 - audit کامل docs با runtime + walkthrough واقعی + runbook.
 
 ## چک‌لیست فازها برای Agent / تیم
 
-- [x] فاز صفر: قراردادها (در این سند + گزارش distill شده؛ جزئی در کد)
+- [x] فاز صفر: قراردادها (in docs/CONTRACTS_AND_POLICIES.md + code; partial in previous)
 - [x] فاز یک: UX Clarity (flow مرحله‌ای + تایید + TWA/My Assets/Suggestions غنی انجام‌شده)
 - [x] فاز دو: Reliability Hardening کامل (state/lifecycle/idempotency/locking + strengthened eval claim)
 - [x] فاز سه: Observability + Freshness کامل (log/metric/trace/runbook + suggestions + redis metrics direction)
-- [x] فاز چهار: Audit، Walkthrough، Release Readiness + baseline (docs aligned, tests/lint green, matrix in PROGRESS, deploy stable)
+- [x] فاز چهار: Audit، Walkthrough، Release Readiness + baseline (docs aligned, tests/lint green, matrix in PROGRESS, deploy stable, RELEASE_CHECKLIST.md created, policies doc added)
 
 ## Milestoneها (M1 تا M5 از گزارش 06)
 

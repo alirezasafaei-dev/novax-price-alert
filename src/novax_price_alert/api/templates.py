@@ -298,6 +298,7 @@ function renderMyAssets(){
         code,
         name: assetLabel(a) || (lp ? lp.asset_name : code),
         current: lp ? `${fmt.format(Number(lp.price_value))} ${lp.display_unit || lp.currency_code}` : 'نامشخص',
+        fresh: lp && lp.freshness ? (lp.freshness==='fresh' ? 'تازه' : 'قدیمی') : '',
         count: 0
       };
     }
@@ -309,7 +310,7 @@ function renderMyAssets(){
         <div class="name">${escapeHtml(item.name)}</div>
         <span>${item.count} هشدار</span>
       </div>
-      <div class="meta">قیمت فعلی: ${escapeHtml(item.current)}</div>
+      <div class="meta">قیمت فعلی: ${escapeHtml(item.current)} ${item.fresh}</div>
       <button class="ghost mini" onclick="document.getElementById('alerts').scrollIntoView({behavior:'smooth'})">مشاهده و ویرایش هشدارها</button>
     </article>
   `).join('');
@@ -348,7 +349,7 @@ function renderSuggestions(){
       const html = cands.map(p => `<article class="card mini"><div class="row"><div class="name">${escapeHtml(p.asset_name)}</div><span class="meta">${fmt.format(Number(p.price_value))} ${p.display_unit}</span></div><button class="ghost mini" onclick="startAlertForAsset('${p.asset_code}')">شروع هشدار</button></article>`).join('');
       listEl.innerHTML = html;
       container.classList.remove('hidden');
-    });
+    }); // اگر خطا ادامه داشت، از بات /alert استفاده کنید یا TWA را رفرش کنید.
 }
 
 function startAlertForAsset(code){
@@ -451,7 +452,7 @@ loadPrices().then(() => {
       });
     }
   }, 300);
-}).catch(e=>{prices.innerHTML=`<article class="card danger">خطا در دریافت داده: ${e.message}</article>`});
+}).catch(e=>{prices.innerHTML=`<article class="card danger">خطا در دریافت داده: ${e.message}. لطفاً صفحه را رفرش کنید یا بعداً امتحان کنید. اگر قیمت‌ها قدیمی هستند، صبر کنید تا ingest بعدی (هر ۱۰ دقیقه).</article>`});
 setInterval(loadPrices, 60000);
 </script>
 </body>

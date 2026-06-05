@@ -20,6 +20,14 @@ class NotificationDispatcherService:
         max_attempts: int = 3,
         retry_backoff_seconds: int = 60,
     ) -> None:
+        """
+        Retry policy (T-206):
+        - Only retry on FAILED status, under max_attempts.
+        - Backoff: fixed retry_backoff_seconds.
+        - Send notification retries protected by idempotency (claim + unique key).
+        - No retry on terminal states.
+        - After max: mark FAILED on rule, no more retry.
+        """
         self.session = session
         self.sender = sender
         self.max_attempts = max_attempts

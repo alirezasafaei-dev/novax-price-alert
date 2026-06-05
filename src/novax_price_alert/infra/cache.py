@@ -47,3 +47,30 @@ class PriceCache:
         except Exception:
             self._redis = None
         return self._redis
+
+    async def acquire_lock(self, key: str, value: str, ttl_ms: int = 30000) -> bool:
+        """Distributed lock using SET NX PX. Returns True if acquired."""
+        redis = self._get_redis()
+        if redis is None:
+            return True  # no redis -> best effort, allow
+        try:
+            return bool(await redis.set(key, value, nx=True, px=ttl_ms))
+        except Exception:
+            return True
+
+    async def release_lock(self, key: str, value: str) -> None:
+        """Release lock only if value matches (using Lua for atomicity)."""
+        redis = self._get_redis()
+        if redis is None:
+            return
+        try:
+            lua = """
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+                return redis.call("del", KEYS[1])
+            else
+                return 0
+            end
+            """
+            await redis.eval(lua, 1, key, value)
+        except Exception:
+            pass

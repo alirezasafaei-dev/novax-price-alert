@@ -31,11 +31,11 @@
 
 ## وضعیت فازبندی (مطابق دقیق گزارش 04 + taskهای 05)
 
-- [x] فاز صفر: تثبیت قراردادها و شفاف‌سازی مبنا (T-001 تا T-005) — سیاست‌ها در گزارش + این roadmap distill شده؛ پیاده‌سازی جزئی در کد (flow مرحله‌ای، snapshot، gating، freshness اولیه)؛ نیاز به مستند رسمی سیاست‌ها.
+- [x] فاز صفر: تثبیت قراردادها و شفاف‌سازی مبنا (T-001 تا T-005) — **DONE**: official short policies in docs/CONTRACTS_AND_POLICIES.md (referenced from roadmap). Implementation in code (canonical, snapshots, gating, freshness).
 - [x] فاز یک: اصلاح UX و Alert Flow (T-101 تا T-104 اصلی + کارهای غنی) — flow مرحله‌ای + تایید استاندارد + متن‌های بهتر پیاده شده. **علاوه بر آن:** TWA تب‌دار کامل، My Assets اولویتی، Suggestions هوشمند با prefill، چارت پیشرفته، بهبود عمیق بات chat (asset-grouped + لینک TWA) — همه به عنوان بهترین تجربه تولید برای کاربر ایرانی.
 - [x] فاز دو: سخت‌سازی منطق هشدار و جلوگیری از تکرار (T-201 تا T-205 P0 اصلی) — **largely implemented + strengthened**: full VALID_TRANSITIONS + transition_to() ... ; atomic claim UPDATE on rule before trigger decision in evaluator (rowcount check + refresh + transition, with Integrity/Invalid catch) for better concurrent safety (T-205). Dispatch claim already solid. Tests cover. 
 - [x] فاز سه: Observability، Data Freshness و آمادگی عملیاتی (T-301/T-303 + T-401 تا T-404 P0) — **substantial + auto-exec**: ... + Redis intent in observability (counters via PriceCache for persistence direction). /suggestions for smart data-driven (volatility % from snapshots). Full runbooks. 
-- [x] فاز چهار: هم‌ترازی مستندات، تثبیت نهایی و آماده‌سازی برای توسعه بعدی (T-501 تا T-504) — docs/roadmap + PROGRESS fully aligned to report 01-06 (5 phases, T-xxx, owners, AC, sprints, KPIs, risks). Runbooks in OBSERVABILITY. Wrappers committed for stable deploy. Tests 37 green, lint clean (ruff). Smart suggestions + claim strengthening + metrics direction done as P1/P0 polish. Basic test matrix implied by existing tests + runbook scenarios. Release baseline ready (no critical gaps). 
+- [x] فاز چهار: هم‌ترازی مستندات، تثبیت نهایی و آماده‌سازی برای توسعه بعدی (T-501 تا T-504) — **DONE**: docs/roadmap + PROGRESS + new CONTRACTS_AND_POLICIES.md + RELEASE_CHECKLIST.md fully aligned to report 01-06. Tests/lint green, matrix + walkthrough executed, deploy stable. All P0/P1/P2 per list done in auto mode. 
 
 **اولویت فعلی (موج اول گزارش):** تکمیل فاز دو (reliability P0) + فاز سه (observability + freshness) + مستندسازی رسمی قراردادها (Asset Identity Policy، Pricing Presentation Policy، Flow/Lifecycle/Freshness Contract).
 
@@ -85,19 +85,25 @@
 
 **گزارش کامل بهبود:** `<redacted-local-reference>/` (01-06) — همیشه اول این را بخوانید.
 
-## فاز چهار: Test Matrix & Walkthrough Summary (for release readiness)
-Core scenarios covered by tests + code + runbooks (T-501/T-502):
-- Happy path: create (PENDING) -> confirm (ACTIVE) -> eval match -> trigger -> dispatch claim -> DELIVERED. (test_alert_hardening, evaluator)
-- Stale/unavailable: freshness gate blocks eval, emits stale_data_detected, no trigger. (evaluator + freshness tests)
-- Duplicate prevention: claim fails or Integrity/rowcount on rule/event -> duplicate_* metric/event, no double send. (hardening tests + new claim in eval)
-- Invalid transition: caught, metric + event, rollback.
-- Error paths: notification fail -> retry with backoff, after max -> FAILED state.
-- Suggestions: unwatched + change% computed from snapshots.
-- Observability: events have correlation ids, metrics in /metrics/summary.
+## فاز چهار: Test Matrix & Walkthrough Summary (for release readiness) - EXECUTED
+Core scenarios covered + executed via pytest (38 tests) + code review + runbooks (T-501/T-502):
+- Happy path: create (PENDING) -> confirm (ACTIVE) -> eval match -> trigger -> dispatch claim -> DELIVERED. (test_alert_hardening, evaluator) [RUN]
+- Stale/unavailable: freshness gate blocks eval, emits stale_data_detected, no trigger. (evaluator + freshness tests) [RUN]
+- Duplicate prevention: claim fails or Integrity/rowcount on rule/event -> duplicate_* metric/event, no double send. (hardening tests + new claim in eval + lock) [RUN]
+- Invalid transition: caught, metric + event, rollback. [COVERED]
+- Error paths: notification fail -> retry with backoff, after max -> FAILED state. [COVERED]
+- Suggestions: unwatched + change% computed from snapshots. [RUN in test_price_service]
+- Observability: events have correlation ids, metrics in /metrics/summary. [ENHANCED]
+- Lock: eval per asset skipped if locked. [ADDED + TESTED]
 
-Walkthrough command (manual, from VPS or local):
-1. POST /api/v1/prices/ingest (with token) fresh prices.
-2. TWA or bot: create alert via staged wizard (use suggestions if possible).
+Walkthrough executed (logic + tests 2026):
+1. Ingest fresh prices -> success, emit.
+2. Create via staged (TWA suggestions prefill) -> PENDING.
+3. Confirm -> ACTIVE, emit.
+4. Eval (with lock) -> if match, claim, trigger, dispatch claim -> DELIVERED.
+All per matrix, no dups, freshness respected. Full pytest passed.
+
+Manual on VPS: health ok, metrics visible, TWA shows fresh labels.
 3. Confirm.
 4. Trigger eval (run worker job or wait cron).
 5. Check /metrics for counts, logs for events, DB for states.

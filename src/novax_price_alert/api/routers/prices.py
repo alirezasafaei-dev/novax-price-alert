@@ -17,7 +17,7 @@ from novax_price_alert.api.schemas.price import (
 )
 from novax_price_alert.application.services.price_query_service import PriceQueryService
 from novax_price_alert.application.services.price_service import PriceService
-from novax_price_alert.core.observability import emit_event
+from novax_price_alert.core.observability import emit_event, record_metric
 from novax_price_alert.core.settings import settings
 from novax_price_alert.db.models import Asset, Provider
 from novax_price_alert.infra.providers.base import PricePoint
@@ -243,6 +243,7 @@ async def ingest_prices(
             
         except Exception as e:
             errors.append({"item": item.get("asset_code"), "error": str(e)})
+            record_metric("price_ingest_error")
             emit_event("price_ingest_error", asset_code=asset_code, error=str(e))
     
     return {

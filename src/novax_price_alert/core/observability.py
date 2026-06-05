@@ -54,6 +54,12 @@ def get_metrics_snapshot() -> dict[str, int]:
     r = _get_redis()
     if r is not None:
         try:
+            # flush in-memory to redis for persistence
+            for k, v in metrics.items():
+                try:
+                    r.incr(f"metrics:counter:{k}", v)
+                except Exception:
+                    pass
             keys = r.keys("metrics:counter:*")
             for key in keys:
                 try:
