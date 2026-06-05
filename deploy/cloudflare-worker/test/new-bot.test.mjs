@@ -38,8 +38,14 @@ let telegramMode = "ok";
 
 global.fetch = async (url, options) => {
   const u = String(url);
+  let hostname = "";
+  try {
+    hostname = new URL(u).hostname;
+  } catch {
+    hostname = "";
+  }
 
-  if (u.includes("api.telegram.org")) {
+  if (hostname === "api.telegram.org") {
     const method = u.split("/").pop();
     const body = options?.body ? JSON.parse(options.body) : {};
     sent.push({ method, ...body });
@@ -53,7 +59,7 @@ global.fetch = async (url, options) => {
     return { ok: true, json: async () => ({ ok: true, result: { message_id: sent.length } }) };
   }
 
-  if (u.includes("binance")) {
+  if (hostname === "binance.com" || hostname.endsWith(".binance.com")) {
     if (providerMode === "crypto-unavailable") {
       return { ok: false, json: async () => ({}) };
     }
@@ -68,7 +74,7 @@ global.fetch = async (url, options) => {
     };
   }
 
-  if (u.includes("tgju.org")) {
+  if (hostname === "tgju.org" || hostname.endsWith(".tgju.org")) {
     if (providerMode === "iran-unavailable") {
       return { ok: false, json: async () => ({}) };
     }
