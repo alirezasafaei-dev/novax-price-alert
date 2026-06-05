@@ -142,3 +142,35 @@ All phases per report now baseline complete. Future: add durable metrics, more a
 - Source canonical: sites/secondary/novax-price-alert (already inside my-project tree)
 - Result: Novax is now discoverable as a real production delivery in alirezasafaeisystems.ir "نمونه کارهای واقعی" (case studies + featured on home), while source + registry updated in control workspace.
 All per user request after full phases + production deploy.
+
+## 2026-06-xx: NovaX Mini-App (Alert Studio) deliverable received
+
+User delivered `/home/dev13/Downloads/novax-mini-app.zip` (extracted to `mini-app/` in repo).
+
+**خلاصه:** یک پروتوتایپ full-stack مدرن (React 19 + Vite + Express server.ts با @google/genai) با تمرکز روی تجربه تعاملی غنی:
+- داشبورد قیمت با چارت‌های SVG area/line زنده + high/low + اسپارک‌لاین‌های کوچک.
+- پلی‌گراند اسلایدر دستی قیمت (trigger-manual) برای تست فوری هشدارها بدون بازار واقعی (هر ۱۰ ثانیه drift + چک تریگر در بک‌اند شبیه‌سازی).
+- Alert Center با فرم گام‌به‌گام، تبدیل خودکار ارقام فارسی، یادداشت شخصی، فعال/غیرفعال، لیست + استریم لاگ وقایع تریگر.
+- شبیه‌ساز نوتیفیکیشن تلگرام (پاپ‌آپ انیمیشنی branded @novax_price_bot + سنتز صدا با Web Audio API chime).
+- دستیار AI جمینای 3.5-flash سرور‌ساید با context قیمت‌های زنده + دانش پروژه (هشدارها، کرون ۱۰ دقیقه، وب‌هوک، ریپو).
+- تب راهنمای استقرار VPS + .env + دموهای تستی.
+
+**وضعیت فنی:** 
+- `npm install + tsc --noEmit + npm run build` کاملاً سبز و بدون خطا.
+- کاملاً self-contained با in-memory store (assets + alerts + logs). هیچ اتصالی به بک‌اند واقعی پایتون (alert_rules, LatestPrice, evaluator) ندارد.
+- asset symbols کمی متفاوت از seed اصلی (TON اضافه، نام‌گذاری GOLD18/COIN_EMAMI).
+
+**رابطه با چک‌لیست اولویت‌دار ۳ ماهه (فاز ۱-۴):**
+- قوی روی UX polish، نوتیفیکیشن غنی (شبیه‌سازی)، ابزار تست، و پیشنهاد/تحلیل هوشمند (فاز ۱ + فاز ۳).
+- هنوز هیچ‌کدام از اولویت‌های اصلی فاز ۱ (سیستم بازخورد واقعی + جدول Feedback + آمار per-user + لاگ‌های رشد) یا فاز ۲ (Subscription + زرین‌پال) را پوشش نمی‌دهد.
+- عالی به عنوان ابزار development/demo برای validation قبل از monetization.
+
+**تصمیم‌گیری معلق:** کاربر گفت «فعلا کاری انجام نده تا دیتای بعدی... بعد تصمیم میگیریم». گزینه‌های اصلی:
+1. نگه‌داری به عنوان companion/demo جدا (توصیه اولیه – کم‌ریسک، مفید برای تست و نمایش).
+2. پورت الگوهای کلیدی (simulator، sanitizer، popup، چارت SVG، AI) به TWA فعلی (تک‌فایلی).
+3. تبدیل به TWA اصلی (رفکتور بزرگ‌تر، نیاز به bridge APIها در FastAPI + simulation mode).
+4. Hybrid (live mode + sim mode).
+
+جزئیات کامل تحلیل + پیشنهادها در چت عامل ثبت شده. آماده اجرای گزینه انتخابی کاربر هستیم (با رعایت AGENTS.md و اصول سبک‌وزن پروژه).
+
+فایل‌های کلیدی جدید: `mini-app/server.ts` (هسته شبیه‌سازی + Gemini)، کامپوننت‌های React، README به‌روزشده داخل mini-app.

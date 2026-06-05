@@ -6,8 +6,9 @@ from novax_price_alert.api.routers.alerts import router as alerts_router
 from novax_price_alert.api.routers.health import router as health_router
 from novax_price_alert.api.routers.metrics import router as metrics_router
 from novax_price_alert.api.routers.prices import router as prices_router
+from novax_price_alert.api.routers.admin import router as admin_router
 from novax_price_alert.api.routers.webhook import router as webhook_router
-from novax_price_alert.api.templates import TWA_SHELL_HTML
+from novax_price_alert.api.templates import ADMIN_HTML, TWA_SHELL_HTML
 
 
 def create_app() -> FastAPI:
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     app.include_router(prices_router, prefix="/api/v1")
     app.include_router(alerts_router, prefix="/api/v1")
     app.include_router(webhook_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="")
 
     @app.get("/manifest.json", response_class=JSONResponse)
     async def twa_manifest():
@@ -59,6 +61,10 @@ def create_app() -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     async def twa_shell() -> str:
         return TWA_SHELL_HTML
+
+    @app.get("/admin", response_class=HTMLResponse)
+    async def admin_shell() -> str:
+        return ADMIN_HTML
 
     return app
 

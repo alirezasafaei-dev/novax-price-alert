@@ -1,0 +1,6 @@
+{
+  "name": "NovaX Alert Studio",
+  "description": "پلتفرم مدیریت هوشمند قیمت و هشدارهای قیمت کریپتو و ارز به همراه دستیار مالی AI و شبیه‌ساز نوتیفیکیشن تلگرام. پروتوتایپ پیشرفته برای پروژه novax-price-alert (هماهنگ با بات @novax_price_bot).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

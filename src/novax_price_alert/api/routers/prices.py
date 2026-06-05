@@ -1,12 +1,17 @@
 import os
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from decimal import Decimal
+from datetime import datetime, timezone
 
-from novax_price_alert.api.deps import get_db
+from novax_price_alert.api.deps import get_current_telegram_user, get_db
+from novax_price_alert.domain.asset import Asset
+from novax_price_alert.domain.latest_price import LatestPrice
+from novax_price_alert.domain.user import User
 from novax_price_alert.api.schemas.price import (
     LatestPriceItemOut,
     LatestPricesOut,
@@ -117,6 +122,85 @@ async def get_suggestions(
         for r in raw
     ]
     return SuggestionsOut(items=items)
+
+
+@router.post("/test/override-price")
+async def test_override_price(
+    payload: dict,
+    current_user: Annotated[User, Depends(get_current_telegram_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Test / Playground price override for the Advanced Studio (mini-app) and developers.
+    Updates LatestPrice so that the next alert evaluation can see the forced price.
+    Real price ingest (every ~10min) will typically overwrite this.
+    Useful for testing alert triggers without waiting for market moves.
+    Requires valid Telegram WebApp session (opened from the bot).
+    """
+    symbol = payload.get("symbol") or payload.get("asset_code")
+    price = payload.get("price") or payload.get("targetPrice")
+    if not symbol or price is None:
+        raise HTTPException(400, "symbol and price required")
+
+    try:
+        price = float(price)
+    except Exception:
+        raise HTTPException(400, "invalid price")
+
+    # Alias map so the mini-app's asset symbols work against real seeded assets
+    aliases = {
+        "BTC": "BTC_USDT",
+        "ETH": "ETH_USDT",
+        "SOL": "SOL",  # may need seed later
+        "TON": "TON",  # may need seed later
+        "GOLD18": "GOLD_18K_IRT",
+        "COIN_EMAMI": "SEKKEH_EMAMI_IRT",
+        "USD_IRT": "USD_IRT",
+        "USDT_IRT": "USDT_IRT",
+        "EUR_IRT": "EUR_IRT",
+    }
+    real_symbol = aliases.get(symbol, symbol)
+
+    asset_res = await db.execute(
+        select(Asset).where(
+            (Asset.symbol == real_symbol) | (Asset.canonical_id == real_symbol) | (Asset.symbol == symbol)
+        )
+    )
+    asset = asset_res.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(404, f"asset not found for symbol={symbol} (tried {real_symbol})")
+
+    now = datetime.now(timezone.utc)
+
+    lp_res = await db.execute(select(LatestPrice).where(LatestPrice.asset_id == asset.id))
+    lp = lp_res.scalar_one_or_none()
+
+    if lp:
+        lp.price = Decimal(str(round(price, 8)))
+        lp.observed_at = now
+        lp.fetched_at = now
+        lp.is_stale = False
+        lp.raw_data = {"source": "studio-simulator", "forced_by": current_user.telegram_user_id}
+    else:
+        lp = LatestPrice(
+            asset_id=asset.id,
+            price=Decimal(str(round(price, 8))),
+            observed_at=now,
+            fetched_at=now,
+            is_stale=False,
+            raw_data={"source": "studio-simulator", "forced_by": current_user.telegram_user_id},
+        )
+        db.add(lp)
+
+    await db.commit()
+
+    return {
+        "success": True,
+        "asset_code": asset.symbol,
+        "display_name": asset.display_name or asset.name,
+        "forced_price": price,
+        "note": "Price injected for testing. Next evaluation (worker/cron) will consider it. Real ingest will refresh soon.",
+    }
 
 
 @router.post("/ingest")

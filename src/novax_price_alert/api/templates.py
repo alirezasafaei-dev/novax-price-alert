@@ -38,18 +38,19 @@ TWA_SHELL_HTML = """
 <main>
   <section class="hero">
     <h1>Novax</h1>
-    <p>قیمت‌های بازار ایران و هشدار هوشمند در تلگرام</p>
+    <p>قیمت‌های لحظه‌ای بازار ایران + هشدار قیمت هوشمند و قابل اعتماد</p>
+    <div class="text-xs mt-1 text-slate-400 leading-relaxed">قیمت‌ها تازه نگه داشته می‌شوند • هشدار فقط وقتی واقعاً فعال است که شما تأیید کنید • تاریخچه و چارت کامل برای تصمیم‌گیری بهتر</div>
   </section>
-  <section id="auth" class="card notice hidden">برای ساخت هشدار، این صفحه را داخل تلگرام باز کنید.</section>
+  <section id="auth" class="card notice hidden">این اپ وب پیشرفته فقط از داخل بات Novax در تلگرام باز می‌شود. از دکمه «اپ وب پیشرفته» در منوی بات استفاده کنید.</section>
 
   <!-- Professional tab navigation for best-in-class UX -->
   <div style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap;" id="main-tabs">
-    <button onclick="showMainTab('tab-prices')" class="tab-btn active">💰 قیمت‌ها</button>
+    <button onclick="showMainTab('tab-prices')" class="tab-btn active">💰 قیمت‌های زنده</button>
     <button onclick="showMainTab('tab-assets')" class="tab-btn">📁 دارایی‌های من</button>
-    <button onclick="showMainTab('tab-portfolio')" class="tab-btn">💼 پورتفولیو</button>
-    <button onclick="showMainTab('tab-alerts')" class="tab-btn">🔔 هشدارها</button>
+    <button onclick="showMainTab('tab-portfolio')" class="tab-btn">💼 پورتفولیو من</button>
+    <button onclick="showMainTab('tab-alerts')" class="tab-btn">🔔 هشدارهای من</button>
     <button onclick="showMainTab('tab-chart')" class="tab-btn">📈 چارت پیشرفته</button>
-    <button onclick="showMainTab('tab-create')" class="tab-btn">➕ ایجاد</button>
+    <button onclick="showMainTab('tab-create')" class="tab-btn">➕ ساخت هشدار جدید</button>
   </div>
 
   <div id="tab-prices" class="tab-content active">
@@ -58,14 +59,16 @@ TWA_SHELL_HTML = """
 
   <div id="tab-assets" class="tab-content">
     <section id="my-assets-card" class="card">
-      <div class="name">دارایی‌های من</div>
+      <div class="name">دارایی‌هایی که دنبال می‌کنی</div>
+      <div class="text-[11px] text-slate-400 mb-2">قیمت‌های ذخیره‌شده برای پیشنهاد سریع هشدار</div>
       <div id="my-assets-list" class="grid"></div>
     </section>
   </div>
 
   <div id="tab-portfolio" class="tab-content">
     <section class="card">
-      <div class="name">پورتفولیو ساده (demo با localStorage)</div>
+      <div class="name">پورتفولیو شخصی (فقط روی گوشی شما ذخیره می‌شود)</div>
+      <div class="text-[11px] text-slate-400 mb-1">محاسبه تقریبی سود/زیان با قیمت‌های زنده. داده‌ها خصوصی هستند.</div>
       <div style="margin:8px 0;">
         <input id="port-holding" placeholder="مثال: BTC 0.5" style="width:60%;">
         <button onclick="addHolding()" class="ghost mini" style="width:auto;">افزودن</button>
@@ -95,6 +98,10 @@ TWA_SHELL_HTML = """
   </div>
 
   <div id="tab-create" class="tab-content">
+    <div class="card mb-3">
+      <div class="name mb-1">ساخت هشدار قیمت — کاملاً شفاف و مرحله‌به‌مرحله</div>
+      <div class="text-[11px] text-slate-400 leading-relaxed">۶ گام ساده: انتخاب دارایی → دیدن قیمت فعلی → انتخاب نوع شرط → وارد کردن قیمت هدف → بررسی خلاصه → تأیید نهایی. تا وقتی خودتان تأیید نکنید، هیچ هشداری فعال نمی‌شود.</div>
+    </div>
 
   <section id="history-card" class="card hidden" style="margin-top:12px">
     <div class="row"><div><div class="name" id="history-title">تاریخچه قیمت</div><div class="meta">آخرین snapshotهای ثبت‌شده</div></div><button id="close-history" class="ghost mini" style="width:auto">بستن</button></div>
@@ -147,6 +154,16 @@ const headers = initData ? {"X-Telegram-Init-Data": initData, "Content-Type": "a
 const fmt = new Intl.NumberFormat("fa-IR");
 let latest = [];
 let alertDraft = {asset_code:null,condition_type:null,target_price:null,unit:null,asset_name:null,current_price:null};
+
+// Persian to English digit sanitizer (from Advanced Studio best practice - prevents mobile keyboard issues)
+function persianToEnDigits(str) {
+  if (!str) return str;
+  const p = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+  const e = ['0','1','2','3','4','5','6','7','8','9'];
+  let out = String(str);
+  for (let i=0; i<10; i++) out = out.replace(new RegExp(p[i], 'g'), e[i]);
+  return out;
+}
 let priceChart = null;
 let userAlerts = [];
 const auth = document.getElementById("auth");
@@ -237,7 +254,7 @@ async function loadAlerts(){
   renderSuggestions();
 }
 async function removeAlert(id){if(!id || !confirm("این هشدار حذف شود؟")) return; await api(`/api/v1/alerts/${id}`,{method:"DELETE"}); await loadAlerts()}
-async function editAlertTarget(id,currentTarget,unit){const next = prompt(`قیمت هدف جدید را وارد کنید (${unit || "واحد فعلی"})`, currentTarget || ""); const val = parseFloat(next); if(!id || !val || val <= 0){return} await api(`/api/v1/alerts/${id}`,{method:"PATCH",body:JSON.stringify({target_price:val})}); await loadAlerts()}
+async function editAlertTarget(id,currentTarget,unit){const nextRaw = prompt(`قیمت هدف جدید را وارد کنید (${unit || "واحد فعلی"})`, currentTarget || ""); const raw = persianToEnDigits(nextRaw); const val = parseFloat(raw); if(!id || !val || val <= 0){return} await api(`/api/v1/alerts/${id}`,{method:"PATCH",body:JSON.stringify({target_price:val})}); await loadAlerts()}
 
 nextAsset.onclick = ()=>{
   const selected = latest.find(x=>x.asset_code===asset.value);
@@ -261,7 +278,8 @@ nextCondition.onclick = ()=>{
 backCondition.onclick = ()=>showStep("step-asset");
 
 nextTarget.onclick = ()=>{
-  const val = parseFloat(target.value);
+  const raw = persianToEnDigits(target.value);
+  const val = parseFloat(raw);
   if(!val || val <= 0){alert("لطفاً یک قیمت معتبر وارد کنید"); return}
   alertDraft.target_price = val;
   const sign = alertDraft.condition_type==="above"?"بالاتر از":"پایین‌تر از";
@@ -516,3 +534,283 @@ setInterval(loadPrices, 60000);
 </body>
 </html>
 """
+
+# Professional Production Admin Panel for Owner
+ADMIN_HTML = """
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Novax Admin • پنل مدیریت حرفه‌ای</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Tahoma, system-ui, sans-serif; background:#020617; color:#e2e8f0; }
+    .card { background:#0f172a; border:1px solid #334155; border-radius:16px; }
+    .section { font-size:14px; font-weight:700; margin-bottom:8px; color:#cbd5e1; }
+    .table { width:100%; border-collapse:collapse; font-size:13px; }
+    .table th { text-align:right; padding:6px 8px; color:#64748b; font-weight:500; border-bottom:1px solid #334155; }
+    .table td { padding:8px; border-bottom:1px solid #1e2937; }
+    .btn { font-size:12px; padding:6px 12px; border-radius:8px; font-weight:600; }
+    .btn-sm { font-size:11px; padding:4px 8px; }
+    input, select { background:#0b1220; border:1px solid #475569; border-radius:8px; padding:6px 10px; font-size:13px; color:#e2e8f0; }
+    .stat-value { font-size:28px; font-weight:800; line-height:1; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .log-row { font-size:12px; }
+  </style>
+</head>
+<body class="p-4 max-w-[1100px] mx-auto">
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">Novax Admin</h1>
+      <p class="text-slate-400 text-sm">پنل مدیریت حرفه‌ای و امن • فقط برای مالک سیستم</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <input id="token-input" class="w-80 text-sm" placeholder="ADMIN_ACCESS_TOKEN را اینجا وارد کنید" />
+      <button onclick="saveAndLoad()" class="btn bg-sky-600 hover:bg-sky-500 px-4 py-1.5 rounded-xl text-sm font-semibold">ذخیره و بارگذاری</button>
+      <button onclick="loadAllData()" class="btn bg-slate-800 hover:bg-slate-700 px-4 py-1.5 rounded-xl text-sm">بارگذاری مجدد</button>
+    </div>
+  </div>
+
+  <!-- Overview -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+    <div class="card p-4">
+      <div class="text-xs text-slate-400">تعداد کاربران</div>
+      <div id="stat-users" class="stat-value text-white mt-1">-</div>
+    </div>
+    <div class="card p-4">
+      <div class="text-xs text-slate-400">هشدارهای فعال</div>
+      <div id="stat-active" class="stat-value text-emerald-400 mt-1">-</div>
+    </div>
+    <div class="card p-4">
+      <div class="text-xs text-slate-400 mb-1">توزیع وضعیت هشدارها</div>
+      <canvas id="state-chart" height="60"></canvas>
+    </div>
+    <div class="card p-4">
+      <div class="text-xs text-slate-400">وضعیت سیستم</div>
+      <div id="stat-env" class="font-mono text-lg mt-1">-</div>
+      <div class="text-[10px] text-slate-500 mt-2">آخرین به‌روزرسانی: <span id="last-updated">-</span></div>
+    </div>
+  </div>
+
+  <!-- Alerts Table with Search -->
+  <div class="card p-4 mb-6">
+    <div class="flex justify-between items-center mb-3">
+      <div class="section">هشدارهای تمام کاربران</div>
+      <div class="flex gap-2 items-center">
+        <input id="alert-search" placeholder="جستجو در دارایی یا کاربر..." class="text-sm w-64" onkeyup="filterAlertsTable()" />
+        <select id="state-filter" class="text-sm" onchange="loadAlerts()">
+          <option value="">همه</option>
+          <option value="ACTIVE">ACTIVE</option>
+          <option value="PENDING_CONFIRMATION">PENDING</option>
+          <option value="TRIGGERED">TRIGGERED</option>
+          <option value="DELIVERED">DELIVERED</option>
+          <option value="CANCELLED">CANCELLED</option>
+        </select>
+        <button onclick="loadAlerts()" class="btn bg-slate-700 px-3">فیلتر</button>
+      </div>
+    </div>
+    <div class="overflow-auto max-h-[420px]">
+      <table class="table">
+        <thead><tr>
+          <th>شناسه</th><th>کاربر</th><th>دارایی</th><th>وضعیت</th><th>هدف</th><th>ایجاد شده</th><th>آخرین اجرا</th><th>عملیات</th>
+        </tr></thead>
+        <tbody id="alerts-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Users + Audit Logs side by side -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+    <div class="card p-4">
+      <div class="section mb-2">کاربران اخیر</div>
+      <div class="overflow-auto max-h-64">
+        <table class="table text-xs"><thead><tr><th>تلگرام</th><th>نام</th><th>آخرین فعالیت</th></tr></thead><tbody id="users-body"></tbody></table>
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <div class="section mb-2">لاگ اقدامات ادمین (Audit)</div>
+      <div class="overflow-auto max-h-64 text-xs">
+        <table class="table"><thead><tr><th>زمان</th><th>اقدام</th><th>هدف</th></tr></thead><tbody id="audit-body"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="card p-4">
+    <div class="section mb-2">عملیات سریع</div>
+    <div class="flex flex-wrap gap-2">
+      <button onclick="doAction('refresh-metrics')" class="btn bg-slate-800">رفرش متریک‌ها</button>
+      <button onclick="if(confirm('لغو همه هشدارهای فعال؟')) {}" class="btn bg-rose-900/70">لغو همه فعال (با احتیاط)</button>
+      <a href="/metrics/summary" target="_blank" class="btn bg-slate-800">خلاصه عملیاتی</a>
+      <a href="/metrics/prometheus" target="_blank" class="btn bg-slate-800">Prometheus</a>
+      <button onclick="showBroadcastForm()" class="btn bg-amber-800">ارسال پیام همگانی (stub)</button>
+    </div>
+    <div id="action-feedback" class="mt-2 text-emerald-400 text-xs h-4"></div>
+  </div>
+</div>
+
+<script>
+let allAlerts = [];
+let stateChartInstance = null;
+
+function getToken() {
+  const url = new URLSearchParams(location.search).get('token');
+  const input = document.getElementById('token-input');
+  return url || (input && input.value.trim()) || '';
+}
+
+function saveAndLoad() {
+  const t = document.getElementById('token-input').value.trim();
+  if (t) {
+    const u = new URL(location.href);
+    u.searchParams.set('token', t);
+    history.replaceState({}, '', u);
+  }
+  loadAllData();
+}
+
+async function api(path, method='GET') {
+  const token = getToken();
+  const headers = token ? {'X-Admin-Token': token} : {};
+  const sep = path.includes('?') ? '&' : '?';
+  const url = token ? `${path}${sep}token=${encodeURIComponent(token)}` : path;
+  const res = await fetch(url, {method, headers});
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function loadOverview() {
+  const data = await api('/admin/overview');
+  document.getElementById('stat-users').textContent = data.total_users || '0';
+  document.getElementById('stat-active').textContent = data.active_alerts || '0';
+  document.getElementById('stat-env').textContent = data.environment || '-';
+  document.getElementById('last-updated').textContent = new Date().toLocaleTimeString('fa-IR');
+
+  // Chart
+  const ctx = document.getElementById('state-chart');
+  const labels = Object.keys(data.alerts_by_state || {});
+  const values = Object.values(data.alerts_by_state || {});
+  if (stateChartInstance) stateChartInstance.destroy();
+  stateChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data: values, backgroundColor: '#38bdf8' }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+}
+
+async function loadAlerts() {
+  const state = document.getElementById('state-filter').value;
+  const q = state ? `?state=${state}` : '';
+  const data = await api(`/admin/alerts${q}`);
+  allAlerts = data.items || [];
+  renderAlertsTable(allAlerts);
+}
+
+function filterAlertsTable() {
+  const q = document.getElementById('alert-search').value.toLowerCase().trim();
+  const filtered = !q ? allAlerts : allAlerts.filter(a => 
+    (a.display_name || '').toLowerCase().includes(q) || 
+    (a.asset_code || '').toLowerCase().includes(q) ||
+    (a.user_id || '').toLowerCase().includes(q)
+  );
+  renderAlertsTable(filtered);
+}
+
+function renderAlertsTable(items) {
+  const body = document.getElementById('alerts-body');
+  body.innerHTML = '';
+  items.forEach(a => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono text-[10px]">${a.id.substring(0,8)}</td>
+      <td class="mono text-[10px]">${(a.user_id||'').substring(0,8)}</td>
+      <td>${a.display_name || a.asset_code}</td>
+      <td><span class="text-xs px-1.5 py-0.5 rounded bg-slate-800">${a.state}</span></td>
+      <td class="mono">${a.target_price}</td>
+      <td class="text-xs">${a.created_at ? a.created_at.substring(0,16).replace('T',' ') : ''}</td>
+      <td class="text-xs">${a.last_triggered_at ? a.last_triggered_at.substring(0,16).replace('T',' ') : '-'}</td>
+      <td>${a.is_active ? `<button class="btn btn-sm bg-rose-700" onclick="cancelAlert('${a.id}', this)">لغو</button>` : ''}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+async function cancelAlert(id, btn) {
+  if (!confirm('هشدار لغو شود؟')) return;
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    await api(`/admin/alerts/${id}/cancel`, 'POST');
+    btn.textContent = 'لغو شد';
+    setTimeout(loadAllData, 700);
+  } catch(e) { alert(e.message); btn.disabled=false; btn.textContent='لغو'; }
+}
+
+async function loadUsers() {
+  const data = await api('/admin/users');
+  const body = document.getElementById('users-body');
+  body.innerHTML = '';
+  (data.items || []).forEach(u => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${u.telegram_id}</td><td>${u.first_name||''} ${u.username?'@'+u.username:''}</td><td class="text-[10px]">${u.last_activity_at ? u.last_activity_at.substring(0,16).replace('T',' ') : ''}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+async function loadAudit() {
+  const data = await api('/admin/audit-logs');
+  const body = document.getElementById('audit-body');
+  body.innerHTML = '';
+  (data.items || []).forEach(log => {
+    const tr = document.createElement('tr');
+    tr.className = 'log-row';
+    tr.innerHTML = `<td>${log.performed_at.substring(0,16).replace('T',' ')}</td><td>${log.action}</td><td>${log.target_id ? log.target_id.substring(0,8) : ''}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+async function doAction(act) {
+  const fb = document.getElementById('action-feedback');
+  fb.textContent = 'در حال اجرا...';
+  try {
+    if (act === 'refresh-metrics') {
+      await api('/admin/actions/refresh-metrics', 'POST');
+      fb.textContent = 'انجام شد';
+      loadOverview();
+    }
+  } catch(e) { fb.textContent = 'خطا: ' + e.message; }
+  setTimeout(() => fb.textContent='', 2500);
+}
+
+async function loadAllData() {
+  try {
+    await Promise.all([loadOverview(), loadAlerts(), loadUsers(), loadAudit()]);
+  } catch(e) {
+    console.error(e);
+    alert('خطا در بارگذاری. توکن را چک کنید.');
+  }
+}
+
+function initAdmin() {
+  const urlToken = new URLSearchParams(location.search).get('token');
+  if (urlToken) document.getElementById('token-input').value = urlToken;
+  if (getToken()) loadAllData();
+}
+window.onload = initAdmin;
+
+function showBroadcastForm() {
+  const msg = prompt('متن پیام همگانی (stub - ارسال واقعی بعداً وصل می‌شود):', 'پیام تست از ادمین Novax');
+  if (!msg) return;
+  fetch('/admin/actions/broadcast?token=' + encodeURIComponent(getToken()), {
+    method: 'POST',
+    headers: {'Content-Type':'application/json', 'X-Admin-Token': getToken()},
+    body: JSON.stringify({message: msg, target:'all'})
+  }).then(r=>r.json()).then(d=>{ alert('Broadcast intent logged: '+JSON.stringify(d)); loadAudit(); }).catch(e=>alert('Error: '+e));
+}
+</script>
+</body>
+</html>
+"""
+
