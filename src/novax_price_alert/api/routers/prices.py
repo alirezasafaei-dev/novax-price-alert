@@ -328,7 +328,7 @@ async def ingest_prices(
             )
             
         except Exception as e:
-            errors.append({"item": item.get("asset_code"), "error": str(e)})
+            errors.append({"item": item.get("asset_code"), "error": "Failed to process item"})
             record_metric("price_ingest_error")
             emit_event("price_ingest_error", asset_code=asset_code, error=str(e))
     
