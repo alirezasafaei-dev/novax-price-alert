@@ -4,12 +4,28 @@ from collections.abc import Mapping
 from time import perf_counter
 from typing import Any
 
+import redis
+from redis.exceptions import RedisError
+
 from novax_price_alert.core.settings import settings
 from novax_price_alert.infra.cache import PriceCache
 
 logger = logging.getLogger("novax_price_alert.lifecycle")
 metrics: Counter[str] = Counter()
 _metrics_cache: PriceCache | None = None
+_redis_client = None
+
+def _get_redis() -> "redis.Redis | None":
+    global _redis_client
+    if _redis_client is not None:
+        return _redis_client
+    if not settings.redis_url:
+        return None
+    try:
+        _redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+    except Exception:
+        _redis_client = None
+    return _redis_client
 
 def _get_metrics_cache() -> PriceCache | None:
     global _metrics_cache
@@ -25,28 +41,28 @@ def _get_metrics_cache() -> PriceCache | None:
 
 def record_metric(name: str, value: int = 1) -> None:
     metrics[name] += value
-    # Best-effort persist to Redis for cross-restart / multi-worker visibility (fاز 3)
-    cache = _get_metrics_cache()
-    if cache is not None:
-        # fire and forget style (no await here; simple counter merge on get)
+    r = _get_redis()
+    if r is not None:
         try:
-            # note: for real prod would use INCR, here we keep simple snapshot merge on read
-            pass  # lightweight; full INCR can be added if needed
-        except Exception:
+            r.incr(f"metrics:counter:{name}", value)
+        except RedisError:
             pass
 
 
 def get_metrics_snapshot() -> dict[str, int]:
     snap = dict(sorted(metrics.items()))
-    cache = _get_metrics_cache()
-    if cache is not None:
+    r = _get_redis()
+    if r is not None:
         try:
-            # simple merge from persisted if any (keys under metrics: )
-            # for full persistence a background flush or redis INCR would be ideal
-            persisted = {}  # placeholder; extend with real redis counters in future iteration
-            for k, v in persisted.items():
-                snap[k] = snap.get(k, 0) + v
-        except Exception:
+            keys = r.keys("metrics:counter:*")
+            for key in keys:
+                try:
+                    k = key.replace("metrics:counter:", "")
+                    v = int(r.get(key) or 0)
+                    snap[k] = snap.get(k, 0) + v
+                except Exception:
+                    pass
+        except RedisError:
             pass
     return snap
 

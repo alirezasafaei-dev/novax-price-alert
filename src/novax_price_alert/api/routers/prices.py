@@ -17,6 +17,7 @@ from novax_price_alert.api.schemas.price import (
 )
 from novax_price_alert.application.services.price_query_service import PriceQueryService
 from novax_price_alert.application.services.price_service import PriceService
+from novax_price_alert.core.observability import emit_event
 from novax_price_alert.core.settings import settings
 from novax_price_alert.db.models import Asset, Provider
 from novax_price_alert.infra.providers.base import PricePoint
@@ -232,9 +233,17 @@ async def ingest_prices(
                 price_point=price_point,
             )
             success_count += 1
+            emit_event(
+                "price_ingested",
+                asset_code=asset_code,
+                provider=provider_slug,
+                price=str(price_value),
+                observed_at=observed_at.isoformat(),
+            )
             
         except Exception as e:
             errors.append({"item": item.get("asset_code"), "error": str(e)})
+            emit_event("price_ingest_error", asset_code=asset_code, error=str(e))
     
     return {
         "status": "success" if success_count > 0 else "partial",
