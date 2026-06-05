@@ -40,6 +40,7 @@ class SuggestionItemOut(BaseModel):
     price_value: Decimal
     display_unit: str
     change_pct: float | None = None  # simple recent % change for "smart"
+    volatility: float | None = None
     reason: str = "unwatched"
 
 

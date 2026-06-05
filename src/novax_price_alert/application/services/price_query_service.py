@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from statistics import stdev
 from typing import Sequence
 
 from sqlalchemy import select
@@ -112,22 +113,34 @@ class PriceQueryService:
                 .join(Asset, Asset.id == PriceSnapshot.asset_id)
                 .where(Asset.symbol == sym)
                 .order_by(PriceSnapshot.observed_at.desc())
-                .limit(2)
+                .limit(7)
             )
             snaps = (await self.session.execute(snap_stmt)).all()
+            prices = [float(s.p) for s in snaps]
             ch = None
-            if len(snaps) >= 2 and float(snaps[1].p) != 0:
-                ch = round((float(snaps[0].p) - float(snaps[1].p)) / float(snaps[1].p) * 100, 2)
+            vol = None
+            if len(prices) >= 2 and prices[1] != 0:
+                ch = round((prices[0] - prices[1]) / prices[1] * 100, 2)
+            if len(prices) >= 2:
+                try:
+                    vol = round(stdev(prices), 2)
+                except Exception:
+                    vol = None
+            score = abs(ch or 0) + (vol or 0) * 0.1  # simple combined score
             results.append({
                 "asset_code": sym,
                 "asset_name": getattr(row, "name", sym),
                 "price_value": getattr(row, "price", 0),
                 "display_unit": getattr(row, "display_unit", ""),
                 "change_pct": ch,
-                "reason": "recent move" if ch is not None and abs(ch or 0) >= 0.5 else "unwatched",
+                "volatility": vol,
+                "reason": "high volatility/move" if score > 1 else "unwatched",
             })
             if len(results) >= limit:
                 break
 
-        results.sort(key=lambda x: abs(x.get("change_pct") or 0), reverse=True)
+        results.sort(
+            key=lambda x: (abs(x.get("change_pct") or 0) + (x.get("volatility") or 0) * 0.1),
+            reverse=True,
+        )
         return results[:limit]

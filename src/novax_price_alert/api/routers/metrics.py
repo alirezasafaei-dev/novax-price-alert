@@ -11,7 +11,7 @@ from novax_price_alert.api.schemas.operations import OperationalSummaryOut
 from novax_price_alert.application.services.operational_summary_service import (
     OperationalSummaryService,
 )
-from novax_price_alert.core.observability import get_metrics_snapshot
+from novax_price_alert.core.observability import get_metrics_snapshot, record_metric
 from novax_price_alert.core.settings import settings
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
@@ -45,3 +45,22 @@ async def get_operational_summary(
 ) -> OperationalSummaryOut:
     _verify_metrics_token(x_metrics_token)
     return await OperationalSummaryService(db).summary()
+
+
+@router.get("/prometheus")
+async def prometheus_metrics():
+    """Basic Prometheus text format for key metrics."""
+    snap = get_metrics_snapshot()
+    lines = []
+    for k, v in snap.items():
+        safe_name = k.replace(":", "_").replace("-", "_")
+        lines.append(f'novax_{safe_name} {v}')
+    return "\n".join(lines) + "\n"
+
+
+@router.post("/track")
+async def track_event(payload: dict):
+    """Lightweight client-side event tracking for UX metrics (no auth for TWA ease)."""
+    event = payload.get("event", "unknown")
+    record_metric(f"twa_{event}")
+    return {"status": "ok"}
