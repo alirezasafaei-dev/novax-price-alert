@@ -56,8 +56,9 @@ class TelegramNotificationSender(BaseNotificationSender):
             "هشدار شما اجرا شد. برای مدیریت بیشتر از دکمه‌ها استفاده کنید."
         )
 
-        # Rich inline keyboard for triggered notification (roadmap فاز ۱)
-        # Uses url buttons (widely supported). Full callback actions (disable/edit) can be wired in CF worker later.
+        # Rich inline keyboard for triggered notification (roadmap فاز ۱).
+        # Uses url buttons (widely supported). Full callback actions
+        # (disable/edit) can be wired in CF worker later.
         app_url = "https://novax.alirezasafaeisystems.ir"
         reply_markup = {
             "inline_keyboard": [

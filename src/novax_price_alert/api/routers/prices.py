@@ -1,17 +1,13 @@
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, List, Optional
+from decimal import Decimal
+from typing import Annotated, Any, List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from decimal import Decimal
-from datetime import datetime, timezone
 
 from novax_price_alert.api.deps import get_current_telegram_user, get_db
-from novax_price_alert.domain.asset import Asset
-from novax_price_alert.domain.latest_price import LatestPrice
-from novax_price_alert.domain.user import User
 from novax_price_alert.api.schemas.price import (
     LatestPriceItemOut,
     LatestPricesOut,
@@ -24,8 +20,11 @@ from novax_price_alert.application.services.price_query_service import PriceQuer
 from novax_price_alert.application.services.price_service import PriceService
 from novax_price_alert.core.observability import emit_event, record_metric
 from novax_price_alert.core.settings import settings
-from novax_price_alert.db.models import Asset, Provider
+from novax_price_alert.db.models import Provider
+from novax_price_alert.domain.asset import Asset
+from novax_price_alert.domain.latest_price import LatestPrice
 from novax_price_alert.domain.policies import AssetUnit
+from novax_price_alert.domain.user import User
 from novax_price_alert.infra.providers.base import PricePoint
 
 router = APIRouter(prefix="/prices", tags=["prices"])
@@ -126,10 +125,10 @@ async def get_suggestions(
 
 @router.post("/test/override-price")
 async def test_override_price(
-    payload: dict,
+    payload: dict[str, Any],
     current_user: Annotated[User, Depends(get_current_telegram_user)],
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """
     Test / Playground price override for the Advanced Studio (mini-app) and developers.
     Updates LatestPrice so that the next alert evaluation can see the forced price.
@@ -138,14 +137,14 @@ async def test_override_price(
     Requires valid Telegram WebApp session (opened from the bot).
     """
     symbol = payload.get("symbol") or payload.get("asset_code")
-    price = payload.get("price") or payload.get("targetPrice")
-    if not symbol or price is None:
+    price_val = payload.get("price") or payload.get("targetPrice")
+    if not symbol or price_val is None:
         raise HTTPException(400, "symbol and price required")
 
     try:
-        price = float(price)
+        price = float(price_val)
     except Exception:
-        raise HTTPException(400, "invalid price")
+        raise HTTPException(400, "invalid price") from None
 
     # Alias map so the mini-app's asset symbols work against real seeded assets
     aliases = {
@@ -163,7 +162,9 @@ async def test_override_price(
 
     asset_res = await db.execute(
         select(Asset).where(
-            (Asset.symbol == real_symbol) | (Asset.canonical_id == real_symbol) | (Asset.symbol == symbol)
+            (Asset.symbol == real_symbol)
+            | (Asset.canonical_id == real_symbol)
+            | (Asset.symbol == symbol)
         )
     )
     asset = asset_res.scalar_one_or_none()
@@ -199,7 +200,11 @@ async def test_override_price(
         "asset_code": asset.symbol,
         "display_name": asset.display_name or asset.name,
         "forced_price": price,
-        "note": "Price injected for testing. Next evaluation (worker/cron) will consider it. Real ingest will refresh soon.",
+        "note": (
+            "Price injected for testing. "
+            "Next evaluation (worker/cron) will consider it. "
+            "Real ingest will refresh soon."
+        ),
     }
 
 

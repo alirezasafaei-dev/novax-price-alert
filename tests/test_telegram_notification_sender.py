@@ -33,6 +33,10 @@ async def test_telegram_sender_uses_relay_when_configured(
     assert captured["url"] == "https://relay.example.workers.dev/send"
     assert captured["kwargs"] == {
         "headers": {"X-Relay-Secret": "secret"},
-        "json": {"chat_id": "42", "text": "hello"},
+        "json": {
+            "chat_id": "42",
+            "text": "hello",
+            "disable_web_page_preview": True,
+        },
     }
     assert payload["ok"] is True
