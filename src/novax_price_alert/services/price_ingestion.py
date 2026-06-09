@@ -29,15 +29,18 @@ class PriceIngestionService:
         stmt = select(Asset).where(Asset.enabled.is_(True))
         result = await self.session.execute(stmt)
         assets = result.scalars().all()
-        symbols = [asset.symbol for asset in assets]
 
         if self.provider is not None:
+            symbols = self._supported_symbols(self.provider, assets)
             prices = await self.provider.get_prices(symbols)
             provider_record = await self._ensure_provider(self.provider)
             return await self._save_prices(assets, provider_record, prices)
 
         for provider in self.registry.ordered():
             try:
+                symbols = self._supported_symbols(provider, assets)
+                if not symbols:
+                    continue
                 prices = await provider.get_prices(symbols)
             except Exception as exc:
                 logger.warning(
@@ -49,6 +52,17 @@ class PriceIngestionService:
             return await self._save_prices(assets, provider_record, prices)
 
         raise RuntimeError("all Iran-market price providers failed")
+
+    def _supported_symbols(
+        self,
+        provider: BasePriceProvider,
+        assets: Sequence[Asset],
+    ) -> list[str]:
+        paths = getattr(provider, "paths", None)
+        if isinstance(paths, dict):
+            supported = set(paths.keys())
+            return [asset.symbol for asset in assets if asset.symbol in supported]
+        return [asset.symbol for asset in assets]
 
     async def _save_prices(
         self,

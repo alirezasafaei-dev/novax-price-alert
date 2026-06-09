@@ -30,33 +30,72 @@ class PriceFetcher:
             raise ValueError("VPS_API_URL and VPS_API_TOKEN must be set")
     
     async def fetch_binance_prices(self) -> List[Dict]:
-        """Fetch crypto prices from Binance"""
-        url = "https://api.binance.com/api/v3/ticker/price"
-        symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT"]
-        
+        """Fetch crypto prices, preferring Binance-compatible endpoints."""
+        symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
+        candidate_urls = [
+            "https://api.binance.com/api/v3/ticker/price",
+            "https://api-gcp.binance.com/api/v3/ticker/price",
+            "https://data-api.binance.vision/api/v3/ticker/price",
+        ]
+
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url)
+            for url in candidate_urls:
+                try:
+                    response = await client.get(url, params={"symbols": str(symbols).replace("'", '"')})
+                    response.raise_for_status()
+                    return self._normalize_binance_prices(response.json())
+                except Exception as exc:
+                    logger.warning("Binance endpoint failed: %s (%s)", url, exc)
+
+            logger.warning("Falling back to CoinGecko for crypto prices")
+            response = await client.get(
+                "https://api.coingecko.com/api/v3/simple/price",
+                params={
+                    "ids": "bitcoin,ethereum,binancecoin",
+                    "vs_currencies": "usd",
+                },
+            )
             response.raise_for_status()
-            all_prices = response.json()
-            
-            # Filter for our symbols
-            prices = []
-            for item in all_prices:
-                if item['symbol'] in symbols:
-                    base_quote = item['symbol']
-                    if base_quote.endswith('USDT'):
-                        base = base_quote[:-5]
-                        prices.append({
-                            'asset_code': f"{base}_USDT",
-                            'asset_name': self._get_asset_name(base),
-                            'price_value': float(item['price']),
-                            'currency_code': 'USDT',
-                            'display_unit': 'USDT',
-                            'provider': 'binance',
-                            'fetched_at': datetime.utcnow().isoformat()
-                        })
-            
-            return prices
+            payload = response.json()
+            symbol_map = {
+                "bitcoin": "BTC",
+                "ethereum": "ETH",
+                "binancecoin": "BNB",
+            }
+            now = datetime.utcnow().isoformat()
+            return [
+                {
+                    "asset_code": f"{symbol}_USDT",
+                    "asset_name": self._get_asset_name(symbol),
+                    "price_value": float(payload[coin]["usd"]),
+                    "currency_code": "USDT",
+                    "display_unit": "USDT",
+                    "provider": "coingecko_fallback",
+                    "fetched_at": now,
+                }
+                for coin, symbol in symbol_map.items()
+                if coin in payload and "usd" in payload[coin]
+            ]
+
+    def _normalize_binance_prices(self, items: List[Dict]) -> List[Dict]:
+        prices = []
+        now = datetime.utcnow().isoformat()
+        for item in items:
+            base_quote = item["symbol"]
+            if base_quote.endswith("USDT"):
+                base = base_quote[:-5]
+                prices.append(
+                    {
+                        "asset_code": f"{base}_USDT",
+                        "asset_name": self._get_asset_name(base),
+                        "price_value": float(item["price"]),
+                        "currency_code": "USDT",
+                        "display_unit": "USDT",
+                        "provider": "binance",
+                        "fetched_at": now,
+                    }
+                )
+        return prices
     
     async def fetch_tgju_prices(self) -> List[Dict]:
         """Fetch Iranian market prices from TGJU"""
@@ -141,17 +180,26 @@ class PriceFetcher:
         
         try:
             # Fetch from different sources
-            binance_prices = await self.fetch_binance_prices()
-            all_prices.extend(binance_prices)
-            logger.info(f"Fetched {len(binance_prices)} prices from Binance")
+            try:
+                binance_prices = await self.fetch_binance_prices()
+                all_prices.extend(binance_prices)
+                logger.info(f"Fetched {len(binance_prices)} prices from Binance")
+            except Exception as exc:
+                logger.warning(f"Crypto fetch failed: {exc}")
             
-            tgju_prices = await self.fetch_tgju_prices()
-            all_prices.extend(tgju_prices)
-            logger.info(f"Fetched {len(tgju_prices)} prices from TGJU")
+            try:
+                tgju_prices = await self.fetch_tgju_prices()
+                all_prices.extend(tgju_prices)
+                logger.info(f"Fetched {len(tgju_prices)} prices from TGJU")
+            except Exception as exc:
+                logger.warning(f"TGJU fetch failed: {exc}")
             
-            nobitex_prices = await self.fetch_nobitex_prices()
-            all_prices.extend(nobitex_prices)
-            logger.info(f"Fetched {len(nobitex_prices)} prices from Nobitex")
+            try:
+                nobitex_prices = await self.fetch_nobitex_prices()
+                all_prices.extend(nobitex_prices)
+                logger.info(f"Fetched {len(nobitex_prices)} prices from Nobitex")
+            except Exception as exc:
+                logger.warning(f"Nobitex fetch failed: {exc}")
             
             # Send to VPS
             if all_prices:
