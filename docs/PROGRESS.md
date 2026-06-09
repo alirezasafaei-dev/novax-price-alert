@@ -4,6 +4,19 @@
 
 **مرجع اصلی فازبندی و تسک‌ها:** گزارش کامل بهبود پروژه (مسائل ۹گانه، راهکارهای اجرایی، ۵ فاز دقیق، taskهای T-xxx با اولویت P0/P1/P2 + owner + acceptance criteria، sprint plan، KPI، risk register).
 
+## 2026-06-09: Iranian VPS stabilization for `novax.alirezasafeidev.ir`
+
+- دیپلوی روی VPS جدید تکمیل و دامنه عملیاتی روی `novax.alirezasafeidev.ir` تثبیت شد.
+- `health` و `api/v1/prices/latest` روی دامنه جدید پاسخ سالم می‌دهند.
+- API، worker، nginx، PostgreSQL و Redis روی VPS جدید active هستند.
+- مرجع قیمت بازار ایران روی خود VPS نگه داشته شد تا منطق اصلی پروژه تغییر نکند.
+- فچِر خارجی GitHub Actions برای جلوگیری از آلودگی داده، دیگر placeholder اشتباه TGJU را به production ingest نمی‌کند.
+- ingest خارجی کریپتو با fallback ایمن حفظ شد تا در شرایط محدودیت IP/451 همچنان قیمت کریپتو قابل دریافت باشد.
+- نتیجه عملیاتی فعلی:
+  - `USD_IRT`، `EUR_IRT`، `GOLD_18K_IRT`، `SEKKEH_EMAMI_IRT`، `USDT_IRT` از `tgju_scrape`
+  - `BTC_USDT`، `ETH_USDT`، `BNB_USDT` از `coingecko_fallback`
+- نکته برای ادامه فردا: لاگ‌های `price provider failed` در worker باید جداگانه ریشه‌یابی و تمیز شوند، هرچند فعلاً سرویس و قیمت‌ها fresh و usable هستند.
+
 ## وضعیت فعلی محصول (Production)
 
 - بات تلگرام menu-driven + Cloudflare Worker relay (webhook، کیبورد غنی، web_app button به TWA).
@@ -195,3 +208,7 @@ User delivered `/home/dev13/Downloads/novax-mini-app.zip` (extracted to `mini-ap
 - Next for real AI (if desired): proxy chat calls via supported-region service, or switch provider, or note as known limitation.
 - All other Studio features (LIVE prices/override, rich TG notifs from prior, playground) remain fully operational with real DB/alerts.
 
+## 2026-06-05: Mini-app port alignment after interrupted deploy
+- Root cause: previous wrapper defaulted `novax-mini-app` to `3002`, but that port belongs to `my-portfolio`; `3000` belongs to `persian-tools`.
+- Current production convention: `novax-api` stays on `8001`; `novax-mini-app` uses dedicated `3012`; nginx `novax_mini` proxies root `/` to `127.0.0.1:3012`.
+- Repo defaults updated in `scripts/pm2-start-mini.sh` and `mini-app/.env.example` to prevent drift on restart/deploy.
