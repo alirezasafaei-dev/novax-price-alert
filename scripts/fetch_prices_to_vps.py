@@ -25,6 +25,8 @@ class PriceFetcher:
     def __init__(self):
         self.vps_api_url = os.getenv('VPS_API_URL')
         self.vps_api_token = os.getenv('VPS_API_TOKEN')
+        self.enable_tgju = os.getenv('ENABLE_TGJU_FETCH', '').lower() == 'true'
+        self.enable_nobitex = os.getenv('ENABLE_NOBITEX_FETCH', '').lower() == 'true'
         
         if not self.vps_api_url or not self.vps_api_token:
             raise ValueError("VPS_API_URL and VPS_API_TOKEN must be set")
@@ -99,23 +101,7 @@ class PriceFetcher:
     
     async def fetch_tgju_prices(self) -> List[Dict]:
         """Fetch Iranian market prices from TGJU"""
-        # This is a simplified version - in production you might want to
-        # use the actual scraping logic from your provider code
-        url = "https://www.tgju.org/profile/price_dollar_rl"
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url)
-            # Parse HTML and extract price
-            # For now, return mock data - replace with actual parsing
-            return [{
-                'asset_code': 'USD_IRT',
-                'asset_name': 'US Dollar',
-                'price_value': 170000,  # Replace with actual parsing
-                'currency_code': 'IRT',
-                'display_unit': 'IRT',
-                'provider': 'tgju_scrape',
-                'fetched_at': datetime.utcnow().isoformat()
-            }]
+        raise RuntimeError("TGJU external fetch is disabled until a real parser is implemented")
     
     async def fetch_nobitex_prices(self) -> List[Dict]:
         """Fetch prices from Nobitex (Iranian exchange)"""
@@ -187,19 +173,25 @@ class PriceFetcher:
             except Exception as exc:
                 logger.warning(f"Crypto fetch failed: {exc}")
             
-            try:
-                tgju_prices = await self.fetch_tgju_prices()
-                all_prices.extend(tgju_prices)
-                logger.info(f"Fetched {len(tgju_prices)} prices from TGJU")
-            except Exception as exc:
-                logger.warning(f"TGJU fetch failed: {exc}")
+            if self.enable_tgju:
+                try:
+                    tgju_prices = await self.fetch_tgju_prices()
+                    all_prices.extend(tgju_prices)
+                    logger.info(f"Fetched {len(tgju_prices)} prices from TGJU")
+                except Exception as exc:
+                    logger.warning(f"TGJU fetch failed: {exc}")
+            else:
+                logger.info("Skipping TGJU external fetch; VPS-local provider remains source of truth")
             
-            try:
-                nobitex_prices = await self.fetch_nobitex_prices()
-                all_prices.extend(nobitex_prices)
-                logger.info(f"Fetched {len(nobitex_prices)} prices from Nobitex")
-            except Exception as exc:
-                logger.warning(f"Nobitex fetch failed: {exc}")
+            if self.enable_nobitex:
+                try:
+                    nobitex_prices = await self.fetch_nobitex_prices()
+                    all_prices.extend(nobitex_prices)
+                    logger.info(f"Fetched {len(nobitex_prices)} prices from Nobitex")
+                except Exception as exc:
+                    logger.warning(f"Nobitex fetch failed: {exc}")
+            else:
+                logger.info("Skipping Nobitex external fetch; only crypto is ingested from GitHub Actions")
             
             # Send to VPS
             if all_prices:
