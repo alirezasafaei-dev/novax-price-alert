@@ -17,18 +17,25 @@ class ProviderRegistry:
         providers: list[BasePriceProvider] = []
         if settings.use_mock_provider:
             providers.append(MockPriceProvider())
-        providers.extend(
-            [
-                NerkhProvider(api_key=settings.nerkh_api_key, base_url=settings.nerkh_base_url),
-                TgjuScrapeProvider(base_url=settings.tgju_base_url),
+        if settings.nerkh_api_key and settings.nerkh_base_url:
+            providers.append(
+                NerkhProvider(api_key=settings.nerkh_api_key, base_url=settings.nerkh_base_url)
+            )
+        if settings.tgju_base_url:
+            providers.append(TgjuScrapeProvider(base_url=settings.tgju_base_url))
+        if settings.alanchand_api_token and settings.alanchand_base_url:
+            providers.append(
                 AlanChandProvider(
                     api_token=settings.alanchand_api_token,
                     base_url=settings.alanchand_base_url,
-                ),
-                ApiIrProvider(api_key=settings.api_ir_api_key, base_url=settings.api_ir_base_url),
-                BonbastProvider(base_url=settings.bonbast_base_url),
-            ]
-        )
+                )
+            )
+        if settings.api_ir_api_key and settings.api_ir_base_url:
+            providers.append(
+                ApiIrProvider(api_key=settings.api_ir_api_key, base_url=settings.api_ir_base_url)
+            )
+        if settings.bonbast_base_url:
+            providers.append(BonbastProvider(base_url=settings.bonbast_base_url))
         self._providers: dict[str, BasePriceProvider] = {
             provider.slug: provider for provider in providers
         }
