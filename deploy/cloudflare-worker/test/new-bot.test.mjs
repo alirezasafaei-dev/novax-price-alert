@@ -79,6 +79,18 @@ global.fetch = async (url, options) => {
     };
   }
 
+  if (hostname === "api.coingecko.com") {
+    return {
+      ok: true,
+      json: async () => ({
+        bitcoin: { usd: 67240 },
+        ethereum: { usd: 3420 },
+        solana: { usd: 165 },
+        binancecoin: { usd: 590 },
+      }),
+    };
+  }
+
   if (hostname === "tgju.org" || hostname.endsWith(".tgju.org")) {
     if (providerMode === "iran-unavailable") {
       return { ok: false, json: async () => ({}) };
@@ -166,6 +178,14 @@ assert.ok(cryptoText.includes("BTC") && cryptoText.includes("USDT"), "crypto pri
 for (const sym of ["ETH", "SOL", "BNB"]) {
   assert.ok(cryptoText.includes(sym), `crypto prices should include ${sym}`);
 }
+
+// 2b) Crypto prices fall back safely when Binance endpoints fail
+providerMode = "crypto-unavailable";
+sent = [];
+await sendCallback("market:crypto");
+const fallbackCryptoText = allText();
+assert.ok(fallbackCryptoText.includes("BTC") && fallbackCryptoText.includes("USDT"), "crypto fallback should still list BTC in USDT");
+providerMode = "healthy";
 
 // 3) Fiat prices include USD and EUR; gold includes 18K and coin
 sent = [];

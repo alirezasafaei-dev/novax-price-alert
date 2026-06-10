@@ -52,32 +52,69 @@ const CRYPTO_BINANCE_SYMBOLS = {
 
 export async function getCryptoPrices() {
   try {
-    // قیمت لحظه‌ای از Binance (واحد: USDT)
-    // از endpoint داده‌های عمومی Binance استفاده می‌کنیم که محدودیت جغرافیایی ندارد.
     const pairs = Object.values(CRYPTO_BINANCE_SYMBOLS);
     const symbolsParam = encodeURIComponent(JSON.stringify(pairs));
-    const response = await fetchWithRetry(
+    const candidateUrls = [
       `https://data-api.binance.vision/api/v3/ticker/price?symbols=${symbolsParam}`,
-      {
-        headers: {
-          'User-Agent': 'Novax-Price-Bot/1.0'
-        }
-      }
-    );
-    const data = await response.json();
+      `https://api-gcp.binance.com/api/v3/ticker/price?symbols=${symbolsParam}`,
+      `https://api.binance.com/api/v3/ticker/price?symbols=${symbolsParam}`,
+    ];
 
-    // نقشه‌برداری از جفت معاملاتی به نماد ساده
+    let data = null;
+    for (const url of candidateUrls) {
+      try {
+        const response = await fetchWithRetry(url, {
+          headers: {
+            "User-Agent": "Novax-Price-Bot/1.0",
+          },
+        });
+        data = await response.json();
+        if (Array.isArray(data) && data.length) break;
+      } catch (error) {
+        logWarn("provider_fetch_retry", {
+          provider: "crypto",
+          url,
+          error_message: error?.message,
+          will_retry: false,
+        });
+      }
+    }
+
     const pairToSymbol = {};
     for (const [symbol, pair] of Object.entries(CRYPTO_BINANCE_SYMBOLS)) {
       pairToSymbol[pair] = symbol;
     }
 
     const prices = {};
-    if (Array.isArray(data)) {
+    if (Array.isArray(data) && data.length) {
       for (const item of data) {
         const symbol = pairToSymbol[item?.symbol];
         const price = Number(item?.price);
         if (symbol && Number.isFinite(price)) {
+          prices[symbol] = price;
+        }
+      }
+    }
+
+    if (!Object.keys(prices).length) {
+      const response = await fetchWithRetry(
+        "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin&vs_currencies=usd",
+        {
+          headers: {
+            "User-Agent": "Novax-Price-Bot/1.0",
+          },
+        },
+      );
+      const fallback = await response.json();
+      const coinToSymbol = {
+        bitcoin: "BTC",
+        ethereum: "ETH",
+        solana: "SOL",
+        binancecoin: "BNB",
+      };
+      for (const [coin, symbol] of Object.entries(coinToSymbol)) {
+        const price = Number(fallback?.[coin]?.usd);
+        if (Number.isFinite(price)) {
           prices[symbol] = price;
         }
       }
