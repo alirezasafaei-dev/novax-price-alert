@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     api_ir_api_key: str = ""
     api_ir_base_url: str = ""
     bonbast_base_url: str = "https://bonbast.com"
+    enable_bonbast_failover: bool = False
     nerkh_api_key: str = ""
     nerkh_base_url: str = "https://api.nerkh.io"
     tgju_base_url: str = "https://www.tgju.org"
