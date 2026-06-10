@@ -158,6 +158,24 @@ class TgjuScrapeProvider(BasePriceProvider):
             raw_data={"source": "tgju", "path": path},
         )
 
+    async def get_prices(self, symbols: list[str]) -> dict[str, PricePoint]:
+        prices: dict[str, PricePoint] = {}
+        last_error: Exception | None = None
+
+        for symbol in symbols:
+            try:
+                prices[symbol] = await self.get_price(symbol)
+            except Exception as exc:
+                last_error = exc
+
+        if prices:
+            return prices
+
+        if last_error is not None:
+            raise last_error
+
+        return prices
+
 
 class ApiIrProvider(BasePriceProvider):
     def __init__(self, *, api_key: str, base_url: str) -> None:

@@ -123,3 +123,25 @@ async def test_tgju_provider_uses_eur_profile_path(
 
     assert captured["url"] == "https://www.tgju.org/profile/price_eur"
     assert price.price == Decimal("1850000")
+
+
+@pytest.mark.anyio
+async def test_tgju_provider_get_prices_keeps_partial_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_get(self: object, url: str, **kwargs: object) -> httpx.Response:
+        if url.endswith("/profile/price_eur"):
+            return httpx.Response(200, text="<html>missing price</html>", request=httpx.Request("GET", url))
+        return httpx.Response(
+            200,
+            text='<span class="price" data-col="info.last_trade.PDrCotVal">1,702,150</span>',
+            request=httpx.Request("GET", url),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    provider = TgjuScrapeProvider(base_url="https://www.tgju.org")
+    prices = await provider.get_prices(["USD_IRT", "EUR_IRT"])
+
+    assert prices["USD_IRT"].price == Decimal("1702150")
+    assert "EUR_IRT" not in prices
