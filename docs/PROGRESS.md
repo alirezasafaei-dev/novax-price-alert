@@ -31,6 +31,17 @@
   - `health` و `api/v1/prices/latest` همچنان سالم و fresh هستند.
 - وضعیت فعلی: لاگ `price provider failed` هنوز برای providerهای غیرفعال/timeout دیده می‌شود، اما دیگر باعث افتادن job و خراب شدن سرویس نمی‌شود.
 
+## 2026-06-10: Runtime provider-noise reduction
+
+- مسیر runtime registry تمیزتر شد تا providerهای بدون credential اصلاً وارد execution path نشوند.
+- نتیجه:
+  - `nerkh` بدون API key دیگر بی‌دلیل وارد worker loop نمی‌شود.
+  - `alanchand` بدون token دیگر بی‌دلیل وارد worker loop نمی‌شود.
+  - `api_ir` بدون config کامل دیگر بی‌دلیل وارد worker loop نمی‌شود.
+- `tgju_scrape` به عنوان منبع اصلی بازار ایران باقی ماند.
+- `bonbast` هنوز به عنوان failover سبک در registry می‌ماند چون credential نمی‌خواهد، اما فقط در صورت نیاز به مسیر failover می‌رسد.
+- پس از sync و restart روی VPS، اجرای مستقیم `price_fetch_job` موفق ماند و قیمت‌های `latest` همچنان fresh هستند.
+
 ## وضعیت فعلی محصول (Production)
 
 - بات تلگرام menu-driven + Cloudflare Worker relay (webhook، کیبورد غنی، web_app button به TWA).
