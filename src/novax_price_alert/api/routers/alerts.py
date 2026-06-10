@@ -1,7 +1,9 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from novax_price_alert.api.deps import get_current_telegram_user, get_db
 from novax_price_alert.api.errors import NotFoundError
@@ -12,8 +14,10 @@ from novax_price_alert.api.schemas.alert import (
     AlertUpdateIn,
     DeleteAlertOut,
 )
+from novax_price_alert.api.schemas.alert_event import AlertEventListOut, AlertEventOut
 from novax_price_alert.application.services.alert_crud_service import AlertCRUDService
 from novax_price_alert.application.services.user_resolver_service import UserResolverService
+from novax_price_alert.domain.alert_event import AlertEvent
 from novax_price_alert.domain.alert_rule import AlertRule, InvalidAlertTransitionError
 from novax_price_alert.domain.asset import Asset
 from novax_price_alert.domain.enums import AlertLifecycleState
@@ -125,3 +129,40 @@ async def delete_alert(
     if updated is None:
         raise NotFoundError("alert not found")
     return DeleteAlertOut()
+
+
+@router.get("/events", response_model=AlertEventListOut)
+async def list_alert_events(
+    current_user: Annotated[User, Depends(get_current_telegram_user)],
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db),
+) -> AlertEventListOut:
+    stmt = (
+        select(AlertEvent)
+        .join(AlertRule, AlertRule.id == AlertEvent.alert_rule_id)
+        .options(selectinload(AlertEvent.alert_rule).selectinload(AlertRule.asset))
+        .where(AlertRule.user_id == current_user.id)
+        .order_by(AlertEvent.triggered_at.desc())
+        .limit(max(1, min(limit, 100)))
+    )
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return AlertEventListOut(
+        items=[
+            AlertEventOut(
+                id=row.id,
+                alert_id=row.alert_rule_id,
+                asset_code=getattr(getattr(row.alert_rule, "asset", None), "symbol", None),
+                asset_name=(
+                    getattr(getattr(row.alert_rule, "asset", None), "display_name", None)
+                    or getattr(getattr(row.alert_rule, "asset", None), "name", None)
+                ),
+                status=str(row.status),
+                triggered_price=row.triggered_price,
+                triggered_at=row.triggered_at,
+                sent_at=row.sent_at,
+                error_message=row.error_message,
+            )
+            for row in rows
+        ]
+    )

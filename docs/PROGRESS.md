@@ -51,6 +51,19 @@
   - منبع اصلی بازار ایران همچنان `tgju_scrape` باقی مانده است.
   - سلامت `health` و `latest` بعد از restart و اجرای مستقیم job تایید شد.
 
+## 2026-06-10: React mini-app live integration hardening
+
+- بررسی فنی نشان داد React `mini-app/` کاملِ production نبود: قیمت‌ها در LIVE واقعی بودند، اما alertها و logها هنوز روی مسیر شبیه‌سازی Express محلی می‌ماندند.
+- اصلاح انجام شد بدون دست‌زدن به TWA اصلی:
+  - در LIVE، ساخت/تایید/لیست/حذف/فعال‌سازی هشدارها به backend واقعی FastAPI وصل شد.
+  - endpoint جدید `GET /api/v1/alerts/events` برای خواندن eventهای واقعی هشدار اضافه شد.
+  - در LIVE، event stream فرانت از داده واقعی backend تغذیه می‌شود.
+  - مسیر override برای mini-app با endpoint واقعی `POST /api/v1/prices/test/override-price` هم‌راستا شد.
+- نتیجه:
+  - TWA اصلی FastAPI همچنان source-of-truth و بدون تغییر باقی ماند.
+  - React mini-app در حالت `LIVE` حالا برای prices + alerts + alert events اتصال واقعی‌تری به backend دارد.
+  - AI هنوز به علت محدودیت جغرافیایی provider روی VPS ایرانی degraded است و production-complete محسوب نمی‌شود.
+
 ## وضعیت فعلی محصول (Production)
 
 - بات تلگرام menu-driven + Cloudflare Worker relay (webhook، کیبورد غنی، web_app button به TWA).

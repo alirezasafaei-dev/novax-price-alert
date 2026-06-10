@@ -4,7 +4,9 @@
 
 **وضعیت فعلی:** به بک‌اند واقعی پروژه متصل است (حالت LIVE):
 - قیمت‌های زنده از `/api/v1/prices/latest` (با پشتیبانی از X-Telegram-Init-Data).
-- اسلایدر دستی قیمت را از طریق `/api/v1/test/override-price` به LatestPrice واقعی می‌نویسد → تریگر هشدارهای واقعی کاربر در کرون بعدی + نوتیفیکیشن‌های غنی اینلاین در تلگرام.
+- ساخت/حذف/فعال‌سازی هشدارها در LIVE به API واقعی backend وصل است.
+- رویدادهای واقعی هشدار در LIVE از `/api/v1/alerts/events` خوانده می‌شوند.
+- اسلایدر دستی قیمت را از طریق `/api/v1/prices/test/override-price` به LatestPrice واقعی می‌نویسد → تریگر هشدارهای واقعی کاربر در کرون بعدی + نوتیفیکیشن‌های غنی اینلاین در تلگرام.
 - دستیار AI (Gemini) در Express (server-side، کلید امن).
 
 حالت SIM محلی برای تست سریع بدون بک‌اند هم کار می‌کند.
@@ -26,7 +28,7 @@ npm install
 npm run dev
 ```
 
-سپس در http://localhost:3000 باز کنید.
+سپس در http://localhost:3012 باز کنید.
 
 - تب داشبورد: روی کارت‌ها کلیک کنید → چارت SVG بزرگ + اسلایدر شبیه‌ساز قیمت (قیمت را جابجا کنید تا هشدارها تریگر شوند).
 - تب دیده‌بان: هشدار UPPER/LOWER بسازید (اعداد فارسی هم پشتیبانی می‌شود)، فعال/غیرفعال کنید، لاگ‌های ارسال را ببینید.
@@ -51,8 +53,10 @@ npm start   # سرور Node از dist/server.cjs + استاتیک
 
 - حالت "Live Data" (دکمه SIM/LIVE در هدر) اکنون پیاده‌سازی شده:
   - قیمت‌ها از بک‌اند واقعی (`/api/v1/prices/latest`) خوانده می‌شوند.
-  - اسلایدر، از طریق endpoint جدید `/api/v1/test/override-price`، قیمت را در LatestPrice واقعی تزریق می‌کند (تست واقعی تریگر هشدارها).
-  - برای override نیاز به باز کردن اپ از داخل بات تلگرام (تا initData ارسال شود).
+  - هشدارها در LIVE با `POST/GET/PATCH/DELETE /api/v1/alerts` و `POST /confirm` به backend واقعی متصل‌اند.
+  - event log در LIVE از `GET /api/v1/alerts/events` می‌آید.
+  - اسلایدر، از طریق `/api/v1/prices/test/override-price`، قیمت را در LatestPrice واقعی تزریق می‌کند (تست واقعی تریگر هشدارها).
+  - برای flows احراز‌شده باید اپ از داخل بات تلگرام باز شود تا `initData` ارسال شود.
 
 ### Gemini / AI Analyst
 - کلید `GEMINI_API_KEY` فقط server-side (در `mini-app/.env` یا env پروداکشن) استفاده می‌شود.

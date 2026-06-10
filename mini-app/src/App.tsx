@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Asset, Alert } from './types';
+import { Asset, Alert, AlertLog } from './types';
 import PriceBoard from './components/PriceBoard';
 import AlertManager from './components/AlertManager';
 import TelegramSimulator from './components/TelegramSimulator';
@@ -43,7 +43,7 @@ export default function App() {
   const [language, setLanguage] = useState<'fa' | 'en'>('fa');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [alertLogs, setAlertLogs] = useState<any[]>([]);
+  const [alertLogs, setAlertLogs] = useState<AlertLog[]>([]);
   const [selectedAssetForAlert, setSelectedAssetForAlert] = useState<string | null>(null);
   
   // Custom Push Notification state
@@ -56,16 +56,60 @@ export default function App() {
 
   const isFa = language === 'fa';
 
+  const backendBase = ((import.meta as any).env?.VITE_NOVAX_API_BASE || (window as any).NOVAX_API_BASE || 'http://localhost:8001').replace(/\/$/, '');
+
+  const liveHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (tgInitData) headers['X-Telegram-Init-Data'] = tgInitData;
+    return headers;
+  };
+
+  const mapLiveAlert = (item: any): Alert => {
+    const symbol = item.asset_code || item.symbol || item.asset_id;
+    const isCrypto = String(item.target_price_display_unit || '').toUpperCase().includes('USDT') || String(symbol || '').includes('USDT');
+    const state = String(item.lifecycle_state || '');
+    return {
+      id: item.id,
+      symbol,
+      assetName: item.asset_name || item.display_asset_name_at_creation || symbol,
+      assetNameFa: item.asset_name || item.display_asset_name_at_creation || symbol,
+      isCrypto,
+      triggerType: String(item.condition_type || '').toUpperCase() === 'ABOVE' ? 'UPPER' : 'LOWER',
+      thresholdPrice: Number(item.target_price),
+      label: item.display_asset_name_at_creation || item.asset_name || symbol,
+      isActive: Boolean(item.is_active),
+      isTriggered: ['triggered', 'delivery_in_progress', 'delivered'].includes(state),
+      createdAt: item.created_at || new Date().toISOString(),
+      triggeredAt: item.triggered_at || item.last_triggered_at || undefined,
+      telegramUsername: '',
+    };
+  };
+
+  const mapLiveEventToLog = (item: any): AlertLog => {
+    const symbol = item.asset_code || 'UNKNOWN';
+    const assetName = item.asset_name || symbol;
+    const status = String(item.status || '').toLowerCase();
+    const text = status === 'sent'
+      ? `🔔 هشدار NovaX برای ${assetName} (${symbol}) با قیمت ${Number(item.triggered_price).toLocaleString('fa-IR')} ارسال شد.`
+      : status === 'failed'
+        ? `⚠️ ارسال هشدار ${assetName} (${symbol}) ناموفق بود.${item.error_message ? ` ${item.error_message}` : ''}`
+        : `⏳ هشدار ${assetName} (${symbol}) در وضعیت ${status} ثبت شد.`;
+    return {
+      id: item.id,
+      alertId: item.alert_id,
+      symbol,
+      text,
+      timestamp: item.sent_at || item.triggered_at || new Date().toISOString(),
+    };
+  };
+
   // Fetch prices, alerts, and logs on boot + interval polling
   const fetchAllData = async () => {
     try {
       let priceData: any[] = [];
 
       if (useLiveData) {
-        // Live prices from the real Novax backend (no auth needed for /latest)
-        // Default assumes you run the main Python backend on :8001 (common in this project) while mini-app is on :3000 for demo.
-        const base = (import.meta as any).env?.VITE_NOVAX_API_BASE || (window as any).NOVAX_API_BASE || 'http://localhost:8001';
-        const url = `${base.replace(/\/$/, '')}/api/v1/prices/latest`;
+        const url = `${backendBase}/api/v1/prices/latest`;
         const pRes = await fetch(url);
         if (pRes.ok) {
           const envelope = await pRes.json();
@@ -89,29 +133,45 @@ export default function App() {
       }
       if (priceData.length > 0) setAssets(priceData);
 
-      // Alerts and logs stay on the mini-app's fast local simulation (beautiful demo + instant feedback)
-      const aRes = await fetch('/api/alerts');
-      if (aRes.ok) {
-        const aData = await aRes.json();
-        setAlerts(aData);
-      }
-
-      const lRes = await fetch('/api/alerts/logs');
-      if (lRes.ok) {
-        const lData = await lRes.json();
-        
-        // If new logs appeared higher than what we currently have, trigger push chime
-        if (lData.length > alertLogs.length && alertLogs.length > 0) {
-          const newestLog = lData[0];
-          setPushNotification({ id: newestLog.id, text: newestLog.text });
-          playChime();
-          
-          // Clear notification after 6 seconds
-          setTimeout(() => {
-            setPushNotification(null);
-          }, 6000);
+      if (useLiveData && tgInitData) {
+        const aRes = await fetch(`${backendBase}/api/v1/alerts`, { headers: liveHeaders() });
+        if (aRes.ok) {
+          const aData = await aRes.json();
+          setAlerts((aData.items || []).map(mapLiveAlert));
         }
-        setAlertLogs(lData);
+
+        const lRes = await fetch(`${backendBase}/api/v1/alerts/events`, { headers: liveHeaders() });
+        if (lRes.ok) {
+          const lData = await lRes.json();
+          const mappedLogs = (lData.items || []).map(mapLiveEventToLog);
+          if (mappedLogs.length > alertLogs.length && alertLogs.length > 0) {
+            const newestLog = mappedLogs[0];
+            setPushNotification({ id: newestLog.id, text: newestLog.text });
+            playChime();
+            setTimeout(() => setPushNotification(null), 6000);
+          }
+          setAlertLogs(mappedLogs);
+        }
+      } else {
+        const aRes = await fetch('/api/alerts');
+        if (aRes.ok) {
+          const aData = await aRes.json();
+          setAlerts(aData);
+        }
+
+        const lRes = await fetch('/api/alerts/logs');
+        if (lRes.ok) {
+          const lData = await lRes.json();
+          if (lData.length > alertLogs.length && alertLogs.length > 0) {
+            const newestLog = lData[0];
+            setPushNotification({ id: newestLog.id, text: newestLog.text });
+            playChime();
+            setTimeout(() => {
+              setPushNotification(null);
+            }, 6000);
+          }
+          setAlertLogs(lData);
+        }
       }
     } catch (e) {
       console.warn('Network sync warning:', e);
@@ -154,14 +214,31 @@ export default function App() {
     telegramUsername: string;
   }) => {
     try {
-      const res = await fetch('/api/alerts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(alertData)
-      });
+      const res = useLiveData && tgInitData
+        ? await fetch(`${backendBase}/api/v1/alerts`, {
+            method: 'POST',
+            headers: liveHeaders(),
+            body: JSON.stringify({
+              asset_code: alertData.symbol,
+              condition_type: alertData.triggerType === 'UPPER' ? 'above' : 'below',
+              target_price: alertData.thresholdPrice,
+              cooldown_minutes: 60,
+            }),
+          })
+        : await fetch('/api/alerts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(alertData)
+          });
       if (res.ok) {
+        if (useLiveData && tgInitData) {
+          const created = await res.json();
+          await fetch(`${backendBase}/api/v1/alerts/${created.id}/confirm`, {
+            method: 'POST',
+            headers: liveHeaders(),
+          });
+        }
         fetchAllData();
-        // Shift tab to Alerts to see it
         setActiveTab('alerts');
       }
     } catch (e) {
@@ -172,7 +249,9 @@ export default function App() {
   // Handle Delete Alert
   const handleDeleteAlert = async (id: string) => {
     try {
-      const res = await fetch(`/api/alerts/${id}`, { method: 'DELETE' });
+      const res = useLiveData && tgInitData
+        ? await fetch(`${backendBase}/api/v1/alerts/${id}`, { method: 'DELETE', headers: liveHeaders() })
+        : await fetch(`/api/alerts/${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchAllData();
       }
@@ -184,7 +263,15 @@ export default function App() {
   // Handle Toggle Alert active state
   const handleToggleAlert = async (id: string) => {
     try {
-      const res = await fetch(`/api/alerts/${id}/toggle`, { method: 'PUT' });
+      const current = alerts.find(a => a.id === id);
+      if (!current) return;
+      const res = useLiveData && tgInitData
+        ? await fetch(`${backendBase}/api/v1/alerts/${id}`, {
+            method: 'PATCH',
+            headers: liveHeaders(),
+            body: JSON.stringify({ is_active: !current.isActive }),
+          })
+        : await fetch(`/api/alerts/${id}/toggle`, { method: 'PUT' });
       if (res.ok) {
         fetchAllData();
       }
@@ -197,16 +284,10 @@ export default function App() {
   const handleManualPriceChange = async (symbol: string, val: number) => {
     try {
       if (useLiveData) {
-        // Call the real backend's test override (will affect real LatestPrice and thus future alert evaluations)
-        const base = (import.meta as any).env?.VITE_NOVAX_API_BASE || (window as any).NOVAX_API_BASE || 'http://localhost:8001';
-        const url = `${base.replace(/\/$/, '')}/api/v1/test/override-price`;
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (tgInitData) {
-          headers['X-Telegram-Init-Data'] = tgInitData;
-        }
+        const url = `${backendBase}/api/v1/prices/test/override-price`;
         await fetch(url, {
           method: 'POST',
-          headers,
+          headers: liveHeaders(),
           body: JSON.stringify({ symbol, price: val })
         });
       } else {

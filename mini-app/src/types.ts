@@ -25,6 +25,14 @@ export interface Alert {
   telegramUsername?: string;
 }
 
+export interface AlertLog {
+  id: string;
+  alertId: string;
+  symbol: string;
+  text: string;
+  timestamp: string;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant';
