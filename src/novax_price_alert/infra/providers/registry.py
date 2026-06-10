@@ -34,7 +34,7 @@ class ProviderRegistry:
             providers.append(
                 ApiIrProvider(api_key=settings.api_ir_api_key, base_url=settings.api_ir_base_url)
             )
-        if settings.bonbast_base_url:
+        if settings.enable_bonbast_failover and settings.bonbast_base_url:
             providers.append(BonbastProvider(base_url=settings.bonbast_base_url))
         self._providers: dict[str, BasePriceProvider] = {
             provider.slug: provider for provider in providers

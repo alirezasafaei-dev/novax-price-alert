@@ -42,6 +42,15 @@
 - `bonbast` هنوز به عنوان failover سبک در registry می‌ماند چون credential نمی‌خواهد، اما فقط در صورت نیاز به مسیر failover می‌رسد.
 - پس از sync و restart روی VPS، اجرای مستقیم `price_fetch_job` موفق ماند و قیمت‌های `latest` همچنان fresh هستند.
 
+## 2026-06-10: Bonbast failover made opt-in
+
+- برای کاهش noise روی VPS ایرانی، `bonbast` دیگر به صورت پیش‌فرض وارد runtime path نمی‌شود.
+- یک فلگ صریح تنظیم شد تا failover بن‌بست فقط در صورت تصمیم عملیاتی آگاهانه فعال شود.
+- نتیجه:
+  - timeoutهای تکراری `bonbast` دیگر به صورت پیش‌فرض لاگ worker را آلوده نمی‌کنند.
+  - منبع اصلی بازار ایران همچنان `tgju_scrape` باقی مانده است.
+  - سلامت `health` و `latest` بعد از restart و اجرای مستقیم job تایید شد.
+
 ## وضعیت فعلی محصول (Production)
 
 - بات تلگرام menu-driven + Cloudflare Worker relay (webhook، کیبورد غنی، web_app button به TWA).

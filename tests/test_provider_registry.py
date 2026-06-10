@@ -12,8 +12,9 @@ def test_provider_registry_skips_providers_without_required_credentials(
     monkeypatch.setattr("novax_price_alert.infra.providers.registry.settings.api_ir_api_key", "")
     monkeypatch.setattr("novax_price_alert.infra.providers.registry.settings.api_ir_base_url", "")
     monkeypatch.setattr("novax_price_alert.infra.providers.registry.settings.bonbast_base_url", "https://bonbast.com")
+    monkeypatch.setattr("novax_price_alert.infra.providers.registry.settings.enable_bonbast_failover", False)
     monkeypatch.setattr("novax_price_alert.infra.providers.registry.settings.use_mock_provider", False)
 
     registry = ProviderRegistry()
 
-    assert [provider.slug for provider in registry.ordered()] == ["tgju_scrape", "bonbast"]
+    assert [provider.slug for provider in registry.ordered()] == ["tgju_scrape"]
