@@ -17,6 +17,20 @@
   - `BTC_USDT`، `ETH_USDT`، `BNB_USDT` از `coingecko_fallback`
 - نکته برای ادامه فردا: لاگ‌های `price provider failed` در worker باید جداگانه ریشه‌یابی و تمیز شوند، هرچند فعلاً سرویس و قیمت‌ها fresh و usable هستند.
 
+## 2026-06-10: Worker price-ingestion hardening on Iranian VPS
+
+- ریشه خطای مکرر worker مشخص شد: در ingest داخلی، fail شدن بعضی providerها یا بعضی symbolها باعث می‌شد کل batch بازار ایران fail تلقی شود.
+- تست مستقیم روی VPS نشان داد:
+  - `tgju_scrape` عملیاتی است.
+  - `nerkh`، `alanchand` و `api_ir` به علت نداشتن credential فعال نیستند.
+  - `bonbast` از VPS timeout می‌دهد.
+- hardening حداقلی و ایمن انجام شد: `TgjuScrapeProvider.get_prices()` دیگر با fail شدن یک symbol، کل batch را از بین نمی‌برد؛ تا وقتی حداقل یک قیمت معتبر برگردد، ingest ادامه پیدا می‌کند.
+- تست رگرسیون برای partial success اضافه شد.
+- بعد از اعمال patch روی VPS:
+  - اجرای مستقیم `price_fetch_job` دیگر با `RuntimeError: all Iran-market price providers failed` نمی‌خوابد.
+  - `health` و `api/v1/prices/latest` همچنان سالم و fresh هستند.
+- وضعیت فعلی: لاگ `price provider failed` هنوز برای providerهای غیرفعال/timeout دیده می‌شود، اما دیگر باعث افتادن job و خراب شدن سرویس نمی‌شود.
+
 ## وضعیت فعلی محصول (Production)
 
 - بات تلگرام menu-driven + Cloudflare Worker relay (webhook، کیبورد غنی، web_app button به TWA).
