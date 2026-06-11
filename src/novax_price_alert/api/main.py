@@ -2,11 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from novax_price_alert.api.routers.admin import router as admin_router
 from novax_price_alert.api.routers.alerts import router as alerts_router
 from novax_price_alert.api.routers.health import router as health_router
 from novax_price_alert.api.routers.metrics import router as metrics_router
 from novax_price_alert.api.routers.prices import router as prices_router
-from novax_price_alert.api.routers.admin import router as admin_router
 from novax_price_alert.api.routers.webhook import router as webhook_router
 from novax_price_alert.api.templates import ADMIN_HTML, TWA_SHELL_HTML
 

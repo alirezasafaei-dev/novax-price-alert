@@ -131,7 +131,9 @@ async def test_tgju_provider_get_prices_keeps_partial_success(
 ) -> None:
     async def fake_get(self: object, url: str, **kwargs: object) -> httpx.Response:
         if url.endswith("/profile/price_eur"):
-            return httpx.Response(200, text="<html>missing price</html>", request=httpx.Request("GET", url))
+            return httpx.Response(
+                200, text="<html>missing price</html>", request=httpx.Request("GET", url)
+            )
         return httpx.Response(
             200,
             text='<span class="price" data-col="info.last_trade.PDrCotVal">1,702,150</span>',
