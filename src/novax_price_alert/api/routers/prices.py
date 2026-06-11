@@ -1,13 +1,14 @@
+import hmac
 import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Annotated, Any, Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from novax_price_alert.api.deps import get_current_telegram_user, get_db
+from novax_price_alert.api.deps import get_db
 from novax_price_alert.api.schemas.price import (
     LatestPriceItemOut,
     LatestPricesOut,
@@ -23,7 +24,6 @@ from novax_price_alert.core.settings import settings
 from novax_price_alert.db.models import Provider
 from novax_price_alert.domain.asset import Asset
 from novax_price_alert.domain.latest_price import LatestPrice
-from novax_price_alert.domain.user import User
 from novax_price_alert.infra.providers.base import PricePoint
 
 router = APIRouter(prefix="/prices", tags=["prices"])
@@ -125,7 +125,8 @@ async def get_suggestions(
 @router.post("/test/override-price")
 async def test_override_price(
     payload: dict[str, Any],
-    current_user: Annotated[User, Depends(get_current_telegram_user)],
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """
@@ -133,17 +134,43 @@ async def test_override_price(
     Updates LatestPrice so that the next alert evaluation can see the forced price.
     Real price ingest (every ~10min) will typically overwrite this.
     Useful for testing alert triggers without waiting for market moves.
-    Requires valid Telegram WebApp session (opened from the bot).
+    Requires ADMIN_ACCESS_TOKEN via Authorization header or ?token= query param.
     """
+    auth_token = authorization or token
+    if not auth_token:
+        raise HTTPException(
+            status_code=401,
+            detail="توکن مدیریت الزامی است. هدر Authorization یا پارامتر ?token= را ارسال کنید.",
+        )
+
+    # Strip Bearer prefix if present
+    if auth_token.startswith("Bearer "):
+        auth_token = auth_token[len("Bearer "):]
+
+    expected_admin = os.environ.get("ADMIN_ACCESS_TOKEN") or getattr(
+        settings, "admin_access_token", None
+    )
+    if not expected_admin:
+        raise HTTPException(
+            status_code=500,
+            detail="توکن مدیریت پیکربندی نشده است. لطفاً متغیر ADMIN_ACCESS_TOKEN را تنظیم کنید.",
+        )
+
+    if not hmac.compare_digest(auth_token, expected_admin):
+        raise HTTPException(
+            status_code=403,
+            detail="توکن مدیریت نامعتبر است. دسترسی به این عملیات محدود به مدیران است.",
+        )
+
     symbol = payload.get("symbol") or payload.get("asset_code")
     price_val = payload.get("price") or payload.get("targetPrice")
     if not symbol or price_val is None:
-        raise HTTPException(400, "symbol and price required")
+        raise HTTPException(400, "symbol و price الزامی هستند")
 
     try:
         price = float(price_val)
     except Exception:
-        raise HTTPException(400, "invalid price") from None
+        raise HTTPException(400, "قیمت نامعتبر است") from None
 
     # Alias map so the mini-app's asset symbols work against real seeded assets
     aliases = {
@@ -168,7 +195,10 @@ async def test_override_price(
     )
     asset = asset_res.scalar_one_or_none()
     if not asset:
-        raise HTTPException(404, f"asset not found for symbol={symbol} (tried {real_symbol})")
+        raise HTTPException(
+            404,
+            f"دارایی برای symbol={symbol} یافت نشد (امتحان شده: {real_symbol})",
+        )
 
     now = datetime.now(timezone.utc)
 
@@ -180,7 +210,7 @@ async def test_override_price(
         lp.observed_at = now
         lp.fetched_at = now
         lp.is_stale = False
-        lp.raw_data = {"source": "studio-simulator", "forced_by": current_user.telegram_user_id}
+        lp.raw_data = {"source": "studio-simulator", "forced_by": "admin_override"}
     else:
         lp = LatestPrice(
             asset_id=asset.id,
@@ -188,7 +218,7 @@ async def test_override_price(
             observed_at=now,
             fetched_at=now,
             is_stale=False,
-            raw_data={"source": "studio-simulator", "forced_by": current_user.telegram_user_id},
+            raw_data={"source": "studio-simulator", "forced_by": "admin_override"},
         )
         db.add(lp)
 
@@ -219,14 +249,23 @@ async def ingest_prices(
     to avoid IP blocking on Iranian VPS.
     """
     # Verify API token (prefer real os.environ as PM2 may set it after settings cache)
-    expected_token = os.environ.get("METRICS_ACCESS_TOKEN") or getattr(
-        settings, "metrics_access_token", None
+    expected_token = os.environ.get("INGEST_API_TOKEN") or getattr(
+        settings, "ingest_api_token", None
     )
     if not expected_token:
-        raise HTTPException(status_code=500, detail="METRICS_ACCESS_TOKEN not configured")
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "توکن ورودی قیمت‌ها پیکربندی نشده است. "
+                "لطفاً متغیر INGEST_API_TOKEN را تنظیم کنید."
+            ),
+        )
 
     if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization header required")
+        raise HTTPException(
+            status_code=401,
+            detail="هدر Authorization الزامی است. فرمت: Bearer <token>",
+        )
 
     token = (
         authorization.replace("Bearer ", "")
@@ -234,7 +273,10 @@ async def ingest_prices(
         else authorization
     )
     if token != expected_token:
-        raise HTTPException(status_code=403, detail="Invalid API token")
+        raise HTTPException(
+            status_code=403,
+            detail="توکن نامعتبر است. لطفاً مطمئن شوید INGEST_API_TOKEN صحیح است.",
+        )
 
     price_service = PriceService(db)
     success_count = 0
@@ -250,7 +292,7 @@ async def ingest_prices(
         try:
             asset_code = item.get("asset_code") or item.get("symbol")
             if not asset_code:
-                errors.append({"item": item, "error": "missing asset_code"})
+                errors.append({"item": item, "error": "asset_code موجود نیست"})
                 continue
 
             # Resolve asset by symbol (e.g. BTC, USD_IRT, BTC_USDT)
@@ -276,7 +318,7 @@ async def ingest_prices(
                         break
 
             if asset is None:
-                errors.append({"asset_code": asset_code, "error": "asset not found in DB"})
+                errors.append({"asset_code": asset_code, "error": "دارایی در پایگاه داده یافت نشد"})
                 continue
 
             # Resolve or create provider
@@ -330,7 +372,7 @@ async def ingest_prices(
             )
 
         except Exception as e:
-            errors.append({"item": item.get("asset_code"), "error": "Failed to process item"})
+            errors.append({"item": item.get("asset_code"), "error": "پردازش آیتم ناموفق بود"})
             record_metric("price_ingest_error")
             emit_event("price_ingest_error", asset_code=asset_code, error=str(e))
 

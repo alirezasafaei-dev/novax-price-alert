@@ -18,12 +18,11 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 def _verify_admin_token(token: str | None) -> None:
     if not settings.admin_access_token:
-        # In dev without token set, allow (but warn in production)
         if settings.environment.lower() == "production":
-            raise UnauthorizedError("admin token not configured")
+            raise UnauthorizedError("توکن مدیریت پیکربندی نشده است")
         return
     if token is None or not hmac.compare_digest(token, settings.admin_access_token):
-        raise UnauthorizedError("valid admin token required")
+        raise UnauthorizedError("توکن مدیریت نامعتبر است")
 
 
 @router.get("/overview")
@@ -150,7 +149,7 @@ async def admin_cancel_alert(
 
     alert = await db.get(AlertRule, alert_id)
     if not alert:
-        raise HTTPException(404, "alert not found")
+        raise HTTPException(404, "هشدار یافت نشد")
 
     if alert.lifecycle_state in (
         AlertLifecycleState.DELIVERED,

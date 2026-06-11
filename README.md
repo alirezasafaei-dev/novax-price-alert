@@ -64,3 +64,52 @@ npm run dev   # http://localhost:3012
 
 - مستندات فعال باید کوتاه، همسو با کد، و قابل پیگیری باشند.
 - drafts تاریخی جدا از مسیر مستندات فعال نگهداری می‌شوند.
+
+### فایل‌های فعال (مستندات زنده)
+
+| فایل | توضیح |
+|------|-------|
+| `README.md` | نقطه ورود اصلی (همین فایل) |
+| `AGENTS.md` | راهنمای ایجنت برای هر نشست جدید |
+| `INDEX.md` | فهرست فایل‌های کلیدی پروژه |
+| `docs/README.md` | فهرست مستندات فعال |
+| `docs/PROGRESS.md` | وضعیت پیاده‌سازی فعلی |
+| `docs/API.md` | مستندات API |
+| `docs/ARCHITECTURE.md` | معماری سیستم |
+| `docs/OPERATIONS.md` | عملیات و نگهداری |
+| `docs/OBSERVABILITY.md` | مشاهده‌پذیری |
+| `docs/DEPLOYMENT.md` | راه‌اندازی VPS |
+| `docs/CLOUDFLARE_RENDER_DEPLOYMENT.md` | راه‌اندازی Cloudflare + Render |
+| `docs/QUICK_START_FA.md` | شروع سریع (فارسی) |
+| `docs/USER_GUIDE_FA.md` | راهنمای کاربر (فارسی) |
+| `docs/adr/` | تصمیمات معماری دائمی |
+
+### فایل‌های آرشیو (غیرفعال)
+
+برچسب: **آرشیو** — این فایل‌ها فقط برای مرجع تاریخی نگهداری می‌شوند و راهنمای عملیاتی فعلی نیستند.
+
+مسیر: `docs/archive/`
+
+- `docs/archive/ALERT_FLOW_CONTRACT.md` — قرارداد جریان هشدار (قدیمی)
+- `docs/archive/ALERT_HARDENING_CONTRACTS.md` — قراردادهای سخت‌سازی هشدار
+- `docs/archive/ALERT_LIFECYCLE_CONTRACT.md` — قرارداد چرخه عمر هشدار
+- `docs/archive/ASSET_IDENTITY_POLICY.md` — سیاست هویت دارایی
+- `docs/archive/BOT_BEHAVIOR.md` — رفتار بات (قدیمی)
+- `docs/archive/DOMAIN_MODEL.md` — مدل دامنه (قدیمی)
+- `docs/archive/FINAL_TEST_CHECKLIST_FA.md` — چک‌لیست تست نهایی
+- `docs/archive/FRESHNESS_POLICY.md` — سیاست تازگی قیمت
+- `docs/archive/HARDENING_IMPLEMENTATION_GUIDE.md` — راهنمای پیاده‌سازی سخت‌سازی
+- `docs/archive/JOBS_AND_WORKERS.md` — کارها و ورکرها (قدیمی)
+- `docs/archive/NEXT_STEPS_AND_ROADMAP_FA.md` — نقشه راه (قدیمی)
+- `docs/archive/PRICING_PRESENTATION_POLICY.md` — سیاست نمایش قیمت
+- `docs/archive/PRODUCTION_CHECKLIST_FA.md` — چک‌لیست تولید
+- `docs/archive/PRODUCT_SCOPE.md` — محدوده محصول
+- `docs/archive/PROVIDERS.md` — ارائه‌دهندگان (قدیمی)
+- `docs/archive/RELEASE_READINESS_FA.md` — آمادگی انتشار
+- `docs/archive/REUSE_PLAN.md` — برنامه استفاده مجدد
+- `docs/archive/ROADMAP.md` — نقشه راه (قدیمی)
+- `docs/archive/TELEGRAM_RUNBOOK.md` — دفترچه راهنمای تلگرام
+- `docs/archive/USER_GUIDE_COMPLETE_FA.md` — راهنمای کاربر کامل (قدیمی)
+- `docs/archive/root/` — فایل‌های وضعیت قدیمی ریشه
+
+اگر موضوعی دوباره فعال شد، یک سند کوتاه زنده جدید بسازید و از `docs/README.md` به آن لینک دهید.

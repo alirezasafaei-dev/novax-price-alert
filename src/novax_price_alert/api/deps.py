@@ -32,7 +32,7 @@ async def _resolve_current_telegram_user(
     db: AsyncSession,
 ) -> User:
     if not init_data:
-        raise UnauthorizedError("telegram initData header is required")
+        raise UnauthorizedError("هدر X-Telegram-InitData الزامی است")
     try:
         telegram_user = verify_telegram_init_data(
             init_data,

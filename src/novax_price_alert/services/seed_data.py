@@ -1,3 +1,29 @@
+"""Seed MVP data — idempotent setup for development and staging.
+
+This module populates the database with the minimum viable dataset:
+- Providers: nerkh, tgju_scrape, alanchand, api_ir, bonbast
+- Assets: USD_IRT, EUR_IRT, GOLD_18K_IRT, SEKKEH_EMAMI_IRT, USDT_IRT,
+          BTC_USDT, ETH_USDT, BNB_USDT
+
+Idempotency:
+    Safe to run multiple times. Existing records are matched by slug/symbol
+    and updated in-place rather than duplicated. New records are only added
+    if they do not already exist.
+
+When to run:
+    - After creating a fresh database (e.g. `alembic upgrade head`)
+    - After pulling a new environment clone (`git clone` + `uv sync`)
+    - In CI pipelines that need a known dataset before running tests
+    - On staging environments after a reset
+
+How to run:
+    # From the project root:
+    uv run python -m novax_price_alert.scripts.seed_mvp
+
+    # Or directly:
+    uv run python src/novax_price_alert/scripts/seed_mvp.py
+"""
+
 from __future__ import annotations
 
 from typing import TypedDict
@@ -111,6 +137,13 @@ MVP_PROVIDERS: list[ProviderSeed] = [
 
 
 async def seed_mvp_data(session: AsyncSession) -> None:
+    """Insert or update MVP seed data. Safe to call repeatedly.
+
+    - Providers are matched by slug.
+    - Assets are matched by symbol.
+    - Existing records are updated in-place (idempotent).
+    - Missing records are inserted.
+    """
     for provider_data in MVP_PROVIDERS:
         provider_result = await session.execute(
             select(Provider).where(Provider.slug == provider_data["slug"])
