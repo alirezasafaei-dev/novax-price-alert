@@ -23,7 +23,6 @@ from novax_price_alert.core.settings import settings
 from novax_price_alert.db.models import Provider
 from novax_price_alert.domain.asset import Asset
 from novax_price_alert.domain.latest_price import LatestPrice
-from novax_price_alert.domain.policies import AssetUnit
 from novax_price_alert.domain.user import User
 from novax_price_alert.infra.providers.base import PricePoint
 
@@ -298,8 +297,6 @@ async def ingest_prices(
                 await db.refresh(provider)
 
             price_value = float(item.get("price_value") or item.get("price") or 0)
-            currency_code = item.get("currency_code", AssetUnit.USDT)
-            display_unit = item.get("display_unit", currency_code)  # noqa: F841 (used for future or consistency)
 
             fetched_at_str = item.get("fetched_at")
             if fetched_at_str:

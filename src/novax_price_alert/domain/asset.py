@@ -40,5 +40,6 @@ def _set_default_canonical_id(
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
 ) -> None:
-    if kwargs.get("canonical_id") is None and "symbol" in kwargs:
+    cid = kwargs.get("canonical_id")
+    if not cid and "symbol" in kwargs:
         kwargs["canonical_id"] = kwargs["symbol"]
