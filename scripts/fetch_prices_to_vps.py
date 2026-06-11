@@ -5,13 +5,14 @@ Fetches prices from external APIs (Binance, TGJU, etc.) and sends to VPS
 Designed to run on GitHub Actions to avoid IP blocking
 """
 
+import asyncio
+import logging
 import os
 import sys
-import asyncio
-import httpx
 from datetime import datetime
-from typing import Dict, List, Optional
-import logging
+from typing import Dict, List
+
+import httpx
 
 # Configure logging
 logging.basicConfig(
@@ -43,7 +44,9 @@ class PriceFetcher:
         async with httpx.AsyncClient(timeout=30.0) as client:
             for url in candidate_urls:
                 try:
-                    response = await client.get(url, params={"symbols": str(symbols).replace("'", '"')})
+                    response = await client.get(
+                        url, params={"symbols": str(symbols).replace("'", '"')}
+                    )
                     response.raise_for_status()
                     return self._normalize_binance_prices(response.json())
                 except Exception as exc:
@@ -181,7 +184,9 @@ class PriceFetcher:
                 except Exception as exc:
                     logger.warning(f"TGJU fetch failed: {exc}")
             else:
-                logger.info("Skipping TGJU external fetch; VPS-local provider remains source of truth")
+                logger.info(
+                    "Skipping TGJU external fetch; VPS-local provider remains source of truth"
+                )
             
             if self.enable_nobitex:
                 try:
@@ -191,7 +196,9 @@ class PriceFetcher:
                 except Exception as exc:
                     logger.warning(f"Nobitex fetch failed: {exc}")
             else:
-                logger.info("Skipping Nobitex external fetch; only crypto is ingested from GitHub Actions")
+                logger.info(
+                    "Skipping Nobitex external fetch; only crypto is ingested from GitHub Actions"
+                )
             
             # Send to VPS
             if all_prices:

@@ -39,7 +39,9 @@ class PartialProvider(BasePriceProvider):
 
 
 @pytest.mark.anyio
-async def test_ingest_all_assets_skips_missing_symbols_from_provider(db_session: AsyncSession) -> None:
+async def test_ingest_all_assets_skips_missing_symbols_from_provider(
+    db_session: AsyncSession,
+) -> None:
     session = db_session
     session.add_all(
         [

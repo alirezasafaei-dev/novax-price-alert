@@ -32,13 +32,16 @@ async def admin_overview(
     token: Annotated[str | None, Query()] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """Professional admin overview. Supports token via header or ?token= query for easy bookmarking."""
+    """Professional admin overview. Supports token via header or ?token= query for easy
+    bookmarking."""
     auth_token = x_admin_token or token
     _verify_admin_token(auth_token)
 
     # Alerts by state
     alerts_by_state = {}
-    for state in ["PENDING_CONFIRMATION", "ACTIVE", "TRIGGERED", "DELIVERED", "CANCELLED", "FAILED"]:
+    for state in [
+        "PENDING_CONFIRMATION", "ACTIVE", "TRIGGERED", "DELIVERED", "CANCELLED", "FAILED"
+    ]:
         count = (await db.execute(
             select(func.count()).select_from(AlertRule).where(AlertRule.lifecycle_state == state)
         )).scalar_one()
@@ -135,7 +138,9 @@ async def admin_cancel_alert(
     if not alert:
         raise HTTPException(404, "alert not found")
 
-    if alert.lifecycle_state in (AlertLifecycleState.DELIVERED, AlertLifecycleState.CANCELLED, AlertLifecycleState.FAILED):
+    if alert.lifecycle_state in (
+        AlertLifecycleState.DELIVERED, AlertLifecycleState.CANCELLED, AlertLifecycleState.FAILED
+    ):
         return {"status": "noop", "message": "already terminal"}
 
     alert.lifecycle_state = AlertLifecycleState.CANCELLED
@@ -168,7 +173,10 @@ async def admin_broadcast(
         details={"message_preview": message[:100], "target": target}
     )
     # In real: integrate with bot to send to users
-    return {"status": "logged", "note": "Broadcast intent recorded. Wire to actual bot sender for delivery."}
+    return {
+        "status": "logged",
+        "note": "Broadcast intent recorded. Wire to actual bot sender for delivery.",
+    }
 
 
 @router.post("/actions/refresh-metrics")

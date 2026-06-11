@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
 import uuid
+from datetime import datetime, timezone
 
-from sqlalchemy import select, desc, text
+from sqlalchemy import desc, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novax_price_alert.domain.admin_audit import AdminAuditLog
+
 
 class AdminAuditService:
     def __init__(self, session: AsyncSession):
@@ -29,7 +30,13 @@ class AdminAuditService:
         except Exception:
             await self.session.rollback()
 
-    async def log_action(self, action: str, target_type: str | None = None, target_id: str | None = None, details: dict | None = None):
+    async def log_action(
+        self,
+        action: str,
+        target_type: str | None = None,
+        target_id: str | None = None,
+        details: dict | None = None,
+    ):
         await self._ensure_table()
         log = AdminAuditLog(
             id=str(uuid.uuid4()),
