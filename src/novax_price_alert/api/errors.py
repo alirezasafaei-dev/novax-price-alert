@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 
 
 class NotFoundError(HTTPException):
-    def __init__(self, detail: str = "resource not found") -> None:
+    def __init__(self, detail: str = "منبع مورد نظر یافت نشد") -> None:
         super().__init__(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
@@ -12,5 +12,5 @@ class BadRequestError(HTTPException):
 
 
 class UnauthorizedError(HTTPException):
-    def __init__(self, detail: str = "unauthorized") -> None:
+    def __init__(self, detail: str = "احراز هویت نشد. لطفاً وارد شوید.") -> None:
         super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)

@@ -12,6 +12,8 @@ from enum import Enum
 class AssetUnit(str, Enum):
     TOMAN = "IRT"
     USDT = "USDT"
+    IRR = "IRR"
+    TETHER = "USDT"
 
 
 DEFAULT_UNIT_IRANIAN = AssetUnit.TOMAN
@@ -19,16 +21,61 @@ DEFAULT_UNIT_CRYPTO = AssetUnit.USDT
 
 # From Pricing Presentation Policy
 THOUSAND_SEPARATOR = ","
-DECIMALS_IRANIAN = 0  # for toman
-DECIMALS_CRYPTO = 2  # for USDT typically
+
+# Decimal precision by category
+DECIMALS_CURRENCY = 0       # IRT / Toman — no decimals
+DECIMALS_GOLD = 0           # IRT / Toman — no decimals
+DECIMALS_COIN = 0          # IRT / Toman — no decimals
+DECIMALS_CRYPTO_HIGH = 2    # USDT — high-value crypto (BTC, ETH)
+DECIMALS_CRYPTO_LOW = 4     # USDT — low-value crypto (< 1 USDT)
+DECIMALS_CRYPTO_MID = 6     # USDT — mid-value crypto (1-100 USDT)
+
+# Thresholds for switching precision
+CRYPTO_LOW_THRESHOLD = Decimal("1")       # < 1 USDT → 4 decimals
+CRYPTO_MID_THRESHOLD = Decimal("100")     # 1-100 USDT → 6 decimals
+# > 100 USDT → 2 decimals
 
 
-def format_price(price: Decimal, unit: str) -> str:
-    """Format price according to policy: readable, separators, appropriate decimals."""
-    if unit == AssetUnit.TOMAN:
+def _crypto_decimals(price: Decimal) -> int:
+    """Return decimal places for a crypto price in USDT based on its magnitude."""
+    abs_price = abs(price)
+    if abs_price < CRYPTO_LOW_THRESHOLD:
+        return DECIMALS_CRYPTO_LOW
+    if abs_price < CRYPTO_MID_THRESHOLD:
+        return DECIMALS_CRYPTO_MID
+    return DECIMALS_CRYPTO_HIGH
+
+
+def format_price(price: Decimal, unit: str, category: str = "") -> str:
+    """Format price according to policy: readable, separators, appropriate decimals.
+
+    Decimal precision is driven by the asset category and price magnitude:
+    - IRT/Toman prices: no decimals (integer)
+    - USDT crypto >= 100: 2 decimals
+    - USDT crypto 1-100: 6 decimals
+    - USDT crypto < 1: 4 decimals
+    """
+    if unit in (AssetUnit.TOMAN, AssetUnit.IRR, "IRT", "IRR"):
         return f"{int(price):,}"
-    else:
-        return f"{float(price):,.{DECIMALS_CRYPTO}f}"
+
+    if unit == AssetUnit.USDT or unit == "USDT":
+        decimals = _crypto_decimals(price)
+        return f"{float(price):,.{decimals}f}"
+
+    # Fallback: 2 decimals
+    return f"{float(price):,.2f}"
+
+
+def convert_to_toman(price_usdt: Decimal, usdt_rate: Decimal) -> Decimal:
+    """Convert a USDT-denominated price to Toman using the provided rate."""
+    return (price_usdt * usdt_rate).quantize(Decimal("1"))
+
+
+def convert_from_toman(price_toman: Decimal, usdt_rate: Decimal) -> Decimal:
+    """Convert a Toman-denominated price back to USDT using the provided rate."""
+    if usdt_rate == 0:
+        return Decimal("0")
+    return (price_toman / usdt_rate).quantize(Decimal("0.00000001"))
 
 
 # From Freshness Policy
@@ -47,4 +94,4 @@ class FreshnessThresholds:
 def is_valid_unit_for_asset(unit: str, is_crypto: bool = False) -> bool:
     if is_crypto:
         return unit == AssetUnit.USDT
-    return unit == AssetUnit.TOMAN
+    return unit in (AssetUnit.TOMAN, AssetUnit.IRR)

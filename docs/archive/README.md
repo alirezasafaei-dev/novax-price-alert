@@ -1,15 +1,15 @@
-# Archived Documentation
+# 📦 آرشیو — Archived Documentation
 
-These files were moved out of the active docs surface because they are duplicated, superseded, or tied to a specific implementation phase.
+**برچسب: آرشیو** — این فایل‌ها از سطح مستندات فعال خارج شده‌اند به دلیل تکرار، قدیمی بودن، یا وابستگی به یک فاز خاص پیاده‌سازی.
 
-Keep them only for historical reference. Do not treat them as current operational guidance unless a living doc points back here explicitly.
+این فایل‌ها فقط برای مرجع تاریخی نگهداری می‌شوند. برای راهنمایی عملیاتی فعلی، به مستندات زنده در `docs/` مراجعه کنید.
 
-## Archived groups
+## گروه‌های آرشیو
 
-- Alert hardening and lifecycle drafts
-- Old checklists and rollout plans
-- Product scope and roadmap drafts
-- Long-form user-guide duplicates
-- Historical improvement reports
+- قراردادهای سخت‌سازی و چرخه عمر هشدار
+- چک‌لیست‌ها و برنامه‌های انتشار قدیمی
+- محدوده محصول و نقشه راه
+- راهنمای کاربر تکراری
+- گزارش‌های بهبود تاریخی
 
-If a topic becomes active again, recreate it as a short living doc and link it from `docs/README.md`.
+اگر موضوعی دوباره فعال شد، یک سند کوتاه زنده جدید بسازید و از `docs/README.md` به آن لینک دهید.
