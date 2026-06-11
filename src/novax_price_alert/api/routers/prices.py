@@ -133,7 +133,7 @@ async def test_override_price(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """
-    Test / Playground price override for the Advanced Studio (mini-app) and developers.
+    Test / Playground price override for the Smart Dashboard (mini-app) and developers.
     Updates LatestPrice so that the next alert evaluation can see the forced price.
     Real price ingest (every ~10min) will typically overwrite this.
     Useful for testing alert triggers without waiting for market moves.

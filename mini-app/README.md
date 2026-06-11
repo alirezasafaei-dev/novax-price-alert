@@ -1,6 +1,6 @@
-# Novax Mini-App (Alert Studio)
+# Novax Mini-App (داشبورد هوشمند)
 
-این یک استودیوی پیشرفته (Alert Studio) برای Novax Price Alert است (React + Vite + Express server-side برای AI).
+این یک داشبورد هوشمند (Smart Dashboard) برای Novax Price Alert است (React + Vite + Express server-side برای AI).
 
 **وضعیت فعلی:** به بک‌اند واقعی پروژه متصل است (حالت LIVE):
 - قیمت‌های زنده از `/api/v1/prices/latest` (با پشتیبانی از X-Telegram-Init-Data).

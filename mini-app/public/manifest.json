@@ -1,7 +1,7 @@
 {
-  "name": "Novax Alert Studio",
+  "name": "داشبورد هوشمند نوواکس/Novax داشبورد هوشمند",
   "short_name": "Novax",
-  "description": "Interactive price dashboard, alert playground, AI analyst and Telegram notification simulator",
+  "description": "داشبورد تعاملی قیمت و هشدار، محیط آزمایشی، دستیار هوش مصنوعی جمینای و شبیه‌ساز اعلان تلگرام",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#060814",

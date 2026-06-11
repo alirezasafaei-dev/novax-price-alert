@@ -80,6 +80,9 @@ global.fetch = async (url, options) => {
   }
 
   if (hostname === "api.coingecko.com") {
+    if (providerMode === "crypto-unavailable") {
+      return { ok: false, json: async () => ({}) };
+    }
     return {
       ok: true,
       json: async () => ({
@@ -330,8 +333,8 @@ await unavailableEnv.ALERTS_KV.put(
 providerMode = "crypto-unavailable";
 sent = [];
 await worker.default.scheduled({}, unavailableEnv, ctx);
-providerMode = "healthy";
 const unavailableAfterCron = await unavailableEnv.ALERTS_KV.get("alerts:user:1000", "json");
+providerMode = "healthy";
 assert.equal(unavailableAfterCron[0].triggered_at, null, "provider unavailable should not trigger the alert");
 assert.equal(unavailableAfterCron[0].lifecycle_state, "active", "provider unavailable should leave the alert active");
 assert.equal(
