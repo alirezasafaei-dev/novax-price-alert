@@ -78,8 +78,8 @@
 - [x] T-102 بازنویسی پیام انتخاب دارایی (P0) — نمایش «بیت‌کوین (BTC)» صریح در همه نقاط.
 - [x] T-103 بازنویسی پیام‌های ورود قیمت (P0) — واحد صریح + مثال + validation.
 - [x] T-104 طراحی استاندارد پیام تایید نهایی (P0) — نام دارایی + شرط + قیمت هدف + واحد + قیمت فعلی + دکمه‌ها.
-- [ ] T-105 بازطراحی پیام‌های خطا (P1)
-- [ ] T-106 بازطراحی لیست هشدارهای فعال (P1) — دارایی/شرط/قیمت هدف/وضعیت.
+- [x] T-105 بازطراحی پیام‌های خطا (P1)
+- [x] T-106 بازطراحی لیست هشدارهای فعال (P1) — دارایی/شرط/قیمت هدف/وضعیت.
 
 **کارهای انجام‌شده اضافی هم‌راستا (بهترین UX ممکن):** TWA کامل تب‌دار (قیمت‌ها | دارایی‌های من | هشدارها | چارت پیشرفته | ایجاد)، renderMyAssets (خلاصه دارایی + تعداد هشدار + قیمت زنده + اقدام سریع)، renderSuggestions (پیشنهاد برای دارایی‌های unwatched با prefill wizard)، چارت پیشرفته چند-دارایی با بازه‌های زمانی + Chart.js dark theme، بهبود کیبورد بات + لینک عمیق به TWA، asset-grouped در "هشدارهای من".
 
@@ -91,20 +91,22 @@
 
 **تسک‌های کلیدی:**
 
-- [ ] T-201 پیاده‌سازی مدل canonical برای asset (P0, Backend)
-- [ ] T-202 پیاده‌سازی state machine برای flow کاربر (P0)
-- [ ] T-203 پیاده‌سازی lifecycle رسمی برای alert (P0)
-- [ ] T-204 پیاده‌سازی idempotency در trigger (P0)
-- [ ] T-205 پیاده‌سازی atomic claim / locking (P0)
-- [ ] T-206 تعریف و پیاده‌سازی retry policy (P1)
-- [ ] T-207 تست سناریوهای race condition (P1, QA)
+- [x] T-201 پیاده‌سازی مدل canonical برای asset (P0, Backend)
+- [x] T-202 پیاده‌سازی state machine برای flow کاربر (P0)
+- [x] T-203 پیاده‌سازی lifecycle رسمی برای alert (P0)
+- [x] T-204 پیاده‌سازی idempotency در trigger (P0)
+- [x] T-205 پیاده‌سازی atomic claim / locking (P0)
+- [x] T-206 تعریف و پیاده‌سازی retry policy (P1)
+- [x] T-207 تست سناریوهای race condition (P1, QA)
 
-**وضعیت فعلی (از کد واقعی):** 
+**وضعیت فعلی (از کد واقعی):**
 - alert creation staged + pending_confirmation → active بعد از تایید صریح کاربر.
 - snapshot display name/unit در زمان ایجاد.
-- برخی guards برای stale (worker قیمت را چک می‌کند).
-- retry/backoff در fetch/send.
-- اما state machine کامل، locking اتمیک برای claim روی alert، و anti-duplicate قوی ممکن است نیاز به تقویت بیشتر داشته باشد (بر اساس گزارش، این‌ها P0 هستند).
+- VALID_TRANSITIONS کامل + transition_to() با validation.
+- atomic claim (UPDATE rowcount==1) در evaluator قبل از trigger decision.
+- retry/backoff در notification_dispatcher.
+- per-asset Redis lock برای جلوگیری از concurrent eval.
+- تست race condition (test_concurrent_claim_allows_only_one_worker_to_finalize) سبز.
 
 **معیار پذیرش:** برای یک رخداد واحد، اعلان تکراری مهار شده؛ transition نامعتبر مسدود؛ lifecycle در لاگ/state قابل مشاهده.
 
@@ -114,21 +116,21 @@
 
 **تسک‌های کلیدی:**
 
-- [ ] T-301 پیاده‌سازی freshness classification (P0)
-- [ ] T-303 اعمال freshness policy در trigger logic (P0)
-- [ ] T-401 طراحی schema لاگ ساختاریافته (P0)
-- [ ] T-402 پیاده‌سازی log برای eventهای کلیدی (P0)
-- [ ] T-403 تعریف metricهای پایه (P0)
-- [ ] T-404 پیاده‌سازی correlation (P1)
-- [ ] T-405 تعریف alerting عملیاتی (P1)
-- [ ] T-406 تدوین runbook incidentها (P1)
+- [x] T-301 پیاده‌سازی freshness classification (P0)
+- [x] T-303 اعمال freshness policy در trigger logic (P0)
+- [x] T-401 طراحی schema لاگ ساختاریافته (P0)
+- [x] T-402 پیاده‌سازی log برای eventهای کلیدی (P0)
+- [x] T-403 تعریف metricهای پایه (P0)
+- [x] T-404 پیاده‌سازی correlation (P1)
+- [x] T-405 تعریف alerting عملیاتی (P1)
+- [x] T-406 تدوین runbook incidentها (P1)
 
-**وضعیت فعلی:** 
-- لاگ‌های کلیدی در worker (alert_evaluated, notification, price fetch) وجود دارد.
-- endpointهای health + /api/v1/prices/latest + ingest.
-- GitHub Action برای قیمت (bypass IP) + healthcheck خارجی.
-- backup cron + extended live-sites healthcheck شامل novax.
-- اما schema ساختاریافته کامل، metricهای غنی، freshness status صریح در DB/UI، correlation قوی، runbook مکتوب هنوز نیاز به کار دارد (بسیاری P0/P1).
+**وضعیت فعلی:**
+- freshness classification (classify_latest_price) پیاده‌سازی شده و در evaluator اعمال می‌شود.
+- structured logging با correlation_id برای همه eventهای کلیدی.
+- metrics پایه (record_metric, /metrics, /metrics/summary, /metrics/prometheus) فعال.
+- runbook کامل در OBSERVABILITY.md با incident response برای duplicate, stale, provider outage, worker backlog.
+- alerting عملیاتی (internal_alert) در jobs و dispatcher پیاده شده.
 
 ### فاز چهار: هم‌ترازی مستندات، تثبیت نهایی و آماده‌سازی برای توسعه بعدی (Sprint 5)
 
@@ -136,10 +138,10 @@
 
 **تسک‌های کلیدی:**
 
-- [ ] T-501 طراحی test matrix end-to-end (P1)
-- [ ] T-502 اجرای walkthrough واقعی end-to-end (P1)
-- [ ] T-503 audit مستندات حساس با runtime (P1)
-- [ ] T-504 تعریف release checklist نسخه hardening (P2)
+- [x] T-501 طراحی test matrix end-to-end (P1)
+- [x] T-502 اجرای walkthrough واقعی end-to-end (P1)
+- [x] T-503 audit مستندات حساس با runtime (P1)
+- [x] T-504 تعریف release checklist نسخه hardening (P2)
 
 **خروجی:** مستندات کلیدی (این roadmap، PROGRESS، contractها) با runtime هم‌خوان؛ runbookها کاربردی؛ baseline نسخه پایدار تعریف‌شده؛ backlog بعدی روی پایه واقعی ساخته شود.
 
