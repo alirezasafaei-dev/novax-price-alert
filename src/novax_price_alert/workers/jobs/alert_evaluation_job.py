@@ -13,9 +13,6 @@ from novax_price_alert.services.alert_evaluator import AlertEvaluatorService
 
 logger = logging.getLogger(__name__)
 
-# Maximum number of assets to evaluate concurrently
-MAX_CONCURRENT_EVALUATIONS = 10
-
 
 async def _evaluate_single_asset(
     asset_id: str,
@@ -56,9 +53,10 @@ async def run_alert_evaluation_job() -> None:
         total_events = 0
         # Process assets concurrently in batches to avoid overwhelming the DB
         asset_ids = [a.id for a in assets]
+        concurrency = settings.max_concurrent_asset_evaluations
 
-        for i in range(0, len(asset_ids), MAX_CONCURRENT_EVALUATIONS):
-            batch = asset_ids[i : i + MAX_CONCURRENT_EVALUATIONS]
+        for i in range(0, len(asset_ids), concurrency):
+            batch = asset_ids[i : i + concurrency]
             results = await asyncio.gather(
                 *[
                     _evaluate_single_asset(aid, worker_run_id)

@@ -1,0 +1,142 @@
+name: Health check and alert monitor
+
+# Checks /health and /status endpoints every 5 minutes.
+# Reacts to: stale_data_detected, duplicate_trigger_detected, notification_send_failed
+# by sending alerts to the ops Telegram group.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: health-check-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check /health endpoint
+        id: health
+        run: |
+          echo "Checking health endpoint..."
+          HTTP_CODE=$(curl -sS -o /tmp/health_body.json -w '%{http_code}' \
+            "${{ secrets.API_BASE_URL }}/health" 2>/dev/null || echo "000")
+          echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+          echo "Health check HTTP status: $HTTP_CODE"
+          cat /tmp/health_body.json 2>/dev/null || echo "No body"
+
+      - name: Check /status endpoint
+        id: status
+        run: |
+          echo "Checking status endpoint..."
+          HTTP_CODE=$(curl -sS -o /tmp/status_body.json -w '%{http_code}' \
+            "${{ secrets.API_BASE_URL }}/status" 2>/dev/null || echo "000")
+          echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+          echo "Status check HTTP status: $HTTP_CODE"
+          cat /tmp/status_body.json 2>/dev/null || echo "No body"
+
+      - name: Send alert on failure
+        if: failure() || steps.health.outputs.http_code != '200' || steps.status.outputs.http_code != '200'
+        env:
+          BOT_TOKEN: ${{ secrets.OPS_BOT_TOKEN }}
+          OPS_CHAT_ID: ${{ secrets.OPS_CHAT_ID }}
+        run: |
+          if [[ -z "$BOT_TOKEN" || -z "$OPS_CHAT_ID" ]]; then
+            echo "::error::OPS_BOT_TOKEN / OPS_CHAT_ID secrets are not set"
+            exit 1
+          fi
+          TEXT="🚨 Novax monitor: endpoint check failed! Health: ${{ steps.health.outputs.http_code }}, Status: ${{ steps.status.outputs.http_code }}"
+          PAYLOAD=$(python3 -c "
+          import json, sys
+          print(json.dumps({\"chat_id\": \"$OPS_CHAT_ID\", \"text\": sys.argv[1], \"disable_web_page_preview\": True}))
+          " "$TEXT")
+          curl -fsS -m 20 -X POST \
+            "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" -d "$PAYLOAD" || true
+
+      - name: Check observability metrics for anomalies
+        env:
+          BOT_TOKEN: ${{ secrets.OPS_BOT_TOKEN }}
+          OPS_CHAT_ID: ${{ secrets.OPS_CHAT_ID }}
+          METRICS_TOKEN: ${{ secrets.METRICS_ACCESS_TOKEN }}
+        run: |
+          if [[ -z "$BOT_TOKEN" || -z "$OPS_CHAT_ID" ]]; then
+            echo "Skipping metrics check (no secrets)"
+            exit 0
+          fi
+
+          # Fetch metrics from /metrics endpoint
+          METRICS=$(curl -sS -m 10 \
+            -H "X-Metrics-Token: $METRICS_TOKEN" \
+            "${{ secrets.API_BASE_URL }}/metrics" 2>/dev/null || echo "{}")
+
+          # Check for anomaly events using a Python script
+          python3 << 'PYEOF'
+          import json, sys, os, subprocess
+
+          bot_token = os.environ.get("BOT_TOKEN", "")
+          chat_id = os.environ.get("OPS_CHAT_ID", "")
+          api_base = os.environ.get("API_BASE_URL", "")
+          metrics_token = os.environ.get("METRICS_TOKEN", "")
+
+          if not all([bot_token, chat_id]):
+              print("Missing credentials, skipping")
+              sys.exit(0)
+
+          try:
+              import urllib.request
+              req = urllib.request.Request(
+                  f"{api_base}/metrics",
+                  headers={"X-Metrics-Token": metrics_token},
+              )
+              with urllib.request.urlopen(req, timeout=10) as resp:
+                  data = json.loads(resp.read())
+          except Exception as e:
+              print(f"Failed to fetch metrics: {e}")
+              sys.exit(0)
+
+          metrics = data.get("metrics", {})
+          alerts = []
+
+          # Check for stale data detections
+          stale_count = metrics.get("stale_evaluation_count", 0)
+          if stale_count > 0:
+              alerts.append(f"⚠️ stale_data_detected: {stale_count} stale evaluations")
+
+          # Check for duplicate trigger detections
+          dup_count = metrics.get("duplicate_trigger_count", 0)
+          if dup_count > 0:
+              alerts.append(f"⚠️ duplicate_trigger_detected: {dup_count} duplicates")
+
+          # Check for notification send failures
+          fail_count = metrics.get("notification_send_failed_count", 0)
+          if fail_count > 0:
+              alerts.append(f"🔴 notification_send_failed: {fail_count} failures")
+
+          if not alerts:
+              print("No anomalies detected")
+              sys.exit(0)
+
+          text = "🚨 Novax observability alert:\n" + "\n".join(alerts)
+          payload = json.dumps({
+              "chat_id": chat_id,
+              "text": text,
+              "disable_web_page_preview": True,
+          })
+
+          try:
+              req = urllib.request.Request(
+                  f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                  data=payload.encode(),
+                  headers={"Content-Type": "application/json"},
+              )
+              with urllib.request.urlopen(req, timeout=20) as resp:
+                  print(f"Alert sent: {resp.status}")
+          except Exception as e:
+              print(f"Failed to send alert: {e}")
+          PYEOF

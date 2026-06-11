@@ -69,7 +69,7 @@ class TelegramNotificationSender(BaseNotificationSender):
                     {"text": "🔔 مدیریت هشدارها", "url": app_url},
                 ],
                 [
-                    {"text": "📋 باز کردن Alert Studio (تستی)", "url": app_url},
+                    {"text": "📋 باز کردن داشبورد هوشمند (تستی)", "url": app_url},
                 ],
             ]
         }

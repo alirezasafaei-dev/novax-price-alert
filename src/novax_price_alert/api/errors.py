@@ -1,8 +1,10 @@
 from fastapi import HTTPException, status
 
+from novax_price_alert.api.i18n import AUTH_INVALID_TOKEN, GENERIC_NOT_FOUND
+
 
 class NotFoundError(HTTPException):
-    def __init__(self, detail: str = "منبع مورد نظر یافت نشد") -> None:
+    def __init__(self, detail: str = GENERIC_NOT_FOUND) -> None:
         super().__init__(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
@@ -12,5 +14,5 @@ class BadRequestError(HTTPException):
 
 
 class UnauthorizedError(HTTPException):
-    def __init__(self, detail: str = "احراز هویت نشد. لطفاً وارد شوید.") -> None:
+    def __init__(self, detail: str = AUTH_INVALID_TOKEN) -> None:
         super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)

@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from novax_price_alert.api.deps import get_current_telegram_user, get_db
 from novax_price_alert.api.errors import NotFoundError
+from novax_price_alert.api.i18n import ALERT_NOT_FOUND, ASSET_NOT_FOUND_FOR_SYMBOL
 from novax_price_alert.api.schemas.alert import (
     AlertCreateIn,
     AlertListOut,
@@ -46,7 +47,7 @@ async def create_alert(
 
     asset = await resolver.resolve_asset(payload.asset_code)
     if asset is None:
-        raise NotFoundError(f"دارایی با کد {payload.asset_code} یافت نشد")
+        raise NotFoundError(ASSET_NOT_FOUND_FOR_SYMBOL.format(symbol=payload.asset_code))
 
     display_name = asset.display_name or asset.name or asset.symbol
     alert = AlertRule(
@@ -81,7 +82,7 @@ async def confirm_alert(
     except InvalidAlertTransitionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if confirmed is None:
-        raise NotFoundError("هشدار یافت نشد")
+        raise NotFoundError(ALERT_NOT_FOUND)
     return _alert_out(confirmed)
 
 
@@ -114,7 +115,7 @@ async def update_alert(
     except InvalidAlertTransitionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if updated is None:
-        raise NotFoundError("هشدار یافت نشد")
+        raise NotFoundError(ALERT_NOT_FOUND)
     return _alert_out(updated)
 
 
@@ -127,7 +128,7 @@ async def delete_alert(
     alerts = AlertCRUDService(db)
     updated = await alerts.deactivate(alert_id, current_user.id)
     if updated is None:
-        raise NotFoundError("هشدار یافت نشد")
+        raise NotFoundError(ALERT_NOT_FOUND)
     return DeleteAlertOut()
 
 

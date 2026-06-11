@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novax_price_alert.api.errors import UnauthorizedError
+from novax_price_alert.api.i18n import AUTH_TELEGRAM_INIT_DATA_REQUIRED
 from novax_price_alert.core.settings import settings
 from novax_price_alert.core.telegram_auth import TelegramAuthError, verify_telegram_init_data
 from novax_price_alert.db.session import AsyncSessionLocal
@@ -32,7 +33,7 @@ async def _resolve_current_telegram_user(
     db: AsyncSession,
 ) -> User:
     if not init_data:
-        raise UnauthorizedError("هدر X-Telegram-InitData الزامی است")
+        raise UnauthorizedError(AUTH_TELEGRAM_INIT_DATA_REQUIRED)
     try:
         telegram_user = verify_telegram_init_data(
             init_data,

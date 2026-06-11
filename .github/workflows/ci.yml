@@ -23,9 +23,33 @@ jobs:
       - run: uv run mypy src
 
       - run: uv run pytest
+        id: pytest
 
       - run: npm ci
         working-directory: deploy/cloudflare-worker
 
       - run: npm test
         working-directory: deploy/cloudflare-worker
+
+      - name: Notify on test failure
+        if: failure()
+        env:
+          BOT_TOKEN: ${{ secrets.OPS_BOT_TOKEN }}
+          OPS_CHAT_ID: ${{ secrets.OPS_CHAT_ID }}
+        run: |
+          if [[ -z "$BOT_TOKEN" || -z "$OPS_CHAT_ID" ]]; then
+            echo "Warning: OPS_BOT_TOKEN / OPS_CHAT_ID not set, skipping notification"
+            exit 0
+          fi
+          FAILED_STEP=""
+          if [[ "${{ steps.pytest.outcome }}" == "failure" ]]; then
+            FAILED_STEP="pytest"
+          fi
+          TEXT="🚨 Novax CI FAILED on ${{ github.ref }} (${{ github.sha }}). Failed step: ${FAILED_STEP:-unknown}. Check: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PAYLOAD=$(python3 -c "
+          import json, sys
+          print(json.dumps({\"chat_id\": \"$OPS_CHAT_ID\", \"text\": sys.argv[1], \"disable_web_page_preview\": True}))
+          " "$TEXT")
+          curl -fsS -m 20 -X POST \
+            "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" -d "$PAYLOAD" || true

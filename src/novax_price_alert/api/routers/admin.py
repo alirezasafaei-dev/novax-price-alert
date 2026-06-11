@@ -7,6 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from novax_price_alert.api.deps import get_db
 from novax_price_alert.api.errors import UnauthorizedError
+from novax_price_alert.api.i18n import (
+    ALERT_NOT_FOUND,
+    AUTH_ADMIN_TOKEN_INVALID,
+    AUTH_ADMIN_TOKEN_MISSING,
+)
 from novax_price_alert.application.services.admin_audit_service import AdminAuditService
 from novax_price_alert.core.settings import settings
 from novax_price_alert.domain.alert_rule import AlertRule
@@ -19,10 +24,10 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 def _verify_admin_token(token: str | None) -> None:
     if not settings.admin_access_token:
         if settings.environment.lower() == "production":
-            raise UnauthorizedError("توکن مدیریت پیکربندی نشده است")
+            raise UnauthorizedError(AUTH_ADMIN_TOKEN_MISSING)
         return
     if token is None or not hmac.compare_digest(token, settings.admin_access_token):
-        raise UnauthorizedError("توکن مدیریت نامعتبر است")
+        raise UnauthorizedError(AUTH_ADMIN_TOKEN_INVALID)
 
 
 @router.get("/overview")
@@ -149,7 +154,7 @@ async def admin_cancel_alert(
 
     alert = await db.get(AlertRule, alert_id)
     if not alert:
-        raise HTTPException(404, "هشدار یافت نشد")
+        raise HTTPException(404, ALERT_NOT_FOUND)
 
     if alert.lifecycle_state in (
         AlertLifecycleState.DELIVERED,

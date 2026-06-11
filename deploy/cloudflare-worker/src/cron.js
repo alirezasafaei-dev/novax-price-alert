@@ -16,6 +16,9 @@ function classifyPriceBatch(prices, providerId) {
   if (!prices || Object.keys(prices).filter((key) => !key.startsWith("_")).length === 0) {
     return { freshness: "unavailable", reason: `${providerId}_prices_unavailable` };
   }
+  if (prices._fallback) {
+    return { freshness: "stale", reason: `${providerId}_prices_fallback` };
+  }
   return { freshness: "fresh", reason: "fetched_during_worker_run", observed_at: new Date().toISOString() };
 }
 
