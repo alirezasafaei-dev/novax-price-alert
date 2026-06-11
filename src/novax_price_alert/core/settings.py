@@ -16,27 +16,20 @@ def normalize_database_url(value: str) -> str:
 
     if value.startswith("postgres://"):
         return value.replace("postgres://", "postgresql+asyncpg://", 1)
-
-    if value.startswith("postgresql://") and not value.startswith("postgresql+asyncpg://"):
-        return value.replace("postgresql://", "postgresql+asyncpg://", 1)
-
     return value
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=BASE_DIR / ".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
     )
 
-    app_name: str = "iran-market-price-alert"
-    debug: bool = False
     environment: str = "development"
+    debug: bool = False
     database_url: str = f"sqlite+aiosqlite:///{DB_PATH}"
-    # Redis URL for distributed caching and locking.
-    # Format: redis://[:***@host:port/db
     # Leave empty or set to localhost for single-instance deployments.
     redis_url: str = "redis://localhost:6379/0"
 
