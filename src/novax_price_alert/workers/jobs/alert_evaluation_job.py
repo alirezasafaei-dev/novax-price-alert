@@ -21,9 +21,7 @@ async def run_alert_evaluation_job() -> None:
             assets = result.scalars().all()
 
             cache = (
-                PriceCache(settings.redis_url or "", ttl_seconds=60)
-                if settings.redis_url
-                else None
+                PriceCache(settings.redis_url or "", ttl_seconds=60) if settings.redis_url else None
             )
             evaluator = AlertEvaluatorService(session, cache=cache)
             total_events = 0

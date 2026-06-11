@@ -15,6 +15,7 @@ metrics: Counter[str] = Counter()
 _metrics_cache: PriceCache | None = None
 _redis_client = None
 
+
 def _get_redis() -> "redis.Redis | None":
     global _redis_client
     if _redis_client is not None:
@@ -26,6 +27,7 @@ def _get_redis() -> "redis.Redis | None":
     except Exception:
         _redis_client = None
     return _redis_client
+
 
 def _get_metrics_cache() -> PriceCache | None:
     global _metrics_cache
@@ -63,7 +65,7 @@ def get_metrics_snapshot() -> dict[str, int]:
             keys = r.keys("metrics:counter:*")
             for key in keys:
                 try:
-                    k = key.replace("metrics:counter:", "")
+                    k = str(key).replace("metrics:counter:", "")
                     v = int(r.get(key) or 0)
                     snap[k] = snap.get(k, 0) + v
                 except Exception:

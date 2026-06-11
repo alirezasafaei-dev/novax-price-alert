@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -81,9 +83,13 @@ class TelegramNotificationSender(BaseNotificationSender):
             event.telegram_message_id = str(message_id)
 
     async def _send_message(
-        self, *, chat_id: str, text: str, reply_markup: dict | None = None
-    ) -> dict[str, object]:
-        payload: dict = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
+        self, *, chat_id: str, text: str, reply_markup: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "chat_id": chat_id,
+            "text": text,
+            "disable_web_page_preview": True,
+        }
         if reply_markup:
             payload["reply_markup"] = reply_markup
 

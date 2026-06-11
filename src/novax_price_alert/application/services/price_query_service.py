@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from statistics import stdev
-from typing import Sequence
+from typing import Any, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.engine import Row
@@ -35,17 +35,21 @@ class PriceQueryService:
         )
         """
 
-        stmt = select(
-            Asset.symbol.label("symbol"),
-            Asset.name.label("name"),
-            LatestPrice.price.label("price"),
-            Asset.unit.label("display_unit"),
-            Provider.slug.label("provider_slug"),
-            LatestPrice.observed_at.label("observed_at"),
-            LatestPrice.is_stale.label("is_stale"),
-        ).join(LatestPrice, LatestPrice.asset_id == Asset.id).outerjoin(
-            Provider,
-            Provider.id == LatestPrice.provider_id,
+        stmt = (
+            select(
+                Asset.symbol.label("symbol"),
+                Asset.name.label("name"),
+                LatestPrice.price.label("price"),
+                Asset.unit.label("display_unit"),
+                Provider.slug.label("provider_slug"),
+                LatestPrice.observed_at.label("observed_at"),
+                LatestPrice.is_stale.label("is_stale"),
+            )
+            .join(LatestPrice, LatestPrice.asset_id == Asset.id)
+            .outerjoin(
+                Provider,
+                Provider.id == LatestPrice.provider_id,
+            )
         )
 
         if asset_symbol:
@@ -92,7 +96,7 @@ class PriceQueryService:
         self,
         watched_codes: list[str] | None = None,
         limit: int = 5,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Smart suggestions: unwatched assets + % change from recent PriceSnapshots
         (volatility / market move signals). Fulfills report 'smart suggestions' for UX.
         """
@@ -127,20 +131,22 @@ class PriceQueryService:
                 except Exception:
                     vol = None
             score = abs(ch or 0) + (vol or 0) * 0.1  # simple combined score
-            results.append({
-                "asset_code": sym,
-                "asset_name": getattr(row, "name", sym),
-                "price_value": getattr(row, "price", 0),
-                "display_unit": getattr(row, "display_unit", ""),
-                "change_pct": ch,
-                "volatility": vol,
-                "reason": "high volatility/move" if score > 1 else "unwatched",
-            })
+            results.append(
+                {
+                    "asset_code": sym,
+                    "asset_name": getattr(row, "name", sym),
+                    "price_value": getattr(row, "price", 0),
+                    "display_unit": getattr(row, "display_unit", ""),
+                    "change_pct": ch,
+                    "volatility": vol,
+                    "reason": "high volatility/move" if score > 1 else "unwatched",
+                }
+            )
             if len(results) >= limit:
                 break
 
         results.sort(
-            key=lambda x: (abs(x.get("change_pct") or 0) + (x.get("volatility") or 0) * 0.1),
+            key=lambda x: abs(x.get("change_pct") or 0) + (x.get("volatility") or 0) * 0.1,
             reverse=True,
         )
         return results[:limit]

@@ -8,6 +8,7 @@ from novax_price_alert.workers.jobs.notification_dispatch_job import (
 
 logger = logging.getLogger(__name__)
 
+
 async def notification_loop() -> None:
     while True:
         try:

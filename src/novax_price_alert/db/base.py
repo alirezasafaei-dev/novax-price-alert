@@ -37,4 +37,3 @@ class UUIDPrimaryKeyMixin:
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
     )
-

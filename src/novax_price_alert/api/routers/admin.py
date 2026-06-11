@@ -1,5 +1,5 @@
 import hmac
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import func, select
@@ -31,7 +31,7 @@ async def admin_overview(
     x_admin_token: Annotated[str | None, Header()] = None,
     token: Annotated[str | None, Query()] = None,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Professional admin overview. Supports token via header or ?token= query for easy
     bookmarking."""
     auth_token = x_admin_token or token
@@ -40,18 +40,27 @@ async def admin_overview(
     # Alerts by state
     alerts_by_state = {}
     for state in [
-        "PENDING_CONFIRMATION", "ACTIVE", "TRIGGERED", "DELIVERED", "CANCELLED", "FAILED"
+        "PENDING_CONFIRMATION",
+        "ACTIVE",
+        "TRIGGERED",
+        "DELIVERED",
+        "CANCELLED",
+        "FAILED",
     ]:
-        count = (await db.execute(
-            select(func.count()).select_from(AlertRule).where(AlertRule.lifecycle_state == state)
-        )).scalar_one()
+        count = (
+            await db.execute(
+                select(func.count())
+                .select_from(AlertRule)
+                .where(AlertRule.lifecycle_state == state)
+            )
+        ).scalar_one()
         if count > 0:
             alerts_by_state[state] = count
 
     total_users = (await db.execute(select(func.count()).select_from(User))).scalar_one()
-    active_alerts = (await db.execute(
-        select(func.count()).select_from(AlertRule).where(AlertRule.is_active)
-    )).scalar_one()
+    active_alerts = (
+        await db.execute(select(func.count()).select_from(AlertRule).where(AlertRule.is_active))
+    ).scalar_one()
 
     return {
         "total_users": total_users,
@@ -68,7 +77,7 @@ async def admin_list_alerts(
     state: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """List alerts across all users (admin only)."""
     auth_token = x_admin_token or token
     _verify_admin_token(auth_token)
@@ -81,17 +90,21 @@ async def admin_list_alerts(
 
     items = []
     for a in rows:
-        items.append({
-            "id": a.id,
-            "user_id": a.user_id,
-            "asset_code": getattr(a, "canonical_asset_id", None) or a.asset_id,
-            "display_name": a.display_asset_name_at_creation,
-            "state": str(a.lifecycle_state),
-            "is_active": a.is_active,
-            "target_price": str(a.target_price),
-            "created_at": a.created_at.isoformat() if a.created_at else None,
-            "last_triggered_at": a.last_triggered_at.isoformat() if a.last_triggered_at else None,
-        })
+        items.append(
+            {
+                "id": a.id,
+                "user_id": a.user_id,
+                "asset_code": getattr(a, "canonical_asset_id", None) or a.asset_id,
+                "display_name": a.display_asset_name_at_creation,
+                "state": str(a.lifecycle_state),
+                "is_active": a.is_active,
+                "target_price": str(a.target_price),
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+                "last_triggered_at": a.last_triggered_at.isoformat()
+                if a.last_triggered_at
+                else None,
+            }
+        )
 
     return {"items": items, "count": len(items)}
 
@@ -102,23 +115,24 @@ async def admin_list_users(
     token: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     auth_token = x_admin_token or token
     _verify_admin_token(auth_token)
 
-    stmt = select(User).order_by(User.last_activity_at.desc()).limit(limit)
+    stmt = select(User).order_by(User.created_at.desc()).limit(limit)
     users = (await db.execute(stmt)).scalars().all()
 
     items = []
     for u in users:
-        items.append({
-            "id": u.id,
-            "telegram_id": u.telegram_id,
-            "username": u.username,
-            "first_name": u.first_name,
-            "last_activity_at": u.last_activity_at.isoformat() if u.last_activity_at else None,
-            "created_at": u.created_at.isoformat() if u.created_at else None,
-        })
+        items.append(
+            {
+                "id": u.id,
+                "telegram_user_id": u.telegram_user_id,
+                "username": u.username,
+                "first_name": u.first_name,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+            }
+        )
 
     return {"items": items}
 
@@ -129,7 +143,7 @@ async def admin_cancel_alert(
     x_admin_token: Annotated[str | None, Header()] = None,
     token: Annotated[str | None, Query()] = None,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Admin force cancel an alert (bypasses user ownership)."""
     auth_token = x_admin_token or token
     _verify_admin_token(auth_token)
@@ -139,7 +153,9 @@ async def admin_cancel_alert(
         raise HTTPException(404, "alert not found")
 
     if alert.lifecycle_state in (
-        AlertLifecycleState.DELIVERED, AlertLifecycleState.CANCELLED, AlertLifecycleState.FAILED
+        AlertLifecycleState.DELIVERED,
+        AlertLifecycleState.CANCELLED,
+        AlertLifecycleState.FAILED,
     ):
         return {"status": "noop", "message": "already terminal"}
 
@@ -156,21 +172,21 @@ async def admin_cancel_alert(
 
     return {"status": "cancelled", "alert_id": alert_id}
 
+
 @router.post("/actions/broadcast")
 async def admin_broadcast(
-    payload: dict,
+    payload: dict[str, Any],
     x_admin_token: Annotated[str | None, Header()] = None,
     token: Annotated[str | None, Query()] = None,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Admin broadcast stub (logs the intent; real send can be wired to bot later)."""
     auth_token = x_admin_token or token
     _verify_admin_token(auth_token)
     message = payload.get("message", "")
     target = payload.get("target", "all")
     await AdminAuditService(db).log_action(
-        "broadcast_attempt",
-        details={"message_preview": message[:100], "target": target}
+        "broadcast_attempt", details={"message_preview": message[:100], "target": target}
     )
     # In real: integrate with bot to send to users
     return {
@@ -184,14 +200,16 @@ async def admin_refresh_metrics(
     x_admin_token: Annotated[str | None, Header()] = None,
     token: Annotated[str | None, Query()] = None,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, str]:
     """Lightweight action to bump internal counters if needed."""
     auth_token = x_admin_token or token
     _verify_admin_token(auth_token)
     from novax_price_alert.core.observability import record_metric
+
     record_metric("admin_manual_refresh")
     await AdminAuditService(db).log_action("refresh_metrics")
     return {"status": "ok"}
+
 
 @router.get("/audit-logs")
 async def admin_audit_logs(
@@ -199,7 +217,7 @@ async def admin_audit_logs(
     token: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """Recent admin actions for audit."""
     auth_token = x_admin_token or token
     _verify_admin_token(auth_token)

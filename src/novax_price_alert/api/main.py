@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -37,7 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_router, prefix="")
 
     @app.get("/manifest.json", response_class=JSONResponse)
-    async def twa_manifest():
+    async def twa_manifest() -> dict[str, Any]:
         return {
             "name": "Novax",
             "short_name": "Novax",
@@ -55,7 +57,7 @@ def create_app() -> FastAPI:
                     "sizes": "any",
                     "type": "image/svg+xml",
                 }
-            ]
+            ],
         }
 
     @app.get("/", response_class=HTMLResponse)

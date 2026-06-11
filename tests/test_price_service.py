@@ -147,24 +147,34 @@ async def test_suggestions_returns_unwatched_with_change(db_session: AsyncSessio
     asset2 = Asset(id="sug-asset-2", symbol="SUG2", name="Sug2", unit="IRT")
     prov = Provider(id="prov-sug", slug="test", name="Test", priority=1)
     snap1_old = PriceSnapshot(
-        asset_id=asset1.id, provider_id=prov.id, price=Decimal("100"),
-        observed_at=datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        asset_id=asset1.id,
+        provider_id=prov.id,
+        price=Decimal("100"),
+        observed_at=datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc),
     )
     snap1_new = PriceSnapshot(
-        asset_id=asset1.id, provider_id=prov.id, price=Decimal("110"),
-        observed_at=datetime(2026, 6, 1, 1, 0, tzinfo=timezone.utc)
+        asset_id=asset1.id,
+        provider_id=prov.id,
+        price=Decimal("110"),
+        observed_at=datetime(2026, 6, 1, 1, 0, tzinfo=timezone.utc),
     )
     snap2 = PriceSnapshot(
-        asset_id=asset2.id, provider_id=prov.id, price=Decimal("200"),
-        observed_at=datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        asset_id=asset2.id,
+        provider_id=prov.id,
+        price=Decimal("200"),
+        observed_at=datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc),
     )
     latest1 = LatestPrice(
-        asset_id=asset1.id, provider_id=prov.id, price=Decimal("110"),
-        observed_at=datetime(2026, 6, 1, 1, 0, tzinfo=timezone.utc)
+        asset_id=asset1.id,
+        provider_id=prov.id,
+        price=Decimal("110"),
+        observed_at=datetime(2026, 6, 1, 1, 0, tzinfo=timezone.utc),
     )
     latest2 = LatestPrice(
-        asset_id=asset2.id, provider_id=prov.id, price=Decimal("200"),
-        observed_at=datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc)
+        asset_id=asset2.id,
+        provider_id=prov.id,
+        price=Decimal("200"),
+        observed_at=datetime(2026, 6, 1, 0, 0, tzinfo=timezone.utc),
     )
     session.add_all([asset1, asset2, prov, snap1_old, snap1_new, snap2, latest1, latest2])
     await session.commit()

@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import desc, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,14 +9,15 @@ from novax_price_alert.domain.admin_audit import AdminAuditLog
 
 
 class AdminAuditService:
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def _ensure_table(self):
+    async def _ensure_table(self) -> None:
         # Production note: proper Alembic migration recommended.
         # This is a safe bootstrap for the admin audit log table.
         try:
-            await self.session.execute(text("""
+            await self.session.execute(
+                text("""
                 CREATE TABLE IF NOT EXISTS admin_audit_logs (
                     id TEXT PRIMARY KEY,
                     action TEXT NOT NULL,
@@ -25,7 +27,8 @@ class AdminAuditService:
                     performed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                     actor TEXT DEFAULT 'owner'
                 )
-            """))
+            """)
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()
@@ -35,8 +38,8 @@ class AdminAuditService:
         action: str,
         target_type: str | None = None,
         target_id: str | None = None,
-        details: dict | None = None,
-    ):
+        details: dict[str, Any] | None = None,
+    ) -> AdminAuditLog:
         await self._ensure_table()
         log = AdminAuditLog(
             id=str(uuid.uuid4()),
@@ -51,8 +54,8 @@ class AdminAuditService:
         await self.session.commit()
         return log
 
-    async def list_recent(self, limit: int = 50):
+    async def list_recent(self, limit: int = 50) -> list[AdminAuditLog]:
         await self._ensure_table()
         stmt = select(AdminAuditLog).order_by(desc(AdminAuditLog.performed_at)).limit(limit)
         res = await self.session.execute(stmt)
-        return res.scalars().all()
+        return list(res.scalars().all())

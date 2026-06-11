@@ -6,6 +6,7 @@ from novax_price_alert.workers.jobs.price_fetch_job import run_price_fetch_job
 
 logger = logging.getLogger(__name__)
 
+
 async def price_fetch_loop() -> None:
     while True:
         try:

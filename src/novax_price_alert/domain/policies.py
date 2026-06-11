@@ -13,13 +13,15 @@ class AssetUnit(str, Enum):
     TOMAN = "IRT"
     USDT = "USDT"
 
+
 DEFAULT_UNIT_IRANIAN = AssetUnit.TOMAN
 DEFAULT_UNIT_CRYPTO = AssetUnit.USDT
 
 # From Pricing Presentation Policy
 THOUSAND_SEPARATOR = ","
 DECIMALS_IRANIAN = 0  # for toman
-DECIMALS_CRYPTO = 2   # for USDT typically
+DECIMALS_CRYPTO = 2  # for USDT typically
+
 
 def format_price(price: Decimal, unit: str) -> str:
     """Format price according to policy: readable, separators, appropriate decimals."""
@@ -28,6 +30,7 @@ def format_price(price: Decimal, unit: str) -> str:
     else:
         return f"{float(price):,.{DECIMALS_CRYPTO}f}"
 
+
 # From Freshness Policy
 class FreshnessThresholds:
     EXPECTED_UPDATE_CADENCE = timedelta(minutes=5)
@@ -35,12 +38,13 @@ class FreshnessThresholds:
     STALE = timedelta(minutes=30)
     UNAVAILABLE = timedelta(hours=2)
 
+
 # From Alert Flow and Lifecycle - reexport or use from enums, but here for doc
 # States are in domain/enums.py
+
 
 # Helper to validate unit per policy
 def is_valid_unit_for_asset(unit: str, is_crypto: bool = False) -> bool:
     if is_crypto:
         return unit == AssetUnit.USDT
     return unit == AssetUnit.TOMAN
-

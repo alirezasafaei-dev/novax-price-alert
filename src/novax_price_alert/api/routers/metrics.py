@@ -1,5 +1,5 @@
 import hmac
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,18 +48,18 @@ async def get_operational_summary(
 
 
 @router.get("/prometheus")
-async def prometheus_metrics():
+async def prometheus_metrics() -> str:
     """Basic Prometheus text format for key metrics."""
     snap = get_metrics_snapshot()
     lines = []
     for k, v in snap.items():
         safe_name = k.replace(":", "_").replace("-", "_")
-        lines.append(f'novax_{safe_name} {v}')
+        lines.append(f"novax_{safe_name} {v}")
     return "\n".join(lines) + "\n"
 
 
 @router.post("/track")
-async def track_event(payload: dict):
+async def track_event(payload: dict[str, Any]) -> dict[str, str]:
     """Lightweight client-side event tracking for UX metrics (no auth for TWA ease)."""
     event = payload.get("event", "unknown")
     record_metric(f"twa_{event}")

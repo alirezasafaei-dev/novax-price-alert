@@ -13,7 +13,7 @@ class AdminAuditLog(Base):
     action: Mapped[str] = mapped_column(String(100), index=True)
     target_type: Mapped[str] = mapped_column(String(50), nullable=True)
     target_id: Mapped[str] = mapped_column(String(100), nullable=True)
-    details: Mapped[dict] = mapped_column(JSON, default=dict)
+    details: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
     performed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

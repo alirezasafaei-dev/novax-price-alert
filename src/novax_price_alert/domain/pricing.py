@@ -18,8 +18,6 @@ def normalize_price(value: Decimal | int | str) -> Decimal:
 def format_price(value: Decimal, unit: str = DEFAULT_PRICE_UNIT) -> str:
     normalized = normalize_price(value)
     whole = (
-        normalized.quantize(Decimal("1"))
-        if normalized == normalized.to_integral()
-        else normalized
+        normalized.quantize(Decimal("1")) if normalized == normalized.to_integral() else normalized
     )
     return f"{whole:,} {unit}"

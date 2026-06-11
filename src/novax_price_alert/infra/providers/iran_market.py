@@ -299,7 +299,7 @@ def _extract_tgju_price(symbol: str, html: str) -> Decimal:
     else:
         pattern = (
             r'<span class="price" data-col="info\.last_trade\.PDrCotVal">'
-            r'(?P<price>[0-9,]+(?:\.[0-9]+)?)</span>'
+            r"(?P<price>[0-9,]+(?:\.[0-9]+)?)</span>"
         )
     match = re.search(pattern, html)
     if match is None:

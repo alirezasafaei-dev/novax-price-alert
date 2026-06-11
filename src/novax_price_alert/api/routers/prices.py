@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Annotated, Any, List, Optional
+from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select
@@ -210,10 +210,10 @@ async def test_override_price(
 
 @router.post("/ingest")
 async def ingest_prices(
-    payload: dict | List[dict],
+    payload: dict[str, Any] | list[dict[str, Any]],
     authorization: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     """
     Ingest prices from external sources (GitHub Actions, etc.)
     This endpoint is used by the price fetcher running on GitHub Actions
@@ -225,10 +225,10 @@ async def ingest_prices(
     )
     if not expected_token:
         raise HTTPException(status_code=500, detail="METRICS_ACCESS_TOKEN not configured")
-    
+
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header required")
-    
+
     token = (
         authorization.replace("Bearer ", "")
         if authorization.startswith("Bearer ")
@@ -236,29 +236,29 @@ async def ingest_prices(
     )
     if token != expected_token:
         raise HTTPException(status_code=403, detail="Invalid API token")
-    
+
     price_service = PriceService(db)
     success_count = 0
     errors = []
-    
+
     # Support both {"items": [...]} (from fetch_prices_to_vps.py) and raw list
     if isinstance(payload, dict) and "items" in payload:
         items = payload.get("items", [])
     else:
         items = payload if isinstance(payload, list) else []
-    
+
     for item in items:
         try:
             asset_code = item.get("asset_code") or item.get("symbol")
             if not asset_code:
                 errors.append({"item": item, "error": "missing asset_code"})
                 continue
-            
+
             # Resolve asset by symbol (e.g. BTC, USD_IRT, BTC_USDT)
             stmt = select(Asset).where(Asset.symbol == asset_code)
             result = await db.execute(stmt)
             asset = result.scalar_one_or_none()
-            
+
             if asset is None:
                 # Flexible mapping for GH fetcher which sends "BTC" etc.
                 candidates = [
@@ -275,17 +275,17 @@ async def ingest_prices(
                     asset = r2.scalar_one_or_none()
                     if asset:
                         break
-            
+
             if asset is None:
                 errors.append({"asset_code": asset_code, "error": "asset not found in DB"})
                 continue
-            
+
             # Resolve or create provider
             provider_slug = item.get("provider", "external_ingest")
             prov_stmt = select(Provider).where(Provider.slug == provider_slug)
             prov_result = await db.execute(prov_stmt)
             provider = prov_result.scalar_one_or_none()
-            
+
             if provider is None:
                 provider = Provider(
                     slug=provider_slug,
@@ -296,11 +296,11 @@ async def ingest_prices(
                 db.add(provider)
                 await db.commit()
                 await db.refresh(provider)
-            
+
             price_value = float(item.get("price_value") or item.get("price") or 0)
             currency_code = item.get("currency_code", AssetUnit.USDT)
             display_unit = item.get("display_unit", currency_code)  # noqa: F841 (used for future or consistency)
-            
+
             fetched_at_str = item.get("fetched_at")
             if fetched_at_str:
                 try:
@@ -309,15 +309,15 @@ async def ingest_prices(
                     observed_at = datetime.now(timezone.utc)
             else:
                 observed_at = datetime.now(timezone.utc)
-            
+
             price_point = PricePoint(
                 symbol=asset_code,
-                price=price_value,
+                price=Decimal(str(price_value)),
                 observed_at=observed_at,
                 fetched_at=observed_at,
                 raw_data=item,
             )
-            
+
             await price_service.save_price(
                 asset_id=asset.id,
                 provider_id=provider.id,
@@ -331,12 +331,12 @@ async def ingest_prices(
                 price=str(price_value),
                 observed_at=observed_at.isoformat(),
             )
-            
+
         except Exception as e:
             errors.append({"item": item.get("asset_code"), "error": "Failed to process item"})
             record_metric("price_ingest_error")
             emit_event("price_ingest_error", asset_code=asset_code, error=str(e))
-    
+
     return {
         "status": "success" if success_count > 0 else "partial",
         "processed": success_count,

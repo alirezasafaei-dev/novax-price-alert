@@ -8,6 +8,7 @@ from novax_price_alert.workers.jobs.alert_evaluation_job import (
 
 logger = logging.getLogger(__name__)
 
+
 async def alert_evaluation_loop() -> None:
     while True:
         try:

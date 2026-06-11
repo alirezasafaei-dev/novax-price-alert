@@ -252,6 +252,20 @@ User delivered `/home/dev13/Downloads/novax-mini-app.zip` (extracted to `mini-ap
 - Next for real AI (if desired): proxy chat calls via supported-region service, or switch provider, or note as known limitation.
 - All other Studio features (LIVE prices/override, rich TG notifs from prior, playground) remain fully operational with real DB/alerts.
 
+## 2026-06-11: Full mypy strict mode hardening (31 errors fixed)
+
+- Fixed 31 pre-existing mypy errors across 9 source files to achieve `mypy --strict` clean state.
+- `core/observability.py`: Fixed bytes/str type mismatch on Redis key iteration (r.keys() returns bytes).
+- `domain/admin_audit.py`: Added type args to Mapped[dict] → Mapped[dict[str, object]].
+- `application/services/admin_audit_service.py`: Added return types to _ensure_table(), log_action(), list_recent(); typed details param.
+- `application/services/price_query_service.py`: Typed list[dict] → list[dict[str, Any]].
+- `infra/notifications/telegram.py`: Typed dict params, fixed line length (E501).
+- `api/routers/prices.py`: Added return type to ingest_prices(), fixed float→Decimal for PricePoint, removed unused List import.
+- `api/routers/metrics.py`: Added return types to prometheus_metrics() and track_event().
+- `api/routers/admin.py`: Added return types to 8 endpoint functions; fixed User attribute names (last_activity_at→created_at, telegram_id→telegram_user_id).
+- `api/main.py`: Added return type to twa_manifest().
+- Validation: ruff check clean, ruff format clean, 44 tests passed, mypy strict clean (82 files).
+
 ## 2026-06-05: Mini-app port alignment after interrupted deploy
 - Root cause: previous wrapper defaulted `novax-mini-app` to `3002`, but that port belongs to `my-portfolio`; `3000` belongs to `persian-tools`.
 - Current production convention: `novax-api` stays on `8001`; `novax-mini-app` uses dedicated `3012`; nginx `novax_mini` proxies root `/` to `127.0.0.1:3012`.
