@@ -46,7 +46,7 @@ async def create_alert(
 
     asset = await resolver.resolve_asset(payload.asset_code)
     if asset is None:
-        raise NotFoundError("asset not found")
+        raise NotFoundError(f"دارایی با کد {payload.asset_code} یافت نشد")
 
     display_name = asset.display_name or asset.name or asset.symbol
     alert = AlertRule(
@@ -81,7 +81,7 @@ async def confirm_alert(
     except InvalidAlertTransitionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if confirmed is None:
-        raise NotFoundError("alert not found")
+        raise NotFoundError("هشدار یافت نشد")
     return _alert_out(confirmed)
 
 
@@ -114,7 +114,7 @@ async def update_alert(
     except InvalidAlertTransitionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if updated is None:
-        raise NotFoundError("alert not found")
+        raise NotFoundError("هشدار یافت نشد")
     return _alert_out(updated)
 
 
@@ -127,7 +127,7 @@ async def delete_alert(
     alerts = AlertCRUDService(db)
     updated = await alerts.deactivate(alert_id, current_user.id)
     if updated is None:
-        raise NotFoundError("alert not found")
+        raise NotFoundError("هشدار یافت نشد")
     return DeleteAlertOut()
 
 
