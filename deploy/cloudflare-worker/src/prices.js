@@ -97,26 +97,33 @@ export async function getCryptoPrices() {
     }
 
     if (!Object.keys(prices).length) {
-      const response = await fetchWithRetry(
-        "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin&vs_currencies=usd",
-        {
-          headers: {
-            "User-Agent": "Novax-Price-Bot/1.0",
+      try {
+        const response = await fetchWithRetry(
+          "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin&vs_currencies=usd",
+          {
+            headers: {
+              "User-Agent": "Novax-Price-Bot/1.0",
+            },
           },
-        },
-      );
-      const fallback = await response.json();
-      const coinToSymbol = {
-        bitcoin: "BTC",
-        ethereum: "ETH",
-        solana: "SOL",
-        binancecoin: "BNB",
-      };
-      for (const [coin, symbol] of Object.entries(coinToSymbol)) {
-        const price = Number(fallback?.[coin]?.usd);
-        if (Number.isFinite(price)) {
-          prices[symbol] = price;
+        );
+        const fallback = await response.json();
+        const coinToSymbol = {
+          bitcoin: "BTC",
+          ethereum: "ETH",
+          solana: "SOL",
+          binancecoin: "BNB",
+        };
+        for (const [coin, symbol] of Object.entries(coinToSymbol)) {
+          const price = Number(fallback?.[coin]?.usd);
+          if (Number.isFinite(price)) {
+            prices[symbol] = price;
+          }
         }
+        if (Object.keys(prices).length) {
+          prices._fallback = true;
+        }
+      } catch {
+        // fallback failed, prices stays empty
       }
     }
 

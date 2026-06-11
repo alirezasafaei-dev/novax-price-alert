@@ -97,7 +97,7 @@ export async function handleMyAlerts(env, chatId) {
   }
 
   // Encourage rich UI
-  await sendMessage(env, chatId, "برای تجربه کامل (چارت پیشرفته، پیشنهادهای هوشمند، دارایی‌های من) از دکمه «🌐 استودیو پیشرفته» استفاده کنید.", { reply_markup: MAIN_KEYBOARD });
+  await sendMessage(env, chatId, "برای تجربه کامل (چارت پیشرفته، پیشنهادهای هوشمند، دارایی‌های من) از دکمه «🌐 داشبورد هوشمند» استفاده کنید.", { reply_markup: MAIN_KEYBOARD });
 }
 
 export async function handleCreateAlertStart(env, chatId) {

@@ -203,7 +203,7 @@ All phases per report now baseline complete. Future: add durable metrics, more a
 - Result: Novax is now discoverable as a real production delivery in alirezasafaeisystems.ir "نمونه کارهای واقعی" (case studies + featured on home), while source + registry updated in control workspace.
 All per user request after full phases + production deploy.
 
-## 2026-06-xx: NovaX Mini-App (Alert Studio) deliverable received
+## 2026-06-xx: NovaX Mini-App (داشبورد هوشمند) deliverable received
 
 User delivered `/home/dev13/Downloads/novax-mini-app.zip` (extracted to `mini-app/` in repo).
 

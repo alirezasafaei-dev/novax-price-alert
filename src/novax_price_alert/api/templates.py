@@ -41,7 +41,7 @@ TWA_SHELL_HTML = """
     <p>قیمت‌های لحظه‌ای بازار ایران + هشدار قیمت هوشمند و قابل اعتماد</p>
     <div class="text-xs mt-1 text-slate-400 leading-relaxed">قیمت‌ها تازه نگه داشته می‌شوند • هشدار فقط وقتی واقعاً فعال است که شما تأیید کنید • تاریخچه و چارت کامل برای تصمیم‌گیری بهتر</div>
   </section>
-  <section id="auth" class="card notice hidden">این اپ وب پیشرفته فقط از داخل بات Novax در تلگرام باز می‌شود. از دکمه «اپ وب پیشرفته» در منوی بات استفاده کنید.</section>
+  <section id="auth" class="card notice hidden">این داشبورد هوشمند فقط از داخل بات Novax در تلگرام باز می‌شود. از دکمه «داشبورد هوشمند» در منوی بات استفاده کنید.</section>
 
   <!-- Professional tab navigation for best-in-class UX -->
   <div style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap;" id="main-tabs">
@@ -155,7 +155,7 @@ const fmt = new Intl.NumberFormat("fa-IR");
 let latest = [];
 let alertDraft = {asset_code:null,condition_type:null,target_price:null,unit:null,asset_name:null,current_price:null};
 
-// Persian to English digit sanitizer (from Advanced Studio best practice - prevents mobile keyboard issues)
+// Persian to English digit sanitizer (from Smart Dashboard best practice - prevents mobile keyboard issues)
 function persianToEnDigits(str) {
   if (!str) return str;
   const p = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
