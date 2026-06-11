@@ -1,6 +1,5 @@
 import asyncio
 import logging
-
 from novax_price_alert.workers.alert_worker import alert_evaluation_loop
 from novax_price_alert.workers.notification_worker import notification_loop
 from novax_price_alert.workers.price_fetch_worker import price_fetch_loop

@@ -59,7 +59,7 @@ class TelegramNotificationSender(BaseNotificationSender):
         # Rich inline keyboard for triggered notification (roadmap فاز ۱).
         # Uses url buttons (widely supported). Full callback actions
         # (disable/edit) can be wired in CF worker later.
-        app_url = "https://novax.alirezasafaeisystems.ir"
+        app_url = "https://novax.alirezasafeidev.ir"
         reply_markup = {
             "inline_keyboard": [
                 [

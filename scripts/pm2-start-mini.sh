@@ -6,6 +6,6 @@ set -a
 if [ -f ../.env ]; then . ../.env; fi
 if [ -f .env ]; then . ./.env; fi
 set +a
-# Default to 3002 to avoid port conflicts with other sites on this VPS
-export PORT="${PORT:-3002}"
+# Production default for novax-mini-app; 3000/3002 are used by sibling sites.
+export PORT="${NOVAX_MINI_PORT:-3012}"
 exec node dist/server.cjs

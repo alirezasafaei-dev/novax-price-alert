@@ -18,8 +18,8 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
-            "https://novax.alirezasafaeisystems.ir",
-            "https://*.alirezasafaeisystems.ir",
+            "https://novax.alirezasafeidev.ir",
+            "https://*.alirezasafeidev.ir",
             "https://t.me",
             "https://web.telegram.org",
             "*",  # safe for public price API; tighten if needed

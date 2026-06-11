@@ -1,7 +1,7 @@
 export const MAIN_KEYBOARD = {
   keyboard: [
     ["💰 قیمت‌ها", "🔔 تنظیم هشدار"],
-    ["📋 هشدارهای من", { text: "🌐 استودیو پیشرفته", web_app: { url: "https://novax.alirezasafaeisystems.ir" } }],
+    ["📋 هشدارهای من", { text: "🌐 استودیو پیشرفته", web_app: { url: "https://novax.alirezasafeidev.ir" } }],
     ["❓ راهنما"]
   ],
   resize_keyboard: true,

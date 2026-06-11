@@ -50,7 +50,7 @@
 ```bash
 cd mini-app
 npm install
-npm run dev   # http://localhost:3000
+npm run dev   # http://localhost:3012
 ```
 
 برای اتصال به بک‌اند محلی (روی پورت پیش‌فرض ۸۰۰۱):

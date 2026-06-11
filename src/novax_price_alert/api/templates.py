@@ -11,7 +11,7 @@ TWA_SHELL_HTML = """
   <meta property="og:title" content="Novax | قیمت بازار ایران + هشدار هوشمند" />
   <meta property="og:description" content="قیمت‌های زنده بازار ایران (دلار، طلا، کریپتو) و ساخت هشدار قیمت در تلگرام. چارت و تاریخچه کامل." />
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://novax.alirezasafaeisystems.ir" />
+  <meta property="og:url" content="https://novax.alirezasafeidev.ir" />
   <meta name="theme-color" content="#070b16" />
   <title>Novax • قیمت بازار ایران و هشدار قیمت</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -813,4 +813,3 @@ function showBroadcastForm() {
 </body>
 </html>
 """
-
