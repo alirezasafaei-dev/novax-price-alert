@@ -1,76 +1,108 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Asset, Alert, AlertLog } from './types';
 import PriceBoard from './components/PriceBoard';
 import AlertManager from './components/AlertManager';
 import TelegramSimulator from './components/TelegramSimulator';
-import { Coins, Bell, HelpCircle, Smartphone, User, Sparkles, X, Wifi } from 'lucide-react';
+import AIChat from './components/AIChat';
+import { Coins, Bell, HelpCircle, Sparkles, X, Wifi, WifiOff, Globe, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-// Chime synthesized audio helper for alert triggers
+/* ─── Toast notification system ─── */
+interface Toast { id: string; text: string; type: 'success' | 'error' | 'info' }
+let _toastId = 0;
+
+/* ─── Chime on alert trigger ─── */
 function playChime() {
   try {
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc1 = audioCtx.createOscillator();
-    const osc2 = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
-    osc1.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15); // A5
-
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
-    osc2.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.15); // C6
-
-    gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-
-    osc1.connect(gainNode);
-    osc2.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-
-    osc1.start();
-    osc2.start();
-    osc1.stop(audioCtx.currentTime + 0.5);
-    osc2.stop(audioCtx.currentTime + 0.5);
-  } catch (e) {
-    console.warn('Audio play failed:', e);
-  }
+    const Ctor = window.AudioContext || (window as any).webkitAudioContext;
+    if (!Ctor) return;
+    const ctx = new Ctor();
+    const o1 = ctx.createOscillator();
+    const o2 = ctx.createOscillator();
+    const g = ctx.createGain();
+    o1.type = 'sine'; o1.frequency.setValueAtTime(523.25, ctx.currentTime);
+    o1.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+    o2.type = 'sine'; o2.frequency.setValueAtTime(659.25, ctx.currentTime);
+    o2.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.15);
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    o1.connect(g); o2.connect(g); g.connect(ctx.destination);
+    o1.start(); o2.start(); o1.stop(ctx.currentTime + 0.5); o2.stop(ctx.currentTime + 0.5);
+    setTimeout(() => ctx.close(), 600);
+  } catch { /* silent */ }
 }
 
+/* ─── Confirm dialog ─── */
+function ConfirmDialog({ open, title, message, onConfirm, onCancel, language }: {
+  open: boolean; title: string; message: string;
+  onConfirm: () => void; onCancel: () => void; language: 'fa' | 'en';
+}) {
+  if (!open) return null;
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={onCancel}>
+      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <h3 className="text-white font-bold text-base mb-2">{title}</h3>
+        <p className="text-zinc-400 text-sm mb-5 leading-relaxed">{message}</p>
+        <div className="flex gap-3 justify-end">
+          <button onClick={onCancel}
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-zinc-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-all cursor-pointer">
+            {language === 'fa' ? 'انصراف' : 'Cancel'}
+          </button>
+          <button onClick={onConfirm}
+            className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-rose-600 hover:bg-rose-500 transition-all cursor-pointer">
+            {language === 'fa' ? 'تأیید' : 'Confirm'}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* ─── Main App ─── */
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'prices' | 'alerts' | 'vps'>('prices');
+  const [activeTab, setActiveTab] = useState<'prices' | 'alerts' | 'ai' | 'vps'>('prices');
   const [language, setLanguage] = useState<'fa' | 'en'>('fa');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertLogs, setAlertLogs] = useState<AlertLog[]>([]);
   const [selectedAssetForAlert, setSelectedAssetForAlert] = useState<string | null>(null);
-  
-  // Custom Push Notification state
   const [pushNotification, setPushNotification] = useState<{ id: string; text: string } | null>(null);
-
-  // Live mode: when true, prices come from the real Novax backend (and slider can override via test endpoint)
-  // Requires the mini-app to be opened as Telegram WebApp (initData available) for authenticated test overrides.
   const [useLiveData, setUseLiveData] = useState<boolean>(false);
-  const [tgInitData, setTgInitData] = useState<string>("");
+  const [tgInitData, setTgInitData] = useState<string>('');
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [showConfirmDelete, setShowConfirmDelete] = useState<{ open: boolean; alertId: string | null }>({ open: false, alertId: null });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const prevLogLen = useRef(0);
 
   const isFa = language === 'fa';
 
-  const backendBase = ((import.meta as any).env?.VITE_NOVAX_API_BASE || (window as any).NOVAX_API_BASE || 'http://localhost:8001').replace(/\/$/, '');
+  /* ── Toast helper ── */
+  const showToast = useCallback((text: string, type: Toast['type'] = 'info') => {
+    const id = `toast-${++_toastId}`;
+    setToasts(prev => [...prev, { id, text, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+  }, []);
 
+  /* ── Backend base ── */
+  const backendBase = ((import.meta as any).env?.VITE_NOVAX_API_BASE || (window as any).NOVAX_API_BASE || 'http://localhost:8001').replace(/\/$/, '');
   const liveHeaders = (): Record<string, string> => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (tgInitData) headers['X-Telegram-Init-Data'] = tgInitData;
-    return headers;
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (tgInitData) h['X-Telegram-Init-Data'] = tgInitData;
+    return h;
   };
 
+  /* ── Mappers ── */
   const mapLiveAlert = (item: any): Alert => {
     const symbol = item.asset_code || item.symbol || item.asset_id;
     const isCrypto = String(item.target_price_display_unit || '').toUpperCase().includes('USDT') || String(symbol || '').includes('USDT');
     const state = String(item.lifecycle_state || '');
     return {
-      id: item.id,
-      symbol,
+      id: item.id, symbol,
       assetName: item.asset_name || item.display_asset_name_at_creation || symbol,
       assetNameFa: item.asset_name || item.display_asset_name_at_creation || symbol,
       isCrypto,
@@ -94,27 +126,18 @@ export default function App() {
       : status === 'failed'
         ? `⚠️ ارسال هشدار ${assetName} (${symbol}) ناموفق بود.${item.error_message ? ` ${item.error_message}` : ''}`
         : `⏳ هشدار ${assetName} (${symbol}) در وضعیت ${status} ثبت شد.`;
-    return {
-      id: item.id,
-      alertId: item.alert_id,
-      symbol,
-      text,
-      timestamp: item.sent_at || item.triggered_at || new Date().toISOString(),
-    };
+    return { id: item.id, alertId: item.alert_id, symbol, text, timestamp: item.sent_at || item.triggered_at || new Date().toISOString() };
   };
 
-  // Fetch prices, alerts, and logs on boot + interval polling
+  /* ── Fetch all data ── */
   const fetchAllData = async () => {
     try {
       let priceData: any[] = [];
-
       if (useLiveData) {
-        const url = `${backendBase}/api/v1/prices/latest`;
-        const pRes = await fetch(url);
+        const pRes = await fetch(`${backendBase}/api/v1/prices/latest`);
         if (pRes.ok) {
           const envelope = await pRes.json();
-          const items = envelope.items || envelope; // support both {items:[]} and flat from sim
-          // Map real LatestPrices shape to the shape the mini components expect
+          const items = envelope.items || envelope;
           priceData = (items || []).map((it: any) => ({
             symbol: it.asset_code || it.symbol,
             name: it.asset_name || it.name || it.asset_code,
@@ -127,410 +150,290 @@ export default function App() {
         }
       } else {
         const pRes = await fetch('/api/prices');
-        if (pRes.ok) {
-          priceData = await pRes.json();
-        }
+        if (pRes.ok) priceData = await pRes.json();
       }
       if (priceData.length > 0) setAssets(priceData);
 
       if (useLiveData && tgInitData) {
         const aRes = await fetch(`${backendBase}/api/v1/alerts`, { headers: liveHeaders() });
-        if (aRes.ok) {
-          const aData = await aRes.json();
-          setAlerts((aData.items || []).map(mapLiveAlert));
-        }
-
+        if (aRes.ok) { const d = await aRes.json(); setAlerts((d.items || []).map(mapLiveAlert)); }
         const lRes = await fetch(`${backendBase}/api/v1/alerts/events`, { headers: liveHeaders() });
         if (lRes.ok) {
-          const lData = await lRes.json();
-          const mappedLogs = (lData.items || []).map(mapLiveEventToLog);
-          if (mappedLogs.length > alertLogs.length && alertLogs.length > 0) {
-            const newestLog = mappedLogs[0];
-            setPushNotification({ id: newestLog.id, text: newestLog.text });
+          const d = await lRes.json();
+          const mapped = (d.items || []).map(mapLiveEventToLog);
+          if (mapped.length > prevLogLen.current && prevLogLen.current > 0) {
             playChime();
+            setPushNotification({ id: mapped[0].id, text: mapped[0].text });
             setTimeout(() => setPushNotification(null), 6000);
           }
-          setAlertLogs(mappedLogs);
+          prevLogLen.current = mapped.length;
+          setAlertLogs(mapped);
         }
       } else {
         const aRes = await fetch('/api/alerts');
-        if (aRes.ok) {
-          const aData = await aRes.json();
-          setAlerts(aData);
-        }
-
+        if (aRes.ok) setAlerts(await aRes.json());
         const lRes = await fetch('/api/alerts/logs');
         if (lRes.ok) {
-          const lData = await lRes.json();
-          if (lData.length > alertLogs.length && alertLogs.length > 0) {
-            const newestLog = lData[0];
-            setPushNotification({ id: newestLog.id, text: newestLog.text });
+          const d = await lRes.json();
+          if (d.length > prevLogLen.current && prevLogLen.current > 0) {
             playChime();
-            setTimeout(() => {
-              setPushNotification(null);
-            }, 6000);
+            setPushNotification({ id: d[0].id, text: d[0].text });
+            setTimeout(() => setPushNotification(null), 6000);
           }
-          setAlertLogs(lData);
+          prevLogLen.current = d.length;
+          setAlertLogs(d);
         }
       }
+      setIsOnline(true);
     } catch (e) {
+      setIsOnline(false);
       console.warn('Network sync warning:', e);
     }
   };
 
   useEffect(() => {
-    // Capture Telegram initData when the mini-app is opened from inside the real @novax_price_bot (as WebApp)
-    // This allows authenticated calls to the real backend (prices are public, test/override-price requires valid session).
-    try {
-      const tg = (window as any).Telegram?.WebApp;
-      if (tg && tg.initData) {
-        setTgInitData(tg.initData);
-        // Optionally expand the webapp
-        tg.expand?.();
-      }
-    } catch (e) {
-      // not running inside Telegram — fine, live mode will be limited to public endpoints
-    }
-
+    try { const tg = (window as any).Telegram?.WebApp; if (tg?.initData) { setTgInitData(tg.initData); tg.expand?.(); } } catch { /* not in TG */ }
     fetchAllData();
-    const timer = setInterval(fetchAllData, 4000); // Poll server every 4 seconds for immediate responsive feel
+    const timer = setInterval(fetchAllData, 4000);
     return () => clearInterval(timer);
-  }, [alertLogs.length, useLiveData]); // re-poll strategy when toggling live
+  }, [useLiveData, tgInitData]);
 
-  // Toggle live data mode (connects price board + manual slider to the real backend test endpoint)
-  const toggleLiveData = () => {
-    const next = !useLiveData;
-    setUseLiveData(next);
-    // Immediate refetch with new mode
-    setTimeout(() => fetchAllData(), 10);
-  };
+  useEffect(() => { setMobileMenuOpen(false); }, [activeTab]);
 
-  // Handle Create Alert
-  const handleAddAlert = async (alertData: {
-    symbol: string;
-    triggerType: 'UPPER' | 'LOWER';
-    thresholdPrice: number;
-    label: string;
-    telegramUsername: string;
-  }) => {
+  const toggleLiveData = () => { setUseLiveData(p => !p); setTimeout(() => fetchAllData(), 10); };
+
+  /* ── Handlers ── */
+  const handleAddAlert = async (alertData: { symbol: string; triggerType: 'UPPER' | 'LOWER'; thresholdPrice: number; label: string; telegramUsername: string }) => {
     try {
       const res = useLiveData && tgInitData
         ? await fetch(`${backendBase}/api/v1/alerts`, {
-            method: 'POST',
-            headers: liveHeaders(),
-            body: JSON.stringify({
-              asset_code: alertData.symbol,
-              condition_type: alertData.triggerType === 'UPPER' ? 'above' : 'below',
-              target_price: alertData.thresholdPrice,
-              cooldown_minutes: 60,
-            }),
+            method: 'POST', headers: liveHeaders(),
+            body: JSON.stringify({ asset_code: alertData.symbol, condition_type: alertData.triggerType === 'UPPER' ? 'above' : 'below', target_price: alertData.thresholdPrice, cooldown_minutes: 60 }),
           })
-        : await fetch('/api/alerts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(alertData)
-          });
+        : await fetch('/api/alerts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(alertData) });
       if (res.ok) {
-        if (useLiveData && tgInitData) {
-          const created = await res.json();
-          await fetch(`${backendBase}/api/v1/alerts/${created.id}/confirm`, {
-            method: 'POST',
-            headers: liveHeaders(),
-          });
-        }
+        if (useLiveData && tgInitData) { const created = await res.json(); await fetch(`${backendBase}/api/v1/alerts/${created.id}/confirm`, { method: 'POST', headers: liveHeaders() }); }
         fetchAllData();
         setActiveTab('alerts');
+        showToast(isFa ? 'هشدار با موفقیت ثبت شد ✓' : 'Alert created successfully ✓', 'success');
+      } else {
+        showToast(isFa ? 'خطا در ثبت هشدار' : 'Failed to create alert', 'error');
       }
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { showToast(isFa ? 'خطای شبکه' : 'Network error', 'error'); }
   };
 
-  // Handle Delete Alert
-  const handleDeleteAlert = async (id: string) => {
+  const handleDeleteAlert = (id: string) => { setShowConfirmDelete({ open: true, alertId: id }); };
+  const confirmDelete = async () => {
+    const id = showConfirmDelete.alertId;
+    if (!id) return;
+    setShowConfirmDelete({ open: false, alertId: null });
     try {
       const res = useLiveData && tgInitData
         ? await fetch(`${backendBase}/api/v1/alerts/${id}`, { method: 'DELETE', headers: liveHeaders() })
         : await fetch(`/api/alerts/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        fetchAllData();
-      }
-    } catch (e) {
-      console.error(e);
-    }
+      if (res.ok) { fetchAllData(); showToast(isFa ? 'هشدار حذف شد' : 'Alert deleted', 'info'); }
+    } catch { /* silent */ }
   };
 
-  // Handle Toggle Alert active state
   const handleToggleAlert = async (id: string) => {
     try {
       const current = alerts.find(a => a.id === id);
       if (!current) return;
       const res = useLiveData && tgInitData
-        ? await fetch(`${backendBase}/api/v1/alerts/${id}`, {
-            method: 'PATCH',
-            headers: liveHeaders(),
-            body: JSON.stringify({ is_active: !current.isActive }),
-          })
+        ? await fetch(`${backendBase}/api/v1/alerts/${id}`, { method: 'PATCH', headers: liveHeaders(), body: JSON.stringify({ is_active: !current.isActive }) })
         : await fetch(`/api/alerts/${id}/toggle`, { method: 'PUT' });
-      if (res.ok) {
-        fetchAllData();
-      }
-    } catch (e) {
-      console.error(e);
-    }
+      if (res.ok) { fetchAllData(); showToast(isFa ? 'وضعیت هشدار تغییر کرد' : 'Alert status updated', 'info'); }
+    } catch { /* silent */ }
   };
 
-  // Handle manual price triggers from price slider
   const handleManualPriceChange = async (symbol: string, val: number) => {
     try {
       if (useLiveData) {
-        const url = `${backendBase}/api/v1/prices/test/override-price`;
-        await fetch(url, {
-          method: 'POST',
-          headers: liveHeaders(),
-          body: JSON.stringify({ symbol, price: val })
-        });
+        await fetch(`${backendBase}/api/v1/prices/test/override-price`, { method: 'POST', headers: liveHeaders(), body: JSON.stringify({ symbol, price: val }) });
       } else {
-        await fetch('/api/prices/trigger-manual', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ symbol, targetPrice: val })
-        });
+        await fetch('/api/prices/trigger-manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol, targetPrice: val }) });
       }
-      fetchAllData();
-    } catch (e) {
-      console.error(e);
-    }
+    } catch { /* silent */ }
   };
 
-  // Trigger alert selection from price board CTA
-  const handleSelectAssetForAlert = (symbol: string) => {
-    setSelectedAssetForAlert(symbol);
-    setActiveTab('alerts');
-  };
-
-  // Simulated push trigger
+  const handleSelectAssetForAlert = (symbol: string) => { setSelectedAssetForAlert(symbol); setActiveTab('alerts'); };
   const handleSimulateFakePush = () => {
-    setPushNotification({
-      id: `sim-${Math.random()}`,
-      text: isFa 
-        ? '🔔 هشدار قیمت تستی: دارایی تتر به تومان (USDT_IRT) به مرز حمایتی ۵۹,۵۰۰ تومان رسید! (تراکنش موفق تست وب‌هوک)' 
-        : '🔔 Mock Bot Alert: Tether / Toman (USDT_IRT) has violated lower boundary 59,500 Tomans! (Webhook trigger test successful)'
-    });
+    setPushNotification({ id: `sim-${Math.random()}`, text: isFa ? '🔔 هشدار قیمت تستی: دارایی تتر به تومان (USDT_IRT) به مرز حمایتی ۵۹,۵۰۰ تومان رسید!' : '🔔 Mock Bot Alert: Tether / Toman (USDT_IRT) has violated lower boundary 59,500 Tomans!' });
     playChime();
     setTimeout(() => setPushNotification(null), 6000);
   };
 
+  /* ── Tab definitions ── */
+  const tabs = [
+    { id: 'prices' as const, icon: Coins, labelFa: 'داشبورد ارزها', labelEn: 'Price Board' },
+    { id: 'alerts' as const, icon: Bell, labelFa: 'دیده‌بان هشدارها', labelEn: 'Alert Center' },
+    { id: 'ai' as const, icon: Sparkles, labelFa: 'دستیار هوشمند', labelEn: 'AI Analyst' },
+    { id: 'vps' as const, icon: HelpCircle, labelFa: 'راهنمای استقرار', labelEn: 'VPS Docs' },
+  ];
+
   return (
-    <div id="main-frame" className="min-h-screen bg-[#060814] text-white flex flex-col font-sans">
-      {/* Dynamic Slide-Down Smartphone Notification (Mimicking Telegram) */}
+    <div className="min-h-screen bg-[#060814] text-white flex flex-col font-sans">
+
+      {/* ── Push notification popup ── */}
       <AnimatePresence>
         {pushNotification && (
-          <motion.div
-            initial={{ opacity: 0, y: -80, scale: 0.95 }}
-            animate={{ opacity: 1, y: 16, scale: 1 }}
-            exit={{ opacity: 0, y: -40, scale: 0.95 }}
+          <motion.div initial={{ opacity: 0, y: -80, scale: 0.95 }} animate={{ opacity: 1, y: 16, scale: 1 }} exit={{ opacity: 0, y: -40, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-            className="fixed top-12 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-[420px] px-4 cursor-pointer"
-            onClick={() => setPushNotification(null)}
-          >
-            <div className="bg-[#181d33]/95 backdrop-blur-xl border border-indigo-505/30 rounded-2xl p-4 shadow-2xl flex items-start gap-3.5 ring-2 ring-indigo-550/20">
+            className="fixed top-12 left-1/2 -translate-x-1/2 z-50 w-full max-w-[420px] px-4 cursor-pointer"
+            onClick={() => setPushNotification(null)}>
+            <div className="bg-[#181d33]/95 backdrop-blur-xl border border-indigo-500/30 rounded-2xl p-4 shadow-2xl flex items-start gap-3.5 ring-2 ring-indigo-500/20">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-400 to-indigo-600 flex items-center justify-center shrink-0 shadow-md">
-                <Bot size={18} className="text-white" />
+                <Sparkles size={18} className="text-white" />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-sky-450 tracking-wide">@novax_price_bot</span>
+                  <span className="text-xs font-bold text-sky-400 tracking-wide">@novax_price_bot</span>
                   <span className="text-[9px] font-mono text-zinc-500">{isFa ? 'الان' : 'now'}</span>
                 </div>
-                <p className="text-xs text-white leading-relaxed mt-1 font-medium font-sans">
-                  {pushNotification.text}
-                </p>
-                <div className="text-[10px] text-zinc-400 mt-1 font-mono">
-                  {isFa ? '📳 کشیدن برای بستن' : '📳 Swipe/Tap to dismiss'}
-                </div>
+                <p className="text-xs text-white leading-relaxed mt-1 font-medium truncate">{pushNotification.text}</p>
               </div>
-              <button className="text-zinc-500 hover:text-white shrink-0 pointer-events-none">
-                <X size={14} />
-              </button>
+              <button className="text-zinc-500 hover:text-white shrink-0 pointer-events-none"><X size={14} /></button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Main App Container */}
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 flex flex-col gap-6">
-        {/* UPPER HUD: Connection indicators and Language toggle */}
-        <div id="upper-hud" className="flex flex-col sm:flex-row justify-between items-center bg-slate-950/45 border border-slate-900 rounded-2xl px-6 py-4 gap-4">
-          {/* Telegram Connection Simulation Indicator */}
+      {/* ── Toast notifications ── */}
+      <div className="fixed bottom-4 right-4 z-[90] flex flex-col gap-2 pointer-events-none">
+        <AnimatePresence>
+          {toasts.map(t => (
+            <motion.div key={t.id} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
+              className={`pointer-events-auto px-4 py-2.5 rounded-xl text-xs font-semibold shadow-lg border backdrop-blur-md cursor-pointer
+                ${t.type === 'success' ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-300' : t.type === 'error' ? 'bg-rose-950/90 border-rose-500/30 text-rose-300' : 'bg-slate-800/90 border-slate-600/30 text-zinc-300'}`}
+              onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))}>
+              {t.text}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* ── Confirm delete dialog ── */}
+      <ConfirmDialog open={showConfirmDelete.open}
+        title={isFa ? 'حذف هشدار' : 'Delete Alert'}
+        message={isFa ? 'آیا از حذف این هشدار اطمینان دارید؟' : 'Are you sure you want to delete this alert?'}
+        onConfirm={confirmDelete} onCancel={() => setShowConfirmDelete({ open: false, alertId: null })}
+        language={language} />
+
+      {/* ── Main container ── */}
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 flex flex-col gap-5">
+
+        {/* ── Upper HUD ── */}
+        <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-950/45 border border-slate-900 rounded-2xl px-5 py-3.5 gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500/20 to-sky-400/20 border border-sky-400/30 flex items-center justify-center text-sky-400">
-              <Smartphone size={16} className="animate-pulse" />
+              <Sparkles size={16} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-bold tracking-wider text-sky-450 uppercase">TELEGRAM WEB_APP</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-mono font-bold tracking-wider text-sky-400 uppercase">NOVAX STUDIO</span>
+                {isOnline
+                  ? <span className="flex items-center gap-1 text-[10px] text-emerald-400"><Wifi size={10} /> {isFa ? 'متصل' : 'Online'}</span>
+                  : <span className="flex items-center gap-1 text-[10px] text-rose-400"><WifiOff size={10} /> {isFa ? 'قطع' : 'Offline'}</span>}
               </div>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs text-zinc-400 font-semibold">Active User:</span>
-                <span className="text-xs text-white font-bold flex items-center gap-1 font-mono">
-                  @novax_user
-                  <span className="text-[10px] bg-gradient-to-r from-teal-400 to-indigo-400 text-slate-950 px-1.5 py-0 rounded font-black uppercase">PREMIUM</span>
-                </span>
+                <span className="text-xs text-zinc-400 font-semibold">{isFa ? 'کاربر:' : 'User:'}</span>
+                <span className="text-xs text-white font-bold font-mono">@novax_user</span>
               </div>
             </div>
           </div>
 
-          {/* Central Logo & branding */}
-          <div className="hidden md:flex items-center gap-2 select-none">
-            <span className="text-xl font-black bg-gradient-to-r from-teal-400 via-indigo-400 to-indigo-550 bg-clip-text text-transparent uppercase tracking-wider font-sans">
-              NOVAX ALERT STUDIO
-            </span>
-            <span className="text-[10px] border border-indigo-500/30 text-indigo-400 font-mono px-2 py-0.5 rounded-full font-bold">
-              v1.2.0
-            </span>
+          <div className="hidden md:block text-lg font-black bg-gradient-to-r from-teal-400 via-indigo-400 to-indigo-500 bg-clip-text text-transparent uppercase tracking-wider">
+            NOVAX ALERT STUDIO
           </div>
 
-          {/* Language Switcher + Live mode toggle */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setLanguage(language === 'fa' ? 'en' : 'fa')}
-              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs px-3.5 py-2 rounded-xl transition-all font-semibold text-zinc-300 cursor-pointer"
-            >
-              <Globe size={13} />
-              {isFa ? 'English 🇺🇸' : 'فارسی 🇮🇷'}
+          <div className="flex items-center gap-2.5 flex-wrap justify-end">
+            <button onClick={() => setLanguage(language === 'fa' ? 'en' : 'fa')}
+              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs px-3 py-2 rounded-xl transition-all font-semibold text-zinc-300 cursor-pointer">
+              <Globe size={13} /> {isFa ? 'EN' : 'FA'}
             </button>
-
-            <button
-              onClick={toggleLiveData}
-              className={`flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-xl transition-all font-semibold cursor-pointer border ${useLiveData ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-zinc-300'}`}
-              title={useLiveData ? 'Using real Novax backend prices + test override (affects real alerts)' : 'Using fast local simulation (great for instant demo)'}
-            >
-              <Wifi size={13} />
-              {useLiveData ? (isFa ? 'داده واقعی' : 'LIVE') : (isFa ? 'شبیه‌سازی' : 'SIM')}
+            <button onClick={toggleLiveData}
+              className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl transition-all font-semibold cursor-pointer border ${useLiveData ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-zinc-300'}`}>
+              <Wifi size={13} /> {useLiveData ? (isFa ? 'واقعی' : 'LIVE') : (isFa ? 'شبیه‌سازی' : 'SIM')}
             </button>
-
-            <div className="flex items-center gap-1 bg-slate-900 border border-slate-850 p-1 rounded-xl text-[11px] font-semibold text-zinc-450">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span className="px-1">{isFa ? 'اتصال برقرار است' : 'Vite Server Connected'}</span>
-            </div>
           </div>
         </div>
 
-        {/* TAB NAVIGATION CHIPS */}
-        <div id="navigation-bar" className="flex overflow-x-auto gap-2 bg-slate-950/60 border border-slate-900 p-1.5 rounded-2xl">
-          <button
-            onClick={() => setActiveTab('prices')}
-            className={`flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold transition-all text-xs tracking-wide shrink-0 cursor-pointer ${
-              activeTab === 'prices'
-                ? 'bg-gradient-to-r from-teal-500/15 via-indigo-500/15 to-indigo-600/10 border border-teal-500/30 text-teal-300 shadow-xl'
-                : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <Coins size={14} />
-            {isFa ? 'داشبورد ارزها و طلا' : 'Price Board'}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('alerts')}
-            className={`flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold transition-all text-xs tracking-wide shrink-0 cursor-pointer ${
-              activeTab === 'alerts'
-                ? 'bg-gradient-to-r from-teal-500/15 via-indigo-500/15 to-indigo-600/10 border border-teal-500/30 text-teal-300 shadow-xl'
-                : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <Bell size={14} />
-            {isFa ? 'دیده بان و ثبت هشدارها' : 'Alert Center'}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('vps')}
-            className={`flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold transition-all text-xs tracking-wide shrink-0 cursor-pointer ${
-              activeTab === 'vps'
-                ? 'bg-gradient-to-r from-teal-500/15 via-indigo-500/15 to-indigo-600/10 border border-teal-500/30 text-teal-300 shadow-xl'
-                : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <HelpCircle size={14} />
-            {isFa ? 'راهنمای استقرار بات و هاست' : 'VPS Hosting Docs'}
-          </button>
+        {/* ── Tab navigation — desktop ── */}
+        <div className="hidden md:flex gap-2 bg-slate-950/60 border border-slate-900 p-1.5 rounded-2xl">
+          {tabs.map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold transition-all text-xs tracking-wide shrink-0 cursor-pointer
+                ${activeTab === tab.id
+                  ? 'bg-gradient-to-r from-teal-500/15 via-indigo-500/15 to-indigo-600/10 border border-teal-500/30 text-teal-300 shadow-xl'
+                  : 'text-zinc-500 hover:text-zinc-300'}`}>
+              <tab.icon size={14} /> {isFa ? tab.labelFa : tab.labelEn}
+            </button>
+          ))}
         </div>
 
-        {/* SCREEN VIEWS TRANSITION AREA */}
-        <div id="screen-viewport" className="flex-1">
+        {/* ── Tab navigation — mobile dropdown ── */}
+        <div className="md:hidden relative">
+          <button onClick={() => setMobileMenuOpen(p => !p)}
+            className="w-full flex items-center justify-between bg-slate-950/60 border border-slate-900 rounded-2xl px-4 py-3 cursor-pointer">
+            <span className="flex items-center gap-2 text-sm font-bold text-teal-300">
+              {(() => { const t = tabs.find(x => x.id === activeTab)!; return <t.icon size={14} />; })()}
+              {isFa ? tabs.find(x => x.id === activeTab)!.labelFa : tabs.find(x => x.id === activeTab)!.labelEn}
+            </span>
+            <ChevronDown size={16} className={`text-zinc-400 transition-transform ${mobileMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+          <AnimatePresence>
+            {mobileMenuOpen && (
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-40 overflow-hidden">
+                {tabs.map(tab => (
+                  <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all cursor-pointer
+                      ${activeTab === tab.id ? 'bg-teal-500/10 text-teal-300' : 'text-zinc-400 hover:bg-slate-800 hover:text-white'}`}>
+                    <tab.icon size={16} /> {isFa ? tab.labelFa : tab.labelEn}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* ── Screen viewport ── */}
+        <div className="flex-1 min-h-0">
           <AnimatePresence mode="wait">
             {activeTab === 'prices' && (
-              <motion.div
-                key="prices"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.2 }}
-              >
-                <PriceBoard
-                  assets={assets}
-                  language={language}
-                  onSelectAssetForAlert={handleSelectAssetForAlert}
-                  onManualTriggerPrice={handleManualPriceChange}
-                />
+              <motion.div key="prices" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}>
+                <PriceBoard assets={assets} language={language} onSelectAssetForAlert={handleSelectAssetForAlert} onManualTriggerPrice={handleManualPriceChange} />
               </motion.div>
             )}
-
             {activeTab === 'alerts' && (
-              <motion.div
-                key="alerts"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.2 }}
-              >
-                <AlertManager
-                  alerts={alerts}
-                  alertLogs={alertLogs}
-                  assets={assets}
-                  language={language}
-                  onAddAlert={handleAddAlert}
-                  onDeleteAlert={handleDeleteAlert}
-                  onToggleAlert={handleToggleAlert}
-                  selectedAssetForAlert={selectedAssetForAlert}
-                  clearSelectedAsset={() => setSelectedAssetForAlert(null)}
-                />
+              <motion.div key="alerts" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}>
+                <AlertManager alerts={alerts} alertLogs={alertLogs} assets={assets} language={language}
+                  onAddAlert={handleAddAlert} onDeleteAlert={handleDeleteAlert} onToggleAlert={handleToggleAlert}
+                  selectedAssetForAlert={selectedAssetForAlert} clearSelectedAsset={() => setSelectedAssetForAlert(null)} />
               </motion.div>
             )}
-
+            {activeTab === 'ai' && (
+              <motion.div key="ai" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}>
+                <AIChat assets={assets} language={language} />
+              </motion.div>
+            )}
             {activeTab === 'vps' && (
-              <motion.div
-                key="vps"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.2 }}
-              >
-                <TelegramSimulator
-                  language={language}
-                  onSimulateFakeNotification={handleSimulateFakePush}
-                />
+              <motion.div key="vps" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}>
+                <TelegramSimulator language={language} onSimulateFakeNotification={handleSimulateFakePush} />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
       </div>
 
-      {/* FOOTER */}
-      <footer className="w-full bg-[#03050c] border-t border-slate-950 py-6 text-zinc-500 text-xs text-center border-slate-900 mt-auto select-none">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div>
-            &copy; 2026 NovaX Price Alert. Crafted to perfection.
-          </div>
+      {/* ── Footer ── */}
+      <footer className="w-full bg-[#03050c] border-t border-slate-950 py-5 text-zinc-500 text-xs text-center mt-auto select-none">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+          <div>&copy; 2026 NovaX Price Alert. Crafted to perfection.</div>
           <div className="flex gap-4 font-mono text-[11px]">
-            <a href="https://github.com/alirezasafaei-dev/novax-price-alert" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">
-              GitHub repository
-            </a>
+            <a href="https://github.com/alirezasafaei-dev/novax-price-alert" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">GitHub</a>
             <span>&bull;</span>
-            <a href="https://t.me/novax_price_bot" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">
-              @novax_price_bot
-            </a>
+            <a href="https://t.me/novax_price_bot" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">@novax_price_bot</a>
           </div>
         </div>
       </footer>
