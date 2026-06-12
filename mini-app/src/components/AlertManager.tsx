@@ -15,9 +15,9 @@ interface AlertManagerProps {
     thresholdPrice: number;
     label: string;
     telegramUsername: string;
-  }) => void;
-  onDeleteAlert: (id: string) => void;
-  onToggleAlert: (id: string) => void;
+  }) => Promise<void>;
+  onDeleteAlert: (id: string) => Promise<void>;
+  onToggleAlert: (id: string) => Promise<void>;
   selectedAssetForAlert: string | null;
   clearSelectedAsset: () => void;
 }
@@ -50,13 +50,48 @@ export default function AlertManager({
   const [label, setLabel] = useState<string>('');
   const [telegramUsername, setTelegramUsername] = useState<string>('novax_user');
   const [errorText, setErrorText] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
 
   const isFa = language === 'fa';
   const activeAsset = assets.find(a => a.symbol === selectedSymbol) || assets[0];
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleDelete = async (id: string) => {
+    setDeletingIds(prev => new Set(prev).add(id));
+    try {
+      await onDeleteAlert(id);
+    } catch (error) {
+      console.error('Failed to delete alert:', error);
+    } finally {
+      setDeletingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+    }
+  };
+
+  const handleToggle = async (id: string) => {
+    setTogglingIds(prev => new Set(prev).add(id));
+    try {
+      await onToggleAlert(id);
+    } catch (error) {
+      console.error('Failed to toggle alert:', error);
+    } finally {
+      setTogglingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrorText('');
+    setSuccessMessage('');
 
     const rawNum = persianToEntDigits(thresholdPrice).trim();
     if (!rawNum || isNaN(Number(rawNum)) || Number(rawNum) <= 0) {
@@ -64,18 +99,31 @@ export default function AlertManager({
       return;
     }
 
-    onAddAlert({
-      symbol: selectedSymbol,
-      triggerType,
-      thresholdPrice: Number(rawNum),
-      label: label.trim() || (isFa ? `هدف ${activeAsset.nameFa}` : `Target ${activeAsset.name}`),
-      telegramUsername: telegramUsername.trim() || 'novax_user'
-    });
+    setIsSubmitting(true);
+    try {
+      await onAddAlert({
+        symbol: selectedSymbol,
+        triggerType,
+        thresholdPrice: Number(rawNum),
+        label: label.trim() || (isFa ? `هدف ${activeAsset.nameFa}` : `Target ${activeAsset.name}`),
+        telegramUsername: telegramUsername.trim() || 'novax_user'
+      });
 
-    // Reset fields
-    setThresholdPrice('');
-    setLabel('');
-    clearSelectedAsset();
+      // Show success message
+      setSuccessMessage(isFa ? '✓ هشدار با موفقیت ثبت شد' : '✓ Alert created successfully');
+
+      // Reset fields
+      setThresholdPrice('');
+      setLabel('');
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      setErrorText(isFa ? 'خطا در ثبت هشدار. لطفاً دوباره تلاش کنید.' : 'Error creating alert. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+      clearSelectedAsset();
+    }
   };
 
   return (
@@ -199,12 +247,31 @@ export default function AlertManager({
             </div>
           )}
 
+          {successMessage && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 font-semibold">
+              <span>✓</span>
+              {successMessage}
+            </div>
+          )}
+
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-400 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all transform hover:scale-[1.01] cursor-pointer flex items-center justify-center gap-1.5 text-sm"
+            disabled={isSubmitting}
+            className={`w-full bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-400 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all transform hover:scale-[1.01] cursor-pointer flex items-center justify-center gap-1.5 text-sm ${
+              isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
+            }`}
           >
-            <Plus size={16} />
-            {isFa ? 'ثبت و همگام‌سازی موقت' : 'Save & Register Alert'}
+            {isSubmitting ? (
+              <>
+                <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+                {isFa ? 'در حال ثبت...' : 'Creating...'}
+              </>
+            ) : (
+              <>
+                <Plus size={16} />
+                {isFa ? 'ثبت و همگام‌سازی موقت' : 'Save & Register Alert'}
+              </>
+            )}
           </button>
         </form>
       </div>
@@ -271,11 +338,18 @@ export default function AlertManager({
                       </span>
                     ) : (
                       <button
-                        onClick={() => onToggleAlert(alert.id)}
-                        className="text-zinc-400 hover:text-white transition-all cursor-pointer"
+                        onClick={() => handleToggle(alert.id)}
+                        disabled={togglingIds.has(alert.id)}
+                        className={`text-zinc-400 hover:text-white transition-all cursor-pointer ${
+                          togglingIds.has(alert.id) ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
                         title={alert.isActive ? 'Pause' : 'Activate'}
                       >
-                        {alert.isActive ? (
+                        {togglingIds.has(alert.id) ? (
+                          <div className="flex items-center gap-1 text-xs">
+                            <div className="animate-spin w-4 h-4 border-2 border-zinc-600 border-t-zinc-400 rounded-full" />
+                          </div>
+                        ) : alert.isActive ? (
                           <div className="text-teal-400 flex items-center gap-1 text-xs">
                             <ToggleRight size={24} />
                             <span className="hidden sm:inline text-[10px] uppercase font-mono">{isFa ? 'فعال' : 'ON'}</span>
@@ -290,11 +364,18 @@ export default function AlertManager({
                     )}
 
                     <button
-                      onClick={() => onDeleteAlert(alert.id)}
-                      className="p-1 px-2.5 rounded-lg text-rose-500/70 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer text-xs flex items-center gap-1"
+                      onClick={() => handleDelete(alert.id)}
+                      disabled={deletingIds.has(alert.id)}
+                      className={`p-1 px-2.5 rounded-lg text-rose-500/70 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer text-xs flex items-center gap-1 ${
+                        deletingIds.has(alert.id) ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                       title="Delete alert"
                     >
-                      <Trash2 size={14} />
+                      {deletingIds.has(alert.id) ? (
+                        <div className="animate-spin w-3 h-3 border-2 border-rose-600 border-t-rose-400 rounded-full" />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
                     </button>
                   </div>
                 </div>

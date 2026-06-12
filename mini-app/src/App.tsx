@@ -218,22 +218,37 @@ export default function App() {
         setActiveTab('alerts');
         showToast(isFa ? 'هشدار با موفقیت ثبت شد ✓' : 'Alert created successfully ✓', 'success');
       } else {
-        showToast(isFa ? 'خطا در ثبت هشدار' : 'Failed to create alert', 'error');
+        throw new Error('Create failed');
       }
-    } catch (e) { showToast(isFa ? 'خطای شبکه' : 'Network error', 'error'); }
+    } catch (e) {
+      showToast(isFa ? 'خطا در ثبت هشدار' : 'Failed to create alert', 'error');
+      throw e; // Re-throw to let AlertManager handle the error state
+    }
   };
 
   const handleDeleteAlert = (id: string) => { setShowConfirmDelete({ open: true, alertId: id }); };
-  const confirmDelete = async () => {
-    const id = showConfirmDelete.alertId;
-    if (!id) return;
-    setShowConfirmDelete({ open: false, alertId: null });
+
+  const handleDeleteAlertDirect = async (id: string) => {
     try {
       const res = useLiveData && tgInitData
         ? await fetch(`${backendBase}/api/v1/alerts/${id}`, { method: 'DELETE', headers: liveHeaders() })
         : await fetch(`/api/alerts/${id}`, { method: 'DELETE' });
-      if (res.ok) { fetchAllData(); showToast(isFa ? 'هشدار حذف شد' : 'Alert deleted', 'info'); }
-    } catch { /* silent */ }
+      if (res.ok) {
+        fetchAllData();
+        showToast(isFa ? 'هشدار حذف شد' : 'Alert deleted', 'info');
+      } else {
+        throw new Error('Delete failed');
+      }
+    } catch (error) {
+      showToast(isFa ? 'خطا در حذف هشدار' : 'Failed to delete alert', 'error');
+      throw error; // Re-throw to let AlertManager handle the error state
+    }
+  };
+  const confirmDelete = async () => {
+    const id = showConfirmDelete.alertId;
+    if (!id) return;
+    setShowConfirmDelete({ open: false, alertId: null });
+    await handleDeleteAlertDirect(id);
   };
 
   const handleToggleAlert = async (id: string) => {
@@ -243,8 +258,16 @@ export default function App() {
       const res = useLiveData && tgInitData
         ? await fetch(`${backendBase}/api/v1/alerts/${id}`, { method: 'PATCH', headers: liveHeaders(), body: JSON.stringify({ is_active: !current.isActive }) })
         : await fetch(`/api/alerts/${id}/toggle`, { method: 'PUT' });
-      if (res.ok) { fetchAllData(); showToast(isFa ? 'وضعیت هشدار تغییر کرد' : 'Alert status updated', 'info'); }
-    } catch { /* silent */ }
+      if (res.ok) {
+        fetchAllData();
+        showToast(isFa ? 'وضعیت هشدار تغییر کرد' : 'Alert status updated', 'info');
+      } else {
+        throw new Error('Toggle failed');
+      }
+    } catch (error) {
+      showToast(isFa ? 'خطا در تغییر وضعیت هشدار' : 'Failed to toggle alert', 'error');
+      throw error; // Re-throw to let AlertManager handle the error state
+    }
   };
 
   const handleManualPriceChange = async (symbol: string, val: number) => {
@@ -409,7 +432,7 @@ export default function App() {
             {activeTab === 'alerts' && (
               <motion.div key="alerts" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}>
                 <AlertManager alerts={alerts} alertLogs={alertLogs} assets={assets} language={language}
-                  onAddAlert={handleAddAlert} onDeleteAlert={handleDeleteAlert} onToggleAlert={handleToggleAlert}
+                  onAddAlert={handleAddAlert} onDeleteAlert={handleDeleteAlertDirect} onToggleAlert={handleToggleAlert}
                   selectedAssetForAlert={selectedAssetForAlert} clearSelectedAsset={() => setSelectedAssetForAlert(null)} />
               </motion.div>
             )}
