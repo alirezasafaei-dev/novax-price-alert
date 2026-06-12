@@ -85,6 +85,20 @@ button, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Focus styles for accessibility */
+button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* Better touch targets for mobile */
+@media (max-width: 768px) {
+  button, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 /* Animation for price flash */
 @keyframes flash-green {
   0% { background-color: rgba(16, 185, 129, 0.15); }
