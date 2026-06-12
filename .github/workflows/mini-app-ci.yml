@@ -118,10 +118,12 @@ jobs:
           BOT_TOKEN: ${{ secrets.OPS_BOT_TOKEN }}
           OPS_CHAT_ID: ${{ secrets.OPS_CHAT_ID }}
         run: |
-          if [[ -z "$BOT_TOKEN" || -z "$OPS_CHAT_ID" ]]; then
-            echo "Skipping notification - missing secrets"
-            exit 0
-          fi
-          TEXT="✅ Mini App deployed successfully to VPS. Commit: ${{ github.sha }}"
-          PAYLOAD=$(python3 -c "import json, sys; print(json.dumps({'chat_id': '$OPS_CHAT_ID', 'text': sys.argv[1], 'disable_web_page_preview': True}))" "$TEXT")
-          curl -fsS -m 20 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" -H "Content-Type: application/json" -d "$PAYLOAD" || true
+          # Disabled temporarily to prevent spam
+          echo "Deployment notifications disabled temporarily"
+          # if [[ -z "$BOT_TOKEN" || -z "$OPS_CHAT_ID" ]]; then
+          #   echo "Skipping notification - missing secrets"
+          #   exit 0
+          # fi
+          # TEXT="✅ Mini App deployed successfully to VPS. Commit: ${{ github.sha }}"
+          # PAYLOAD=$(python3 -c "import json, sys; print(json.dumps({'chat_id': '$OPS_CHAT_ID', 'text': sys.argv[1], 'disable_web_page_preview': True}))" "$TEXT")
+          # curl -fsS -m 20 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" -H "Content-Type: application/json" -d "$PAYLOAD" || true
