@@ -23,6 +23,7 @@ def to_persian_digits(value: int | float | str) -> str:
         result = result.replace(western, persian)
     return result
 
+
 # ── Dynamic decimal precision per unit ────────────────────────────
 # High-value units (IRT, TOMAN, IRR) → 0 decimals (prices shown as whole numbers)
 # Mid-value units (USDT, DAI, major fiats) → up to 4 decimals

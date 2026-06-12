@@ -174,24 +174,26 @@ async def test_trigger_alert_when_price_above_target(
     db_session: AsyncSession, seeded_user: User, seeded_asset: Asset
 ) -> None:
     observed_at = datetime.now(timezone.utc)
-    db_session.add_all([
-        LatestPrice(
-            asset_id=seeded_asset.id,
-            provider_id="prov-1",
-            price=Decimal("95000"),
-            observed_at=observed_at,
-        ),
-        AlertRule(
-            user_id=seeded_user.id,
-            asset_id=seeded_asset.id,
-            canonical_asset_id=seeded_asset.canonical_id,
-            condition_type=AlertCondition.ABOVE,
-            target_price=Decimal("91000"),
-            cooldown_minutes=0,
-            lifecycle_state=AlertLifecycleState.ACTIVE,
-            is_active=True,
-        ),
-    ])
+    db_session.add_all(
+        [
+            LatestPrice(
+                asset_id=seeded_asset.id,
+                provider_id="prov-1",
+                price=Decimal("95000"),
+                observed_at=observed_at,
+            ),
+            AlertRule(
+                user_id=seeded_user.id,
+                asset_id=seeded_asset.id,
+                canonical_asset_id=seeded_asset.canonical_id,
+                condition_type=AlertCondition.ABOVE,
+                target_price=Decimal("91000"),
+                cooldown_minutes=0,
+                lifecycle_state=AlertLifecycleState.ACTIVE,
+                is_active=True,
+            ),
+        ]
+    )
     await db_session.commit()
 
     events = await AlertEvaluatorService(db_session).evaluate_asset(seeded_asset.id)
@@ -204,24 +206,26 @@ async def test_trigger_alert_when_price_below_target(
     db_session: AsyncSession, seeded_user: User, seeded_asset: Asset
 ) -> None:
     observed_at = datetime.now(timezone.utc)
-    db_session.add_all([
-        LatestPrice(
-            asset_id=seeded_asset.id,
-            provider_id="prov-1",
-            price=Decimal("80000"),
-            observed_at=observed_at,
-        ),
-        AlertRule(
-            user_id=seeded_user.id,
-            asset_id=seeded_asset.id,
-            canonical_asset_id=seeded_asset.canonical_id,
-            condition_type=AlertCondition.BELOW,
-            target_price=Decimal("85000"),
-            cooldown_minutes=0,
-            lifecycle_state=AlertLifecycleState.ACTIVE,
-            is_active=True,
-        ),
-    ])
+    db_session.add_all(
+        [
+            LatestPrice(
+                asset_id=seeded_asset.id,
+                provider_id="prov-1",
+                price=Decimal("80000"),
+                observed_at=observed_at,
+            ),
+            AlertRule(
+                user_id=seeded_user.id,
+                asset_id=seeded_asset.id,
+                canonical_asset_id=seeded_asset.canonical_id,
+                condition_type=AlertCondition.BELOW,
+                target_price=Decimal("85000"),
+                cooldown_minutes=0,
+                lifecycle_state=AlertLifecycleState.ACTIVE,
+                is_active=True,
+            ),
+        ]
+    )
     await db_session.commit()
 
     events = await AlertEvaluatorService(db_session).evaluate_asset(seeded_asset.id)
@@ -233,24 +237,26 @@ async def test_no_trigger_when_price_not_met(
     db_session: AsyncSession, seeded_user: User, seeded_asset: Asset
 ) -> None:
     observed_at = datetime.now(timezone.utc)
-    db_session.add_all([
-        LatestPrice(
-            asset_id=seeded_asset.id,
-            provider_id="prov-1",
-            price=Decimal("80000"),
-            observed_at=observed_at,
-        ),
-        AlertRule(
-            user_id=seeded_user.id,
-            asset_id=seeded_asset.id,
-            canonical_asset_id=seeded_asset.canonical_id,
-            condition_type=AlertCondition.ABOVE,
-            target_price=Decimal("91000"),
-            cooldown_minutes=0,
-            lifecycle_state=AlertLifecycleState.ACTIVE,
-            is_active=True,
-        ),
-    ])
+    db_session.add_all(
+        [
+            LatestPrice(
+                asset_id=seeded_asset.id,
+                provider_id="prov-1",
+                price=Decimal("80000"),
+                observed_at=observed_at,
+            ),
+            AlertRule(
+                user_id=seeded_user.id,
+                asset_id=seeded_asset.id,
+                canonical_asset_id=seeded_asset.canonical_id,
+                condition_type=AlertCondition.ABOVE,
+                target_price=Decimal("91000"),
+                cooldown_minutes=0,
+                lifecycle_state=AlertLifecycleState.ACTIVE,
+                is_active=True,
+            ),
+        ]
+    )
     await db_session.commit()
 
     events = await AlertEvaluatorService(db_session).evaluate_asset(seeded_asset.id)
@@ -262,31 +268,31 @@ async def test_trigger_transitions_alert_to_triggered_state(
     db_session: AsyncSession, seeded_user: User, seeded_asset: Asset
 ) -> None:
     observed_at = datetime.now(timezone.utc)
-    db_session.add_all([
-        LatestPrice(
-            asset_id=seeded_asset.id,
-            provider_id="prov-1",
-            price=Decimal("95000"),
-            observed_at=observed_at,
-        ),
-        AlertRule(
-            user_id=seeded_user.id,
-            asset_id=seeded_asset.id,
-            canonical_asset_id=seeded_asset.canonical_id,
-            condition_type=AlertCondition.ABOVE,
-            target_price=Decimal("91000"),
-            cooldown_minutes=0,
-            lifecycle_state=AlertLifecycleState.ACTIVE,
-            is_active=True,
-        ),
-    ])
+    db_session.add_all(
+        [
+            LatestPrice(
+                asset_id=seeded_asset.id,
+                provider_id="prov-1",
+                price=Decimal("95000"),
+                observed_at=observed_at,
+            ),
+            AlertRule(
+                user_id=seeded_user.id,
+                asset_id=seeded_asset.id,
+                canonical_asset_id=seeded_asset.canonical_id,
+                condition_type=AlertCondition.ABOVE,
+                target_price=Decimal("91000"),
+                cooldown_minutes=0,
+                lifecycle_state=AlertLifecycleState.ACTIVE,
+                is_active=True,
+            ),
+        ]
+    )
     await db_session.commit()
 
     await AlertEvaluatorService(db_session).evaluate_asset(seeded_asset.id)
 
-    result = await db_session.execute(
-        select(AlertRule).where(AlertRule.user_id == seeded_user.id)
-    )
+    result = await db_session.execute(select(AlertRule).where(AlertRule.user_id == seeded_user.id))
     alert = result.scalar_one()
     assert alert.lifecycle_state == AlertLifecycleState.TRIGGERED
 
@@ -379,24 +385,26 @@ async def test_cooldown_prevents_immediate_retrigger(
     db_session: AsyncSession, seeded_user: User, seeded_asset: Asset
 ) -> None:
     observed_at = datetime.now(timezone.utc)
-    db_session.add_all([
-        LatestPrice(
-            asset_id=seeded_asset.id,
-            provider_id="prov-1",
-            price=Decimal("95000"),
-            observed_at=observed_at,
-        ),
-        AlertRule(
-            user_id=seeded_user.id,
-            asset_id=seeded_asset.id,
-            canonical_asset_id=seeded_asset.canonical_id,
-            condition_type=AlertCondition.ABOVE,
-            target_price=Decimal("91000"),
-            cooldown_minutes=60,
-            lifecycle_state=AlertLifecycleState.ACTIVE,
-            is_active=True,
-        ),
-    ])
+    db_session.add_all(
+        [
+            LatestPrice(
+                asset_id=seeded_asset.id,
+                provider_id="prov-1",
+                price=Decimal("95000"),
+                observed_at=observed_at,
+            ),
+            AlertRule(
+                user_id=seeded_user.id,
+                asset_id=seeded_asset.id,
+                canonical_asset_id=seeded_asset.canonical_id,
+                condition_type=AlertCondition.ABOVE,
+                target_price=Decimal("91000"),
+                cooldown_minutes=60,
+                lifecycle_state=AlertLifecycleState.ACTIVE,
+                is_active=True,
+            ),
+        ]
+    )
     await db_session.commit()
 
     evaluator = AlertEvaluatorService(db_session)
@@ -416,30 +424,28 @@ async def test_trigger_crypto_alert_above_target(
     db_session: AsyncSession, seeded_user: User, seeded_crypto_asset: Asset
 ) -> None:
     observed_at = datetime.now(timezone.utc)
-    db_session.add_all([
-        LatestPrice(
-            asset_id=seeded_crypto_asset.id,
-            provider_id="binance",
-            price=Decimal("65000.50"),
-            observed_at=observed_at,
-        ),
-        AlertRule(
-            user_id=seeded_user.id,
-            asset_id=seeded_crypto_asset.id,
-            canonical_asset_id=seeded_crypto_asset.canonical_id,
-            condition_type=AlertCondition.ABOVE,
-            target_price=Decimal("60000"),
-            cooldown_minutes=0,
-            lifecycle_state=AlertLifecycleState.ACTIVE,
-            is_active=True,
-        ),
-    ])
+    db_session.add_all(
+        [
+            LatestPrice(
+                asset_id=seeded_crypto_asset.id,
+                provider_id="binance",
+                price=Decimal("65000.50"),
+                observed_at=observed_at,
+            ),
+            AlertRule(
+                user_id=seeded_user.id,
+                asset_id=seeded_crypto_asset.id,
+                canonical_asset_id=seeded_crypto_asset.canonical_id,
+                condition_type=AlertCondition.ABOVE,
+                target_price=Decimal("60000"),
+                cooldown_minutes=0,
+                lifecycle_state=AlertLifecycleState.ACTIVE,
+                is_active=True,
+            ),
+        ]
+    )
     await db_session.commit()
 
-    events = await AlertEvaluatorService(db_session).evaluate_asset(
-        seeded_crypto_asset.id
-    )
+    events = await AlertEvaluatorService(db_session).evaluate_asset(seeded_crypto_asset.id)
     assert len(events) == 1
     assert events[0].triggered_price == Decimal("65000.50")
-
-

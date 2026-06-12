@@ -23,16 +23,16 @@ DEFAULT_UNIT_CRYPTO = AssetUnit.USDT
 THOUSAND_SEPARATOR = ","
 
 # Decimal precision by category
-DECIMALS_CURRENCY = 0       # IRT / Toman — no decimals
-DECIMALS_GOLD = 0           # IRT / Toman — no decimals
-DECIMALS_COIN = 0          # IRT / Toman — no decimals
-DECIMALS_CRYPTO_HIGH = 2    # USDT — high-value crypto (BTC, ETH)
-DECIMALS_CRYPTO_LOW = 4     # USDT — low-value crypto (< 1 USDT)
-DECIMALS_CRYPTO_MID = 6     # USDT — mid-value crypto (1-100 USDT)
+DECIMALS_CURRENCY = 0  # IRT / Toman — no decimals
+DECIMALS_GOLD = 0  # IRT / Toman — no decimals
+DECIMALS_COIN = 0  # IRT / Toman — no decimals
+DECIMALS_CRYPTO_HIGH = 2  # USDT — high-value crypto (BTC, ETH)
+DECIMALS_CRYPTO_LOW = 4  # USDT — low-value crypto (< 1 USDT)
+DECIMALS_CRYPTO_MID = 6  # USDT — mid-value crypto (1-100 USDT)
 
 # Thresholds for switching precision
-CRYPTO_LOW_THRESHOLD = Decimal("1")       # < 1 USDT → 4 decimals
-CRYPTO_MID_THRESHOLD = Decimal("100")     # 1-100 USDT → 6 decimals
+CRYPTO_LOW_THRESHOLD = Decimal("1")  # < 1 USDT → 4 decimals
+CRYPTO_MID_THRESHOLD = Decimal("100")  # 1-100 USDT → 6 decimals
 # > 100 USDT → 2 decimals
 
 

@@ -35,6 +35,7 @@ if _db_url.startswith("sqlite"):
 else:
     # Quick TCP check — 2 second timeout
     import socket
+
     parsed = urlparse(_db_url)
     host = parsed.hostname
     port = parsed.port or 5432
@@ -70,9 +71,7 @@ else:
 
         try:
             loop = asyncio.new_event_loop()
-            connected = loop.run_until_complete(
-                asyncio.wait_for(_test_conn(), timeout=5)
-            )
+            connected = loop.run_until_complete(asyncio.wait_for(_test_conn(), timeout=5))
             loop.close()
             if not connected:
                 _use_sqlite = True

@@ -148,7 +148,7 @@ async def test_override_price(
 
     # Strip Bearer prefix if present
     if auth_token.startswith("Bearer "):
-        auth_token = auth_token[len("Bearer "):]
+        auth_token = auth_token[len("Bearer ") :]
 
     expected_admin = os.environ.get("ADMIN_ACCESS_TOKEN") or getattr(
         settings, "admin_access_token", None
@@ -259,8 +259,7 @@ async def ingest_prices(
         raise HTTPException(
             status_code=500,
             detail=(
-                "توکن ورودی قیمت‌ها پیکربندی نشده است. "
-                "لطفاً متغیر INGEST_API_TOKEN را تنظیم کنید."
+                "توکن ورودی قیمت‌ها پیکربندی نشده است. لطفاً متغیر INGEST_API_TOKEN را تنظیم کنید."
             ),
         )
 

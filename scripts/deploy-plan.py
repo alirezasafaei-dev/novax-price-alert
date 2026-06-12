@@ -16,10 +16,12 @@ APP_DIR = "/home/deploy/novax-price-alert"
 DOMAIN = "novax.alirezasafeidev.ir"
 LOCAL_DIR = "/home/dev13/my-project/sites/secondary/novax-price-alert"
 
+
 def print_step(title):
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"{title}")
-    print('='*60)
+    print("=" * 60)
+
 
 def get_password():
     """Get VPS password from environment variable."""
@@ -29,6 +31,7 @@ def get_password():
         print("Please set it: export NOVAX_VPS_PASSWORD='your_password'")
         return None
     return password
+
 
 def run_ssh_command(command, use_password=True):
     """Run SSH command, optionally with password"""
@@ -52,18 +55,14 @@ echo "{password}" | {ssh_cmd}
             f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
             f"{VPS_USER}@{VPS_IP} '{command}'"
         )
-        result = subprocess.run(
-            ssh_cmd,
-            shell=True,
-            capture_output=True,
-            text=True
-        )
-    
+        result = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True)
+
     print(result.stdout)
     if result.stderr:
         print(f"STDERR: {result.stderr}")
-    
+
     return result.returncode == 0
+
 
 def run_ssh_interactive():
     """Create an SSH connection for manual use"""
@@ -92,16 +91,17 @@ def run_ssh_interactive():
     print("11. pm2 status")
     print("12. curl http://127.0.0.1:8001/health")
 
+
 def sync_files_rsync():
     """Try to sync files using rsync"""
     print_step("Attempting to sync files with rsync")
-    
+
     # Try using SSH_ASKPASS
     env = os.environ.copy()
     env["SSH_ASKPASS"] = "/bin/echo"
     env["SSH_ASKPASS_REQUIRE"] = "force"
     env["DISPLAY"] = ""
-    
+
     # This won't work without proper setup, so we'll provide manual instructions
     print("⚠️  Automatic rsync requires SSH key or password setup")
     print("Please sync files manually or run:")
@@ -113,21 +113,22 @@ def sync_files_rsync():
     )
     print(rsync_cmd)
     print("\nThen SSH to VPS and continue with manual steps.")
-    
+
     return False
+
 
 def main():
     print("🚀 Novax Price Alert - Deployment Assistant")
-    print("="*60)
+    print("=" * 60)
     print(f"VPS: {VPS_USER}@{VPS_IP}")
     print(f"Domain: {DOMAIN}")
     print("Bot ID: 8858674032 (@novax_price_bot)")
     print()
-    
+
     print("Since we cannot use password-based automation in this environment,")
     print("I'll provide you with a complete manual deployment plan.")
     print()
-    
+
     print_step("Deployment Plan")
     print()
     print("OPTION 1: Manual SSH Deployment (RECOMMENDED)")
@@ -191,10 +192,10 @@ def main():
     print("  Send /price")
     print("  Try creating an alert")
     print()
-    
-    print("="*60)
+
+    print("=" * 60)
     print("✅ Deployment plan complete!")
-    print("="*60)
+    print("=" * 60)
     print()
     print("Quick copy-paste commands:")
     print(f"ssh {VPS_USER}@{VPS_IP}")
@@ -204,8 +205,9 @@ def main():
     print("alembic upgrade head")
     print("pm2 restart all --update-env")
     print("pm2 status")
-    
+
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

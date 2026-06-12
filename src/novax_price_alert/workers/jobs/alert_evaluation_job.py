@@ -22,14 +22,10 @@ async def _evaluate_single_asset(
     try:
         async with AsyncSessionLocal() as session:
             cache = (
-                PriceCache(settings.redis_url or "", ttl_seconds=60)
-                if settings.redis_url
-                else None
+                PriceCache(settings.redis_url or "", ttl_seconds=60) if settings.redis_url else None
             )
             evaluator = AlertEvaluatorService(session, cache=cache)
-            events = await evaluator.evaluate_asset(
-                asset_id, worker_run_id=worker_run_id
-            )
+            events = await evaluator.evaluate_asset(asset_id, worker_run_id=worker_run_id)
             return len(events)
     except Exception:
         logger.exception("failed to evaluate asset %s", asset_id)
@@ -58,19 +54,14 @@ async def run_alert_evaluation_job() -> None:
         for i in range(0, len(asset_ids), concurrency):
             batch = asset_ids[i : i + concurrency]
             results = await asyncio.gather(
-                *[
-                    _evaluate_single_asset(aid, worker_run_id)
-                    for aid in batch
-                ],
+                *[_evaluate_single_asset(aid, worker_run_id) for aid in batch],
                 return_exceptions=True,
             )
             for r in results:
                 if isinstance(r, int):
                     total_events += r
                 else:
-                    logger.exception(
-                        "asset evaluation raised an exception: %s", r
-                    )
+                    logger.exception("asset evaluation raised an exception: %s", r)
 
         logger.info(
             "alert evaluation job completed",

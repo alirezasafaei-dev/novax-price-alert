@@ -15,23 +15,20 @@ from typing import Dict, List
 import httpx
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
 class PriceFetcher:
     def __init__(self):
-        self.vps_api_url = os.getenv('VPS_API_URL')
-        self.vps_api_token = os.getenv('VPS_API_TOKEN')
-        self.enable_tgju = os.getenv('ENABLE_TGJU_FETCH', '').lower() == 'true'
-        self.enable_nobitex = os.getenv('ENABLE_NOBITEX_FETCH', '').lower() == 'true'
-        
+        self.vps_api_url = os.getenv("VPS_API_URL")
+        self.vps_api_token = os.getenv("VPS_API_TOKEN")
+        self.enable_tgju = os.getenv("ENABLE_TGJU_FETCH", "").lower() == "true"
+        self.enable_nobitex = os.getenv("ENABLE_NOBITEX_FETCH", "").lower() == "true"
+
         if not self.vps_api_url or not self.vps_api_token:
             raise ValueError("VPS_API_URL and VPS_API_TOKEN must be set")
-    
+
     async def fetch_binance_prices(self) -> List[Dict]:
         """Fetch crypto prices, preferring Binance-compatible endpoints."""
         symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
@@ -101,72 +98,69 @@ class PriceFetcher:
                     }
                 )
         return prices
-    
+
     async def fetch_tgju_prices(self) -> List[Dict]:
         """Fetch Iranian market prices from TGJU"""
         raise RuntimeError("TGJU external fetch is disabled until a real parser is implemented")
-    
+
     async def fetch_nobitex_prices(self) -> List[Dict]:
         """Fetch prices from Nobitex (Iranian exchange)"""
         url = "https://api.nobitex.ir/market/depth"
-        
+
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(url, json={'srcCurrency': 'btc', 'dstCurrency': 'rls'})
+            response = await client.post(url, json={"srcCurrency": "btc", "dstCurrency": "rls"})
             response.raise_for_status()
             data = response.json()
-            
-            if data.get('status') == 'ok':
-                best_bid = float(data.get('bids', [[0]])[0][0]) if data.get('bids') else 0
-                return [{
-                    'asset_code': 'BTC_IRT',
-                    'asset_name': 'Bitcoin',
-                    'price_value': best_bid,
-                    'currency_code': 'IRT',
-                    'display_unit': 'IRT',
-                    'provider': 'nobitex',
-                    'fetched_at': datetime.utcnow().isoformat()
-                }]
-            
+
+            if data.get("status") == "ok":
+                best_bid = float(data.get("bids", [[0]])[0][0]) if data.get("bids") else 0
+                return [
+                    {
+                        "asset_code": "BTC_IRT",
+                        "asset_name": "Bitcoin",
+                        "price_value": best_bid,
+                        "currency_code": "IRT",
+                        "display_unit": "IRT",
+                        "provider": "nobitex",
+                        "fetched_at": datetime.utcnow().isoformat(),
+                    }
+                ]
+
             return []
-    
+
     def _get_asset_name(self, code: str) -> str:
         """Get human-readable asset name"""
-        names = {
-            'BTC': 'Bitcoin',
-            'ETH': 'Ethereum',
-            'BNB': 'Binance Coin',
-            'ADA': 'Cardano'
-        }
+        names = {"BTC": "Bitcoin", "ETH": "Ethereum", "BNB": "Binance Coin", "ADA": "Cardano"}
         return names.get(code, code)
-    
+
     async def send_to_vps(self, prices: List[Dict]) -> bool:
         """Send fetched prices to VPS"""
         if not prices:
             logger.warning("No prices to send")
             return False
-        
+
         url = f"{self.vps_api_url}/api/v1/prices/ingest"
         headers = {
-            'Authorization': f'Bearer {self.vps_api_token}',
-            'Content-Type': 'application/json'
+            "Authorization": f"Bearer {self.vps_api_token}",
+            "Content-Type": "application/json",
         }
-        
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
-                response = await client.post(url, json={'items': prices}, headers=headers)
+                response = await client.post(url, json={"items": prices}, headers=headers)
                 response.raise_for_status()
                 logger.info(f"Successfully sent {len(prices)} prices to VPS")
                 return True
             except httpx.HTTPError as e:
                 logger.error(f"Failed to send prices to VPS: {e}")
                 return False
-    
+
     async def run(self):
         """Main fetch and send loop"""
         logger.info("Starting price fetch...")
-        
+
         all_prices = []
-        
+
         try:
             # Fetch from different sources
             try:
@@ -175,7 +169,7 @@ class PriceFetcher:
                 logger.info(f"Fetched {len(binance_prices)} prices from Binance")
             except Exception as exc:
                 logger.warning(f"Crypto fetch failed: {exc}")
-            
+
             if self.enable_tgju:
                 try:
                     tgju_prices = await self.fetch_tgju_prices()
@@ -187,7 +181,7 @@ class PriceFetcher:
                 logger.info(
                     "Skipping TGJU external fetch; VPS-local provider remains source of truth"
                 )
-            
+
             if self.enable_nobitex:
                 try:
                     nobitex_prices = await self.fetch_nobitex_prices()
@@ -199,7 +193,7 @@ class PriceFetcher:
                 logger.info(
                     "Skipping Nobitex external fetch; only crypto is ingested from GitHub Actions"
                 )
-            
+
             # Send to VPS
             if all_prices:
                 success = await self.send_to_vps(all_prices)
@@ -212,7 +206,7 @@ class PriceFetcher:
             else:
                 logger.warning("No prices fetched from any source")
                 return 1
-                
+
         except Exception as e:
             logger.error(f"Error during price fetch: {e}")
             return 1
@@ -223,6 +217,6 @@ async def main():
     return await fetcher.run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)

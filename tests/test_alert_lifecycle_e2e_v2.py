@@ -70,6 +70,7 @@ def _alert_with_state(state: AlertLifecycleState) -> AlertRule:
 
 class OkSender(BaseNotificationSender):
     """Mock sender that always succeeds."""
+
     def __init__(self) -> None:
         self.sent_event_ids: list[str] = []
 
@@ -79,6 +80,7 @@ class OkSender(BaseNotificationSender):
 
 class FailingSender(BaseNotificationSender):
     """Mock sender that always fails."""
+
     def __init__(self) -> None:
         self.attempted_event_ids: list[str] = []
 
@@ -194,7 +196,8 @@ async def test_flow_select_asset_view_price_enter_target_summary_confirm(
     # Step 4: System shows summary (alert created in PENDING_CONFIRMATION)
     service = AlertCRUDService(db_session)
     alert = _make_alert(
-        user, usd_asset,
+        user,
+        usd_asset,
         condition=AlertCondition.ABOVE,
         target=Decimal("91000"),
     )
@@ -243,7 +246,8 @@ async def test_flow_select_asset_view_price_enter_target_summary_cancel(
     # Create alert (summary stage)
     service = AlertCRUDService(db_session)
     alert = _make_alert(
-        user, btc_asset,
+        user,
+        btc_asset,
         condition=AlertCondition.BELOW,
         target=Decimal("55000"),
         unit="USDT",
@@ -270,7 +274,8 @@ async def test_flow_crypto_asset_above_trigger(
 
     service = AlertCRUDService(db_session)
     alert = _make_alert(
-        user, btc_asset,
+        user,
+        btc_asset,
         condition=AlertCondition.ABOVE,
         target=Decimal("60000"),
         unit="USDT",
@@ -308,7 +313,8 @@ async def test_flow_gold_asset_below_trigger(
 
     service = AlertCRUDService(db_session)
     alert = _make_alert(
-        user, gold_asset,
+        user,
+        gold_asset,
         condition=AlertCondition.BELOW,
         target=Decimal("3500000"),
         unit="IRT",
@@ -485,7 +491,10 @@ async def test_event_lifecycle_pending_to_sent(
 
     # Create active alert
     alert = _make_alert(
-        user, usd_asset, AlertCondition.ABOVE, Decimal("91000"),
+        user,
+        usd_asset,
+        AlertCondition.ABOVE,
+        Decimal("91000"),
         state=AlertLifecycleState.ACTIVE,
     )
     alert.is_active = True
@@ -543,9 +552,7 @@ async def test_event_lifecycle_pending_to_failed(
     await db_session.commit()
 
     sender = FailingSender()
-    dispatcher = NotificationDispatcherService(
-        db_session, sender, retry_backoff_seconds=0
-    )
+    dispatcher = NotificationDispatcherService(db_session, sender, retry_backoff_seconds=0)
     sent = await dispatcher.dispatch_pending_events(worker_run_id="fail-w1")
     assert sent == 0
 
@@ -576,9 +583,7 @@ async def test_event_lifecycle_failed_to_sent_on_retry(
     await db_session.commit()
 
     sender = OkSender()
-    dispatcher = NotificationDispatcherService(
-        db_session, sender, retry_backoff_seconds=0
-    )
+    dispatcher = NotificationDispatcherService(db_session, sender, retry_backoff_seconds=0)
     sent = await dispatcher.dispatch_pending_events(worker_run_id="retry-ok-1")
     assert sent == 1
 
@@ -608,9 +613,7 @@ async def test_event_max_attempts_exhausted(
     await db_session.commit()
 
     sender = FailingSender()
-    dispatcher = NotificationDispatcherService(
-        db_session, sender, retry_backoff_seconds=0
-    )
+    dispatcher = NotificationDispatcherService(db_session, sender, retry_backoff_seconds=0)
     # Should not even attempt (attempt_count >= max_attempts)
     sent = await dispatcher.dispatch_pending_events(worker_run_id="max-attempts-1")
     assert sent == 0
@@ -628,7 +631,10 @@ async def test_cannot_confirm_from_draft(
     """DRAFT -> ACTIVE is invalid via confirm()."""
     service = AlertCRUDService(db_session)
     alert = _make_alert(
-        user, usd_asset, AlertCondition.ABOVE, Decimal("91000"),
+        user,
+        usd_asset,
+        AlertCondition.ABOVE,
+        Decimal("91000"),
         state=AlertLifecycleState.DRAFT,
     )
     created = await service.create(alert)
@@ -644,7 +650,10 @@ async def test_cannot_confirm_from_awaiting_condition(
     """AWAITING_CONDITION -> ACTIVE is invalid via confirm()."""
     service = AlertCRUDService(db_session)
     alert = _make_alert(
-        user, usd_asset, AlertCondition.ABOVE, Decimal("91000"),
+        user,
+        usd_asset,
+        AlertCondition.ABOVE,
+        Decimal("91000"),
         state=AlertLifecycleState.AWAITING_CONDITION,
     )
     created = await service.create(alert)
@@ -660,7 +669,10 @@ async def test_cannot_deactivate_from_draft(
     """DRAFT -> CANCELLED is valid."""
     service = AlertCRUDService(db_session)
     alert = _make_alert(
-        user, usd_asset, AlertCondition.ABOVE, Decimal("91000"),
+        user,
+        usd_asset,
+        AlertCondition.ABOVE,
+        Decimal("91000"),
         state=AlertLifecycleState.DRAFT,
     )
     created = await service.create(alert)
@@ -708,7 +720,10 @@ async def test_trigger_sets_triggered_at_timestamp(
     """Triggering an alert should set triggered_at."""
     now = datetime.now(timezone.utc)
     alert = _make_alert(
-        user, usd_asset, AlertCondition.ABOVE, Decimal("91000"),
+        user,
+        usd_asset,
+        AlertCondition.ABOVE,
+        Decimal("91000"),
         state=AlertLifecycleState.ACTIVE,
     )
     alert.is_active = True
@@ -802,7 +817,10 @@ async def test_alert_not_triggered_with_stale_price(
     old_time = datetime.now(timezone.utc) - timedelta(minutes=10)
 
     alert = _make_alert(
-        user, usd_asset, AlertCondition.ABOVE, Decimal("91000"),
+        user,
+        usd_asset,
+        AlertCondition.ABOVE,
+        Decimal("91000"),
         state=AlertLifecycleState.ACTIVE,
     )
     alert.is_active = True
@@ -830,7 +848,10 @@ async def test_alert_not_triggered_when_price_at_target(
     now = datetime.now(timezone.utc)
 
     alert = _make_alert(
-        user, usd_asset, AlertCondition.ABOVE, Decimal("91000"),
+        user,
+        usd_asset,
+        AlertCondition.ABOVE,
+        Decimal("91000"),
         state=AlertLifecycleState.ACTIVE,
     )
     alert.is_active = True
@@ -857,7 +878,10 @@ async def test_alert_not_triggered_when_price_not_met(
     now = datetime.now(timezone.utc)
 
     alert = _make_alert(
-        user, usd_asset, AlertCondition.ABOVE, Decimal("91000"),
+        user,
+        usd_asset,
+        AlertCondition.ABOVE,
+        Decimal("91000"),
         state=AlertLifecycleState.ACTIVE,
     )
     alert.is_active = True

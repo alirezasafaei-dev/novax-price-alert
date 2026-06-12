@@ -158,6 +158,7 @@ class TestUnitConversion:
     def test_irt_to_unit_zero_rate(self):
         # Should not crash on zero rate
         from novax_price_alert.domain.enums import UNIT_TO_IRT_RATES
+
         original = UNIT_TO_IRT_RATES.get("TEST_ZERO")
         UNIT_TO_IRT_RATES["TEST_ZERO"] = 0
         try:

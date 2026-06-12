@@ -24,8 +24,7 @@ def create_app() -> FastAPI:
     # Request logging middleware
     @app.middleware("http")
     async def log_requests(
-        request: Request, 
-        call_next: Callable[[Request], Awaitable[Response]]
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         start_time = time.time()
         response = await call_next(request)

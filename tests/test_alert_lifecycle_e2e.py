@@ -171,7 +171,11 @@ async def test_e2e_full_alert_lifecycle_crypto(
 
     service = AlertCRUDService(db_session)
     alert = _make_alert(
-        user, btc_asset, AlertCondition.ABOVE, Decimal("60000"), "USDT",
+        user,
+        btc_asset,
+        AlertCondition.ABOVE,
+        Decimal("60000"),
+        "USDT",
         AlertLifecycleState.ACTIVE,
     )
     alert.is_active = True
@@ -294,7 +298,10 @@ async def test_e2e_trigger_then_deliver_then_mark_delivered(
 
     # Create active alert
     alert = _make_alert(
-        user, usd_asset, AlertCondition.ABOVE, Decimal("91000"),
+        user,
+        usd_asset,
+        AlertCondition.ABOVE,
+        Decimal("91000"),
         state=AlertLifecycleState.ACTIVE,
     )
     alert.is_active = True
@@ -363,9 +370,7 @@ async def test_e2e_trigger_then_fail_then_retry_then_deliver(
     await db_session.commit()
 
     sender = CountingSender(fail_first=True)
-    dispatcher = NotificationDispatcherService(
-        db_session, sender, retry_backoff_seconds=0
-    )
+    dispatcher = NotificationDispatcherService(db_session, sender, retry_backoff_seconds=0)
 
     # First dispatch: fails
     assert await dispatcher.dispatch_pending_events(worker_run_id="retry-w1") == 0
@@ -572,9 +577,7 @@ async def test_cannot_go_from_delivery_in_progress_to_active() -> None:
 
 
 @pytest.mark.anyio
-async def test_cannot_confirm_twice(
-    db_session: AsyncSession, user: User, usd_asset: Asset
-) -> None:
+async def test_cannot_confirm_twice(db_session: AsyncSession, user: User, usd_asset: Asset) -> None:
     """Confirming an already-active alert raises InvalidAlertTransitionError."""
     service = AlertCRUDService(db_session)
     alert = _make_alert(user, usd_asset, AlertCondition.ABOVE, Decimal("91000"))
@@ -614,7 +617,10 @@ async def test_update_target_price_on_active_pauses_it(
     """Updating target_price on ACTIVE alert should pause it."""
     service = AlertCRUDService(db_session)
     alert = _make_alert(
-        user, usd_asset, AlertCondition.ABOVE, Decimal("91000"),
+        user,
+        usd_asset,
+        AlertCondition.ABOVE,
+        Decimal("91000"),
         state=AlertLifecycleState.ACTIVE,
     )
     alert.is_active = True
@@ -670,9 +676,7 @@ async def test_list_alerts_returns_only_user_alerts(
 
 
 @pytest.mark.anyio
-async def test_delete_nonexistent_alert_returns_none(
-    db_session: AsyncSession, user: User
-) -> None:
+async def test_delete_nonexistent_alert_returns_none(db_session: AsyncSession, user: User) -> None:
     """Deleting a non-existent alert returns None."""
     service = AlertCRUDService(db_session)
     result = await service.deactivate("nonexistent-id", user.id)
@@ -680,9 +684,7 @@ async def test_delete_nonexistent_alert_returns_none(
 
 
 @pytest.mark.anyio
-async def test_update_nonexistent_alert_returns_none(
-    db_session: AsyncSession, user: User
-) -> None:
+async def test_update_nonexistent_alert_returns_none(db_session: AsyncSession, user: User) -> None:
     """Updating a non-existent alert returns None."""
     service = AlertCRUDService(db_session)
     result = await service.update("nonexistent-id", user.id, target_price=Decimal("100"))
@@ -723,7 +725,10 @@ async def test_alert_with_zero_cooldown_can_trigger_repeatedly(
     """With cooldown=0, each evaluation cycle can trigger."""
     now = datetime.now(timezone.utc)
     alert = _make_alert(
-        user, usd_asset, AlertCondition.ABOVE, Decimal("91000"),
+        user,
+        usd_asset,
+        AlertCondition.ABOVE,
+        Decimal("91000"),
         state=AlertLifecycleState.ACTIVE,
     )
     alert.is_active = True
