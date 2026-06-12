@@ -29,6 +29,8 @@ In Telegram, search @novax_price_bot and send `/start`
 
 ## 📚 Documentation
 
+- **COMPLETE_DEPLOYMENT_GUIDE.md** - Complete automated deployment guide for agents
+- **DEPLOYMENT_CHECKLIST.md** - Deployment checklist with verification steps
 - **docs/RECENT_CHANGES.md** - Latest changes and improvements
 - **START_HERE.md** - Quick start guide (BEGIN HERE)
 - **docs/README.md** - Documentation index
