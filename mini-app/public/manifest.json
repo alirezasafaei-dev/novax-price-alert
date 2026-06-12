@@ -1,18 +1,49 @@
 {
   "name": "داشبورد هوشمند نوواکس/Novax داشبورد هوشمند",
   "short_name": "Novax",
-  "description": "داشبورد تعاملی قیمت و هشدار، محیط آزمایشی، دستیار هوش مصنوعی جمینای و شبیه‌ساز اعلان تلگرام",
+  "description": "داشبورد هوشمند برای رصد لحظه‌ای قیمت‌های ارز دیجیتال و بازار ایران با سیستم هشدار تلگرام و دستیار هوش مصنوعی",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#060814",
   "theme_color": "#060814",
   "orientation": "any",
+  "scope": "/",
+  "dir": "rtl",
+  "lang": "fa",
+  "categories": ["finance", "business", "productivity"],
+  "screenshots": [],
   "icons": [
     {
       "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "داشبورد قیمت",
+      "short_name": "قیمت‌ها",
+      "description": "مشاهده قیمت‌های لحظه‌ای",
+      "url": "/",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>",
+          "sizes": "any"
+        }
+      ]
+    },
+    {
+      "name": "هشدارها",
+      "short_name": "هشدار",
+      "description": "مدیریت هشدارهای قیمت",
+      "url": "/?tab=alerts",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔔</text></svg>",
+          "sizes": "any"
+        }
+      ]
     }
   ]
 }
