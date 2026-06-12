@@ -3,6 +3,26 @@ from decimal import Decimal, InvalidOperation
 DEFAULT_PRICE_UNIT = "IRT"
 PRICE_QUANT = Decimal("0.00000001")
 
+
+def to_persian_digits(value: int | float | str) -> str:
+    """Convert Western digits to Persian digits."""
+    persian_digits = {
+        "0": "۰",
+        "1": "۱",
+        "2": "۲",
+        "3": "۳",
+        "4": "۴",
+        "5": "۵",
+        "6": "۶",
+        "7": "۷",
+        "8": "۸",
+        "9": "۹",
+    }
+    result = str(value)
+    for western, persian in persian_digits.items():
+        result = result.replace(western, persian)
+    return result
+
 # ── Dynamic decimal precision per unit ────────────────────────────
 # High-value units (IRT, TOMAN, IRR) → 0 decimals (prices shown as whole numbers)
 # Mid-value units (USDT, DAI, major fiats) → up to 4 decimals
@@ -75,7 +95,8 @@ def normalize_price(value: Decimal | int | str) -> Decimal:
     return price.quantize(PRICE_QUANT)
 
 
-def format_price(value: Decimal, unit: str = DEFAULT_PRICE_UNIT) -> str:
+def format_price(value: Decimal, unit: str = DEFAULT_PRICE_UNIT, use_persian: bool = False) -> str:
+    """Format price with appropriate decimal places and optional Persian digits."""
     normalized = normalize_price(value)
     places = _decimal_places_for(unit, normalized)
 
@@ -89,4 +110,8 @@ def format_price(value: Decimal, unit: str = DEFAULT_PRICE_UNIT) -> str:
     # If the result is a whole number, don't show trailing zeros
     if rounded == rounded.to_integral():
         rounded = rounded.to_integral()
-    return f"{rounded:,} {unit}"
+
+    formatted = f"{rounded:,} {unit}"
+    if use_persian:
+        formatted = to_persian_digits(formatted)
+    return formatted

@@ -515,7 +515,7 @@ function renderPortfolio() {
     totalVal += val;
     html += `<div class="history-row"><span>${code} ${amt}</span><strong>${fmt.format(val)} ${p ? p.display_unit : ''}</strong></div>`;
   });
-  list.innerHTML = html || '<div class="meta">هیچ holdingی اضافه نشده.</div>';
+  list.innerHTML = html || '<div class="meta">هیچ دارایی اضافه نشده.</div>';
   totalEl.textContent = `ارزش کل: ${fmt.format(totalVal)} تومان (تقریبی)`;
 }
 window.addEventListener('load', () => { setTimeout(renderPortfolio, 1000); });
@@ -602,11 +602,11 @@ ADMIN_HTML = """
         <input id="alert-search" placeholder="جستجو در دارایی یا کاربر..." class="text-sm w-64" onkeyup="filterAlertsTable()" />
         <select id="state-filter" class="text-sm" onchange="loadAlerts()">
           <option value="">همه</option>
-          <option value="ACTIVE">ACTIVE</option>
-          <option value="PENDING_CONFIRMATION">PENDING</option>
-          <option value="TRIGGERED">TRIGGERED</option>
-          <option value="DELIVERED">DELIVERED</option>
-          <option value="CANCELLED">CANCELLED</option>
+          <option value="ACTIVE">فعال</option>
+          <option value="PENDING_CONFIRMATION">در انتظار تایید</option>
+          <option value="TRIGGERED">تریگر شده</option>
+          <option value="DELIVERED">ارسال شده</option>
+          <option value="CANCELLED">لغو شده</option>
         </select>
         <button onclick="loadAlerts()" class="btn bg-slate-700 px-3">فیلتر</button>
       </div>
@@ -643,10 +643,10 @@ ADMIN_HTML = """
     <div class="section mb-2">عملیات سریع</div>
     <div class="flex flex-wrap gap-2">
       <button onclick="doAction('refresh-metrics')" class="btn bg-slate-800">رفرش متریک‌ها</button>
-      <button onclick="if(confirm('لغو همه هشدارهای فعال؟')) {}" class="btn bg-rose-900/70">لغو همه فعال (با احتیاط)</button>
+      <button onclick="if(confirm('لغو همه هشدارهای فعال؟')) {}" class="btn bg-rose-900/70">لغو همه هشدارهای فعال (با احتیاط)</button>
       <a href="/metrics/summary" target="_blank" class="btn bg-slate-800">خلاصه عملیاتی</a>
       <a href="/metrics/prometheus" target="_blank" class="btn bg-slate-800">Prometheus</a>
-      <button onclick="showBroadcastForm()" class="btn bg-amber-800">ارسال پیام همگانی (stub)</button>
+      <button onclick="showBroadcastForm()" class="btn bg-amber-800">ارسال پیام همگانی (نمونه)</button>
     </div>
     <div id="action-feedback" class="mt-2 text-emerald-400 text-xs h-4"></div>
   </div>

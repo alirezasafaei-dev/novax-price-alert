@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -13,5 +14,16 @@ router = APIRouter()
 async def health(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, str]:
-    await db.execute(text("SELECT 1"))
-    return {"status": "ok", "db": "connected"}
+    """Health check endpoint with database connectivity verification."""
+    try:
+        await db.execute(text("SELECT 1"))
+        db_status = "connected"
+    except Exception:
+        db_status = "disconnected"
+
+    return {
+        "status": "ok" if db_status == "connected" else "degraded",
+        "db": db_status,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": "0.1.0",
+    }

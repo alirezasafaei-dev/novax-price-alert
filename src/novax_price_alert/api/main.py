@@ -1,6 +1,9 @@
+import logging
+import time
+from collections.abc import Awaitable, Callable
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
@@ -12,9 +15,27 @@ from novax_price_alert.api.routers.prices import router as prices_router
 from novax_price_alert.api.routers.webhook import router as webhook_router
 from novax_price_alert.api.templates import ADMIN_HTML, TWA_SHELL_HTML
 
+logger = logging.getLogger(__name__)
+
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Novax Price Alert API")
+
+    # Request logging middleware
+    @app.middleware("http")
+    async def log_requests(
+        request: Request, 
+        call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        start_time = time.time()
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        logger.info(
+            f"{request.method} {request.url.path} - "
+            f"Status: {response.status_code} - "
+            f"Time: {process_time:.3f}s"
+        )
+        return response
 
     # CORS for TWA / external frontends (public API)
     app.add_middleware(

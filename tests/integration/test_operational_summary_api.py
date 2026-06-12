@@ -7,6 +7,8 @@ from novax_price_alert.api.main import create_app
 from novax_price_alert.core.observability import metrics, record_metric
 from novax_price_alert.core.settings import settings
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.anyio
 async def test_metrics_summary_endpoint_returns_operational_shape(

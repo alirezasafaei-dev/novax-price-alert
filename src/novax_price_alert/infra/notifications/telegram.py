@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from novax_price_alert.domain.alert_event import AlertEvent
 from novax_price_alert.domain.alert_rule import AlertRule
 from novax_price_alert.domain.asset import Asset
+from novax_price_alert.domain.pricing import format_price
 from novax_price_alert.domain.user import User
 from novax_price_alert.infra.notifications.base import BaseNotificationSender
 
@@ -53,8 +54,8 @@ class TelegramNotificationSender(BaseNotificationSender):
         text = (
             "🔔 هشدار قیمت NovaX فعال شد\n\n"
             f"دارایی: {display_name} ({rule.canonical_asset_id or ''})\n"
-            f"شرط: {condition_text} {rule.target_price:,} {unit}\n"
-            f"قیمت تریگر: {event.triggered_price:,} {unit}\n\n"
+            f"شرط: {condition_text} {format_price(rule.target_price, unit, use_persian=True)}\n"
+            f"قیمت تریگر: {format_price(event.triggered_price, unit, use_persian=True)}\n\n"
             "هشدار شما اجرا شد. برای مدیریت بیشتر از دکمه‌ها استفاده کنید."
         )
 
@@ -69,7 +70,7 @@ class TelegramNotificationSender(BaseNotificationSender):
                     {"text": "🔔 مدیریت هشدارها", "url": app_url},
                 ],
                 [
-                    {"text": "📋 باز کردن داشبورد هوشمند (تستی)", "url": app_url},
+                    {"text": "📋 باز کردن داشبورد هوشمند (نمونه)", "url": app_url},
                 ],
             ]
         }

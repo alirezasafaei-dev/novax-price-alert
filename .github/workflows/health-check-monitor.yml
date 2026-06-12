@@ -24,8 +24,14 @@ jobs:
         id: health
         run: |
           echo "Checking health endpoint..."
+          API_BASE_URL="${{ secrets.API_BASE_URL }}"
+          if [[ -z "$API_BASE_URL" ]]; then
+            echo "API_BASE_URL secret not set, skipping health check"
+            echo "http_code=skip" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           HTTP_CODE=$(curl -sS -o /tmp/health_body.json -w '%{http_code}' \
-            "${{ secrets.API_BASE_URL }}/health" 2>/dev/null || echo "000")
+            "$API_BASE_URL/health" 2>/dev/null || echo "000")
           echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
           echo "Health check HTTP status: $HTTP_CODE"
           cat /tmp/health_body.json 2>/dev/null || echo "No body"
@@ -34,14 +40,20 @@ jobs:
         id: status
         run: |
           echo "Checking status endpoint..."
+          API_BASE_URL="${{ secrets.API_BASE_URL }}"
+          if [[ -z "$API_BASE_URL" ]]; then
+            echo "API_BASE_URL secret not set, skipping status check"
+            echo "http_code=skip" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           HTTP_CODE=$(curl -sS -o /tmp/status_body.json -w '%{http_code}' \
-            "${{ secrets.API_BASE_URL }}/status" 2>/dev/null || echo "000")
+            "$API_BASE_URL/status" 2>/dev/null || echo "000")
           echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
           echo "Status check HTTP status: $HTTP_CODE"
           cat /tmp/status_body.json 2>/dev/null || echo "No body"
 
       - name: Send alert on failure
-        if: failure() || steps.health.outputs.http_code != '200' || steps.status.outputs.http_code != '200'
+        if: failure() || (steps.health.outputs.http_code != '200' && steps.health.outputs.http_code != 'skip') || (steps.status.outputs.http_code != '200' && steps.status.outputs.http_code != 'skip')
         env:
           BOT_TOKEN: ${{ secrets.OPS_BOT_TOKEN }}
           OPS_CHAT_ID: ${{ secrets.OPS_CHAT_ID }}

@@ -5,6 +5,8 @@ from novax_price_alert.api.main import create_app
 from novax_price_alert.core.observability import metrics, record_metric
 from novax_price_alert.core.settings import settings
 
+pytestmark = pytest.mark.integration
+
 
 def test_metrics_endpoint_returns_observability_counters() -> None:
     metrics.clear()

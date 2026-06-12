@@ -1,5 +1,115 @@
 # Novax Price Alert
 
+**🟢 Live**: https://novax.alirezasafeidev.ir
+**🤖 Bot**: @novax_price_bot (ID: 8858674032)
+**📊 Status**: Production Ready
+
+---
+
+## 🚀 Quick Start
+
+### 1. Check Live Status
+```bash
+curl https://novax.alirezasafeidev.ir/health
+curl https://novax.alirezasafeidev.ir/api/v1/prices/latest
+```
+
+### 2. Sync Latest Changes (Optional)
+```bash
+bash scripts/ONE-COMMAND-SYNC.sh
+```
+
+### 3. Setup BotFather (Required for First-Time Setup)
+See `docs/BOTFATHER_SETUP.md` for complete guide.
+
+### 4. Test Bot
+In Telegram, search @novax_price_bot and send `/start`
+
+---
+
+## 📚 Documentation
+
+- **START_HERE.md** - Quick start guide (BEGIN HERE)
+- **docs/FINAL_STATUS_REPORT.md** - Complete status report
+- **docs/SERVER_STATUS.md** - Real server configuration
+- **docs/BOTFATHER_SETUP.md** - Telegram bot setup
+- **docs/DEPLOYMENT_GUIDE.md** - Deployment instructions
+- **docs/DEPLOYMENT_ARCHITECTURE.md** - Architecture documentation
+- **docs/PREMIUM_FEATURES_PLAN.md** - Monetization strategy
+
+---
+
+## 🔧 Development
+
+### Install Dependencies
+```bash
+uv sync
+```
+
+### Run Tests
+```bash
+uv run pytest
+```
+
+### Run Linting
+```bash
+uv run ruff check .
+```
+
+---
+
+## 🌐 Production
+
+**VPS**: <redacted-vps-host> (ubuntu)
+**Path**: /home/ubuntu/novax-price-alert
+**Services**: systemd (novax-price-alert-api, novax-price-alert-worker, novax-mini-app)
+
+### Management
+```bash
+# SSH to VPS
+ssh ubuntu@<redacted-vps-host>
+
+# Check services
+sudo systemctl status novax-price-alert-api
+sudo systemctl status novax-price-alert-worker
+sudo systemctl status novax-mini-app
+
+# Restart services
+sudo systemctl restart novax-price-alert-api
+sudo systemctl restart novax-price-alert-worker
+sudo systemctl restart novax-mini-app
+
+# View logs
+sudo journalctl -u novax-price-alert-api -f
+sudo journalctl -u novax-price-alert-worker -f
+```
+
+---
+
+## 🤖 Telegram Bot
+
+**Bot**: @novax_price_bot
+**Features**:
+- Live price alerts (crypto + fiat/gold)
+- Staged alert creation with confirmation
+- Rich TWA with charts and analytics
+- 10-minute price refresh
+
+---
+
+## 📊 Current Prices (Live)
+
+- USD_IRT: 1,801,800 تومان
+- EUR_IRT: 2,078,100 تومان
+- GOLD_18K_IRT: 178,669,000 تومان
+- SEKKEH_EMAMI_IRT: 1,820,100,000 تومان
+- USDT_IRT: 1,757,010 تومان
+- BTC/ETH/BNB: Currently mock data
+
+---
+
+*Novax Price Alert - Production Live*
+
 [![CI](https://github.com/novax/novax-price-alert/actions/workflows/ci.yml/badge.svg)](https://github.com/novax/novax-price-alert/actions/workflows/ci.yml)
 
 یک بات تلگرام برای نمایش قیمت و ثبت هشدار قیمت، با معماری سبک و قابل‌استقرار روی VPS.
