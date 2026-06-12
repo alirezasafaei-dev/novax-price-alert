@@ -4,10 +4,11 @@ Tests the full flow: create → confirm → list → update → delete
 via the API routers (not just internal services).
 """
 
+from unittest.mock import patch
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from unittest.mock import patch
 
 from novax_price_alert.api.deps import get_db
 from novax_price_alert.api.main import app

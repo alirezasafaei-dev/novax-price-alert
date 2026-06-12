@@ -29,7 +29,9 @@ In Telegram, search @novax_price_bot and send `/start`
 
 ## 📚 Documentation
 
+- **docs/RECENT_CHANGES.md** - Latest changes and improvements
 - **START_HERE.md** - Quick start guide (BEGIN HERE)
+- **docs/README.md** - Documentation index
 - **docs/FINAL_STATUS_REPORT.md** - Complete status report
 - **docs/SERVER_STATUS.md** - Real server configuration
 - **docs/BOTFATHER_SETUP.md** - Telegram bot setup
