@@ -32,7 +32,7 @@ jobs:
         working-directory: deploy/cloudflare-worker
 
       - name: Notify on test failure
-        if: failure()
+        if: failure() && github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           BOT_TOKEN: ${{ secrets.OPS_BOT_TOKEN }}
           OPS_CHAT_ID: ${{ secrets.OPS_CHAT_ID }}

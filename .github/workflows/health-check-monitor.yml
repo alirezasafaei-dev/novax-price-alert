@@ -1,5 +1,7 @@
 name: Health check and alert monitor
 
+# DISABLED: Monitor causing spam to ops group
+# Re-enable when server is stable and OPS_CHAT_ID is confirmed to be private
 # Checks /health and /status endpoints every 5 minutes.
 # Reacts to: stale_data_detected, duplicate_trigger_detected, notification_send_failed
 # by sending alerts to the ops Telegram group.
@@ -11,6 +13,10 @@ on:
 
 permissions:
   contents: read
+
+# Temporarily disable this workflow
+# Remove this condition when ready to re-enable
+if: false
 
 concurrency:
   group: health-check-monitor
