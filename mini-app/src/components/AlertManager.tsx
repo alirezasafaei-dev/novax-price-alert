@@ -110,7 +110,7 @@ export default function AlertManager({
       });
 
       // Show success message
-      setSuccessMessage(isFa ? '✓ هشدار با موفقیت ثبت شد' : '✓ Alert created successfully');
+      setSuccessMessage(isFa ? '✓ هشدار جدید با موفقیت ثبت شد' : '✓ New alert created successfully');
 
       // Reset fields
       setThresholdPrice('');
@@ -132,7 +132,7 @@ export default function AlertManager({
       <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl h-fit">
         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
           <BellRing size={20} className="text-teal-400" />
-          {isFa ? 'افزودن هشدار جدید' : 'Set New Alert'}
+          {isFa ? 'ایجاد هشدار جدید' : 'Create New Alert'}
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -157,7 +157,7 @@ export default function AlertManager({
           {/* Trigger Condition Selection */}
           <div>
             <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
-              {isFa ? 'شرط ماشه قیمت:' : 'Trigger Type:'}
+              {isFa ? 'شرط فعال‌سازی:' : 'Trigger Type:'}
             </label>
             <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 border border-slate-800 rounded-xl">
               <button
@@ -170,7 +170,7 @@ export default function AlertManager({
                 }`}
               >
                 <ArrowUpRight size={14} />
-                {isFa ? 'افزایش قیمت به بالایی' : 'Rises Above'}
+                {isFa ? 'افزایش به بالای هدف' : 'Rises Above'}
               </button>
               <button
                 type="button"
@@ -182,7 +182,7 @@ export default function AlertManager({
                 }`}
               >
                 <ArrowDownRight size={14} />
-                {isFa ? 'کاهش قیمت به پایینی' : 'Drops Below'}
+                {isFa ? 'کاهش به پایین هدف' : 'Drops Below'}
               </button>
             </div>
           </div>
@@ -269,7 +269,7 @@ export default function AlertManager({
             ) : (
               <>
                 <Plus size={16} />
-                {isFa ? 'ثبت و همگام‌سازی موقت' : 'Save & Register Alert'}
+                {isFa ? 'ثبت هشدار' : 'Create Alert'}
               </>
             )}
           </button>
@@ -281,13 +281,13 @@ export default function AlertManager({
         {/* Active Alerts List */}
         <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl">
           <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider font-mono mb-4">
-            🔥 {isFa ? 'هشدارهای زنده فعال' : 'Registered Alarms'}
+            🔥 {isFa ? 'هشدارهای فعال' : 'Active Alerts'}
           </h3>
 
           <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
             {alerts.length === 0 ? (
               <div className="bg-slate-950/20 border border-slate-800/40 p-8 rounded-xl text-center text-zinc-500 text-xs">
-                {isFa ? 'هیچ هشدار فعالی در حال حاضر وجود ندارد. یکی اضافه کنید!' : 'No registered alarms right now. Create one on the left!'}
+                {isFa ? 'هیچ هشدار فعالی ندارید. یک هشدار جدید بسازید!' : 'No active alerts. Create one on the left!'}
               </div>
             ) : (
               alerts.map((alert) => (
@@ -318,7 +318,7 @@ export default function AlertManager({
                         </span>
                       </div>
                       <div className="text-zinc-400 text-xs mt-1 flex flex-wrap items-center gap-1">
-                        <span>{isFa ? 'هدف:' : 'Threshold:'}</span>
+                        <span>{isFa ? 'هدف:' : 'Target:'}</span>
                         <span className="font-mono text-zinc-200 font-semibold">
                           {formatPrice(alert.thresholdPrice, alert.isCrypto ? 'crypto' : 'fiat')}
                         </span>
@@ -388,13 +388,13 @@ export default function AlertManager({
         <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/60 rounded-2xl p-6">
           <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider font-mono mb-4 flex items-center gap-1.5">
             <Terminal size={14} className="text-indigo-400" />
-            {isFa ? 'گزارش وقایع و ربات ارسال‌امواج (Telegram Bot Logs)' : 'Telegram Trigger & Event Stream Logs'}
+            {isFa ? 'گزارش وقایع هشدارها' : 'Alert Event Logs'}
           </h3>
 
           <div className="bg-slate-950 p-4 border border-zinc-900 rounded-xl space-y-2 h-44 overflow-y-auto font-mono text-xs text-zinc-400 custom-scrollbar">
             {alertLogs.length === 0 ? (
               <div className="text-zinc-600 italic select-none h-full flex items-center justify-center p-4">
-                {isFa ? 'در انتظار ماشه‌ی زنگ یا وب‌هوک قیمت...' : 'Waiting for price updates to exceed bounds...'}
+                {isFa ? 'در انتظار وقوع هشدار...' : 'Waiting for alert events...'}
               </div>
             ) : (
               alertLogs.map((log) => (

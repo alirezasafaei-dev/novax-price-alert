@@ -221,12 +221,12 @@ export default function App() {
         if (useLiveData && tgInitData) { const created = await res.json(); await fetch(`${backendBase}/api/v1/alerts/${created.id}/confirm`, { method: 'POST', headers: liveHeaders() }); }
         fetchAllData();
         setActiveTab('alerts');
-        showToast(isFa ? 'هشدار با موفقیت ثبت شد ✓' : 'Alert created successfully ✓', 'success');
+        showToast(isFa ? 'هشدار جدید با موفقیت ایجاد شد ✓' : 'New alert created successfully ✓', 'success');
       } else {
         throw new Error('Create failed');
       }
     } catch (e) {
-      showToast(isFa ? 'خطا در ثبت هشدار' : 'Failed to create alert', 'error');
+      showToast(isFa ? 'خطا در ایجاد هشدار. لطفاً دوباره تلاش کنید.' : 'Failed to create alert. Please try again.', 'error');
       throw e; // Re-throw to let AlertManager handle the error state
     }
   };
@@ -240,12 +240,12 @@ export default function App() {
         : await fetch(`/api/alerts/${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchAllData();
-        showToast(isFa ? 'هشدار حذف شد' : 'Alert deleted', 'info');
+        showToast(isFa ? 'هشدار با موفقیت حذف شد' : 'Alert deleted successfully', 'info');
       } else {
         throw new Error('Delete failed');
       }
     } catch (error) {
-      showToast(isFa ? 'خطا در حذف هشدار' : 'Failed to delete alert', 'error');
+      showToast(isFa ? 'خطا در حذف هشدار. لطفاً دوباره تلاش کنید.' : 'Failed to delete alert. Please try again.', 'error');
       throw error; // Re-throw to let AlertManager handle the error state
     }
   };
@@ -265,12 +265,12 @@ export default function App() {
         : await fetch(`/api/alerts/${id}/toggle`, { method: 'PUT' });
       if (res.ok) {
         fetchAllData();
-        showToast(isFa ? 'وضعیت هشدار تغییر کرد' : 'Alert status updated', 'info');
+        showToast(isFa ? 'وضعیت هشدار با موفقیت تغییر کرد' : 'Alert status updated successfully', 'info');
       } else {
         throw new Error('Toggle failed');
       }
     } catch (error) {
-      showToast(isFa ? 'خطا در تغییر وضعیت هشدار' : 'Failed to toggle alert', 'error');
+      showToast(isFa ? 'خطا در تغییر وضعیت هشدار. لطفاً دوباره تلاش کنید.' : 'Failed to toggle alert. Please try again.', 'error');
       throw error; // Re-throw to let AlertManager handle the error state
     }
   };
@@ -294,10 +294,10 @@ export default function App() {
 
   /* ── Tab definitions ── */
   const tabs = [
-    { id: 'prices' as const, icon: Coins, labelFa: 'داشبورد ارزها', labelEn: 'Price Board' },
-    { id: 'alerts' as const, icon: Bell, labelFa: 'دیده‌بان هشدارها', labelEn: 'Alert Center' },
-    { id: 'ai' as const, icon: Sparkles, labelFa: 'دستیار هوشمند', labelEn: 'AI Analyst' },
-    { id: 'vps' as const, icon: HelpCircle, labelFa: 'راهنمای استقرار', labelEn: 'VPS Docs' },
+    { id: 'prices' as const, icon: Coins, labelFa: 'تابلو قیمت‌ها', labelEn: 'Price Board' },
+    { id: 'alerts' as const, icon: Bell, labelFa: 'مرکز هشدارها', labelEn: 'Alert Center' },
+    { id: 'ai' as const, icon: Sparkles, labelFa: 'تحلیل‌گر هوشمند', labelEn: 'AI Analyst' },
+    { id: 'vps' as const, icon: HelpCircle, labelFa: 'مستندات استقرار', labelEn: 'VPS Docs' },
   ];
 
   return (
@@ -344,7 +344,7 @@ export default function App() {
       {/* ── Confirm delete dialog ── */}
       <ConfirmDialog open={showConfirmDelete.open}
         title={isFa ? 'حذف هشدار' : 'Delete Alert'}
-        message={isFa ? 'آیا از حذف این هشدار اطمینان دارید؟' : 'Are you sure you want to delete this alert?'}
+        message={isFa ? 'آیا مطمئن هستید که می‌خواهید این هشدار را حذف کنید؟' : 'Are you sure you want to delete this alert?'}
         onConfirm={confirmDelete} onCancel={() => setShowConfirmDelete({ open: false, alertId: null })}
         language={language} />
 
@@ -360,7 +360,7 @@ export default function App() {
             <div className="flex flex-col items-center gap-4">
               <div className="w-12 h-12 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
               <p className="text-zinc-400 text-sm font-medium">
-                {isFa ? 'در حال بارگذاری داده‌ها...' : 'Loading data...'}
+                {isFa ? 'در حال دریافت اطلاعات...' : 'Loading data...'}
               </p>
             </div>
           </motion.div>

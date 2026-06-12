@@ -48,15 +48,15 @@ class TelegramNotificationSender(BaseNotificationSender):
         chat_id = user.telegram_user_id
 
         display_name = asset.display_name or asset.name or asset.symbol or rule.canonical_asset_id
-        condition_text = "بالاتر یا مساوی" if rule.condition_type == "above" else "پایین‌تر یا مساوی"
+        condition_text = "رسیدن به بالاتر از" if rule.condition_type == "above" else "رسیدن به پایین‌تر از"
         unit = asset.unit or rule.target_price_display_unit or ""
 
         text = (
-            "🔔 هشدار قیمت NovaX فعال شد\n\n"
-            f"دارایی: {display_name} ({rule.canonical_asset_id or ''})\n"
-            f"شرط: {condition_text} {format_price(rule.target_price, unit, use_persian=True)}\n"
-            f"قیمت تریگر: {format_price(event.triggered_price, unit, use_persian=True)}\n\n"
-            "هشدار شما اجرا شد. برای مدیریت بیشتر از دکمه‌ها استفاده کنید."
+            "🔔 هشدار قیمت NovaX\n\n"
+            f"💰 دارایی: {display_name} ({rule.canonical_asset_id or ''})\n"
+            f"📊 شرط: {condition_text} {format_price(rule.target_price, unit, use_persian=True)}\n"
+            f"🎯 قیمت فعال‌سازی: {format_price(event.triggered_price, unit, use_persian=True)}\n\n"
+            "هشدار شما با موفقیت فعال شد."
         )
 
         # Rich inline keyboard for triggered notification (roadmap فاز ۱).
@@ -66,11 +66,8 @@ class TelegramNotificationSender(BaseNotificationSender):
         reply_markup = {
             "inline_keyboard": [
                 [
-                    {"text": "📈 چارت و قیمت‌ها در اپ", "url": app_url},
+                    {"text": "📈 مشاهده قیمت‌ها", "url": app_url},
                     {"text": "🔔 مدیریت هشدارها", "url": app_url},
-                ],
-                [
-                    {"text": "📋 باز کردن داشبورد هوشمند (نمونه)", "url": app_url},
                 ],
             ]
         }

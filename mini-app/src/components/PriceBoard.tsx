@@ -98,7 +98,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
           <Activity size={32} className="text-zinc-600" />
         </div>
         <p className="text-zinc-400 font-medium mb-2">
-          {isFa ? 'در انتظار داده‌های قیمت...' : 'Waiting for price data...'}
+          {isFa ? 'در انتظار دریافت قیمت‌ها...' : 'Waiting for price data...'}
         </p>
         <p className="text-zinc-600 text-xs">
           {isFa ? 'لطفاً اتصال اینترنت خود را بررسی کنید' : 'Please check your internet connection'}
@@ -120,7 +120,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
             <div>
               <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
                 <Activity size={12} className="text-teal-400" />
-                {isFa ? 'نمودار زنده' : 'LIVE TICKER'}
+                {isFa ? 'نمودار آنلاین' : 'LIVE CHART'}
               </span>
               <h2 className="text-2xl font-bold tracking-tight text-white mt-1">
                 {isFa ? selectedAsset.nameFa : selectedAsset.name}
@@ -168,11 +168,11 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
           {/* Set Alert CTA */}
           <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-950/40 border border-slate-800/50 rounded-xl p-4 mt-6 gap-3">
             <div className="text-zinc-400 text-sm text-center sm:text-left">
-              {isFa ? `می‌خواهید برای تغییر قیمت ${selectedAsset.nameFa} هشدار دریافت کنید؟` : `Want customized alarms for ${selectedAsset.name}?`}
+              {isFa ? `می‌خواهید برای ${selectedAsset.nameFa} هشدار قیمت بگذارید؟` : `Want to set price alerts for ${selectedAsset.name}?`}
             </div>
             <button onClick={() => onSelectAssetForAlert(selectedAsset.symbol)}
               className="flex items-center gap-2 bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-400 hover:to-indigo-500 text-white font-semibold px-4 py-2 rounded-xl shadow-lg transition-all transform hover:scale-[1.02] cursor-pointer text-sm">
-              <Bell size={16} /> {isFa ? 'ثبت هشدار اختصاصی' : 'Create Custom Alert'}
+              <Bell size={16} /> {isFa ? 'ایجاد هشدار جدید' : 'Create New Alert'}
             </button>
           </div>
         </div>
@@ -185,15 +185,15 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
           </div>
 
           <h3 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-            📊 {isFa ? 'شبیه‌ساز و تست دستی هشدارها' : 'Manual Trigger Playbox'}
+            📊 {isFa ? 'شبیه‌ساز و تست هشدارها' : 'Manual Alert Test'}
           </h3>
           <p className="text-xs text-zinc-400 mb-4 leading-relaxed">
-            {isFa ? 'با اسلایدر زیر می‌توانید قیمت فعلی دارایی مشخص شده را به صورت دستی تغییر دهید تا نحوه ماشه خوردن هشدارها را تست نمایید!' : 'Slide below to manually modify current quote and test alert trigger conditions in real-time.'}
+            {isFa ? 'با اسلایدر زیر می‌توانید قیمت را به صورت دستی تغییر دهید تا عملکرد هشدارها را تست کنید.' : 'Use the slider below to manually change the price and test alert trigger conditions.'}
           </p>
 
           <div className="bg-slate-900/80 border border-slate-800/60 rounded-xl p-4 space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-semibold text-white">{isFa ? 'قیمت شبیه‌سازی:' : 'Simulation quote:'}</span>
+              <span className="text-sm font-semibold text-white">{isFa ? 'قیمت شبیه‌سازی شده:' : 'Test price:'}</span>
               <span className="text-lg font-mono font-bold text-teal-400">{formatPrice(sliderPrice, selectedAsset.type, selectedAsset.unit)}</span>
             </div>
             <input type="range" min={minSliderVal} max={maxSliderVal} step={sliderStep} value={sliderPrice} onChange={handleSliderChange}
@@ -211,7 +211,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
       <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-4 shadow-xl flex flex-col max-h-[660px] overflow-hidden">
         <div className="flex justify-between items-center mb-4 px-2">
           <h3 className="text-sm font-semibold text-zinc-300 flex items-center gap-1.5 uppercase font-mono tracking-wider">
-            <Coins size={14} className="text-indigo-400" /> {isFa ? 'لیست دارایی‌ها' : 'Asset Quotes'}
+            <Coins size={14} className="text-indigo-400" /> {isFa ? 'لیست دارایی‌ها' : 'Asset List'}
           </h3>
           <div className="flex bg-slate-950/60 p-0.5 rounded-lg border border-slate-800/50 text-xs">
             {['all', 'crypto', 'gold'].map((type) => (
