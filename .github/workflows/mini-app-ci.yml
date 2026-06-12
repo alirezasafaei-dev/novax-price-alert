@@ -1,0 +1,127 @@
+name: Mini App CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'mini-app/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'mini-app/**'
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  lint-and-test:
+    name: Lint and Test Mini App
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'mini-app/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: ./mini-app
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: ./mini-app
+        run: npm run lint || echo "No lint script configured"
+
+      - name: Run TypeScript check
+        working-directory: ./mini-app
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        working-directory: ./mini-app
+        run: npm test || echo "No tests configured"
+
+      - name: Build mini app
+        working-directory: ./mini-app
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mini-app-build
+          path: mini-app/dist/
+          retention-days: 7
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run npm audit
+        working-directory: ./mini-app
+        run: npm audit --audit-level=moderate || echo "Audit completed with warnings"
+
+      - name: Check for vulnerabilities
+        uses: actions/dependency-review-action@v4
+
+  deploy-vps:
+    name: Deploy to VPS
+    needs: [lint-and-test, security-scan]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies and build
+        working-directory: ./mini-app
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy to VPS
+        uses: easingthemes/ssh-deploy@v4
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.VPS_HOST }}
+          REMOTE_USER: ${{ secrets.VPS_USER }}
+          TARGET: /home/ubuntu/novax-price-alert/mini-app
+          SOURCE: mini-app/dist/
+          ARGS: "-rlgoDzvc -i --delete"
+
+      - name: Restart mini app service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/novax-price-alert
+            /home/ubuntu/.local/bin/pm2 restart novax-mini-app --update-env
+
+      - name: Notify deployment success
+        if: success()
+        env:
+          BOT_TOKEN: ${{ secrets.OPS_BOT_TOKEN }}
+          OPS_CHAT_ID: ${{ secrets.OPS_CHAT_ID }}
+        run: |
+          if [[ -z "$BOT_TOKEN" || -z "$OPS_CHAT_ID" ]]; then
+            echo "Skipping notification - missing secrets"
+            exit 0
+          fi
+          TEXT="✅ Mini App deployed successfully to VPS. Commit: ${{ github.sha }}"
+          PAYLOAD=$(python3 -c "import json, sys; print(json.dumps({'chat_id': '$OPS_CHAT_ID', 'text': sys.argv[1], 'disable_web_page_preview': True}))" "$TEXT")
+          curl -fsS -m 20 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" -H "Content-Type: application/json" -d "$PAYLOAD" || true

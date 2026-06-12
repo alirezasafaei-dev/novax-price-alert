@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://novax.alirezasafeidev.ir/sitemap.xml
+
+# Disallow sensitive paths
+Disallow: /api/
+Disallow: /admin/
+Disallow: /private/
+
+# Crawl-delay for politeness
+Crawl-delay: 1

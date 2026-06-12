@@ -93,8 +93,8 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
 
   if (assets.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-zinc-500 text-sm p-6 text-center">
-        <div className="w-16 h-16 rounded-full bg-slate-900/50 flex items-center justify-center mb-4">
+      <div className="flex flex-col items-center justify-center h-64 text-zinc-500 text-sm p-6 text-center" role="status" aria-live="polite">
+        <div className="w-16 h-16 rounded-full bg-slate-900/50 flex items-center justify-center mb-4" aria-hidden="true">
           <Activity size={32} className="text-zinc-600" />
         </div>
         <p className="text-zinc-400 font-medium mb-2">
