@@ -100,7 +100,7 @@ export default function AlertManager({
             >
               {assets.map((asset) => (
                 <option key={asset.symbol} value={asset.symbol}>
-                  {isFa ? asset.nameFa : asset.name} ({asset.symbol}) - {formatPrice(asset.price, asset.type)}
+                  {isFa ? asset.nameFa : asset.name} ({asset.symbol}) - {formatPrice(asset.price, asset.type, asset.unit)}
                 </option>
               ))}
             </select>
@@ -158,7 +158,7 @@ export default function AlertManager({
               </span>
             </div>
             <p className="text-[10px] text-zinc-500 mt-1 py-0.5">
-              {isFa ? `قیمت فعلی: ${formatPrice(activeAsset.price, activeAsset.type)}` : `Current Rate: ${formatPrice(activeAsset.price, activeAsset.type)}`}
+              {isFa ? `قیمت فعلی: ${formatPrice(activeAsset.price, activeAsset.type, activeAsset.unit)}` : `Current Rate: ${formatPrice(activeAsset.price, activeAsset.type, activeAsset.unit)}`}
             </p>
           </div>
 

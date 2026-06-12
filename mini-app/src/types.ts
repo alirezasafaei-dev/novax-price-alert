@@ -2,9 +2,10 @@ export interface Asset {
   symbol: string;
   name: string;
   nameFa: string;
-  price: number; // in USD for crypto, in Toman for fiat/gold
+  price: number; // in USD for crypto, in base unit for fiat/gold
   priceInToman?: number; // Calculated or direct
   type: 'crypto' | 'fiat' | 'gold';
+  unit?: string; // currency unit (e.g., 'USDT', 'IRT', 'TOMAN')
   change24h: number; // percentage change (e.g. 1.25 for +1.25%)
   history: number[]; // 12-point recent history for sparkline
 }
