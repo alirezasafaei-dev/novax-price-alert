@@ -13,6 +13,7 @@ This repository keeps a small set of living docs and moves retired drafts out of
 - [Observability](OBSERVABILITY.md)
 - [Progress](PROGRESS.md)
 - [Implementation Roadmap](IMPLEMENTATION_ROADMAP_FA.md)
+- [Security](SECURITY.md)
 
 ## Source-of-truth notes
 
