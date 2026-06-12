@@ -77,6 +77,7 @@ export default function App() {
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [showConfirmDelete, setShowConfirmDelete] = useState<{ open: boolean; alertId: string | null }>({ open: false, alertId: null });
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const prevLogLen = useRef(0);
 
   const isFa = language === 'fa';
@@ -132,6 +133,7 @@ export default function App() {
   /* ── Fetch all data ── */
   const fetchAllData = async () => {
     try {
+      setIsLoading(true);
       let priceData: any[] = [];
       if (useLiveData) {
         const pRes = await fetch(`${backendBase}/api/v1/prices/latest`);
@@ -189,6 +191,8 @@ export default function App() {
     } catch (e) {
       setIsOnline(false);
       console.warn('Network sync warning:', e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -202,6 +206,7 @@ export default function App() {
   useEffect(() => { setMobileMenuOpen(false); }, [activeTab]);
 
   const toggleLiveData = () => { setUseLiveData(p => !p); setTimeout(() => fetchAllData(), 10); };
+  const handleRetryConnection = () => { fetchAllData(); };
 
   /* ── Handlers ── */
   const handleAddAlert = async (alertData: { symbol: string; triggerType: 'UPPER' | 'LOWER'; thresholdPrice: number; label: string; telegramUsername: string }) => {
@@ -343,6 +348,25 @@ export default function App() {
         onConfirm={confirmDelete} onCancel={() => setShowConfirmDelete({ open: false, alertId: null })}
         language={language} />
 
+      {/* ── Loading overlay ── */}
+      <AnimatePresence>
+        {isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-[#060814]/80 backdrop-blur-sm z-[200] flex items-center justify-center"
+          >
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
+              <p className="text-zinc-400 text-sm font-medium">
+                {isFa ? 'در حال بارگذاری داده‌ها...' : 'Loading data...'}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Main container ── */}
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 flex flex-col gap-5">
 
@@ -362,6 +386,14 @@ export default function App() {
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-zinc-400 font-semibold">{isFa ? 'کاربر:' : 'User:'}</span>
                 <span className="text-xs text-white font-bold font-mono">@novax_user</span>
+                {!isOnline && (
+                  <button
+                    onClick={handleRetryConnection}
+                    className="text-[10px] text-rose-400 hover:text-rose-300 underline cursor-pointer"
+                  >
+                    {isFa ? 'تلاش مجدد' : 'Retry'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
