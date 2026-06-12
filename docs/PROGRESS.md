@@ -17,6 +17,16 @@
   - `BTC_USDT`، `ETH_USDT`، `BNB_USDT` از `coingecko_fallback`
 - نکته برای ادامه فردا: لاگ‌های `price provider failed` در worker باید جداگانه ریشه‌یابی و تمیز شوند، هرچند فعلاً سرویس و قیمت‌ها fresh و usable هستند.
 
+## 2026-06-12: VPS re-sync, sslmode fix, Cloudflare Worker re-deploy
+
+- **مشکل:** کد روی VPS با repo هم‌راستا نبود — git بدون commit بود و فایل‌ها مستقیم کپی شده بودند.
+- **rsync:** کد از repo محلی به VPS sync شد (`.env`, `.venv`, `node_modules` محروم).
+- **رفع مشکل `sslmode`:** `normalize_database_url` در `core/settings.py` پچ شد تا `sslmode=require` را از URL قبل از رسیدن به asyncpg strip کند. باعث شد `alembic current/upgrade` روی VPS کار کند.
+- **Cloudflare Worker:** `wrangler` با node20 نصب و Worker دوباره deploy شد (Version ID: `8a17a55f`). دکمه‌ها و متن‌های منو آپدیت شدند.
+- **Mini-app:** تغییری نداشت — هم‌راستا بود.
+- **نتیجه:** health=200, prices fresh, worker cron active, SSL 86 روز اعتبار.
+- **commit:** `744ee37` — fix: strip sslmode from database_url
+
 ## 2026-06-10: Worker price-ingestion hardening on Iranian VPS
 
 - ریشه خطای مکرر worker مشخص شد: در ingest داخلی، fail شدن بعضی providerها یا بعضی symbolها باعث می‌شد کل batch بازار ایران fail تلقی شود.

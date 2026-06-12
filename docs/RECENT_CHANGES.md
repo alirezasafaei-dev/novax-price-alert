@@ -82,9 +82,16 @@
 - 🟢 Services: All systemd services active
 
 ### Git
-- Latest commit: `9aab822` - "fix: disable spammy GitHub Actions notifications to ops group"
+- Latest commit: `744ee37` — "fix: strip sslmode from database_url in normalize function for asyncpg compatibility"
 - Branch: main
 - Status: Up to date with origin/main
+
+## 2026-06-12: Deployment sync & Cloudflare Worker re-deploy
+
+- **VPS rsync:** کد از repo محلی به VPS sync شد. git روی VPS بدون commit بود.
+- **sslmode fix:** `normalize_database_url` در `core/settings.py` پچ شد تا `sslmode=require` را از URL strip کند. alembic روی VPS از کار بوده بود.
+- **Cloudflare Worker:** wrangler با node20 نصب و Worker re-deploy شد (Version: `8a17a55f`).
+- **نتیجه:** دکمه‌ها و متن‌های منوی تلگرام آپدیت شدند.
 
 ## کارهای آینده
 
