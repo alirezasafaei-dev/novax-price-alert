@@ -8,9 +8,9 @@ import os
 import subprocess
 import sys
 
-VPS_IP = "<redacted-vps-host>"
-VPS_USER = "ubuntu"
-VPS_PASSWORD = ""  # Set via environment variable: NOVAX_VPS_PASSWORD
+VPS_IP = os.environ.get("VPS_IP", "<redacted-vps-host>")
+VPS_USER = os.environ.get("VPS_USER", "ubuntu")
+VPS_SSH_KEY_PATH = os.environ.get("VPS_SSH_KEY_PATH", os.path.expanduser("~/.ssh/id_rsa"))
 VPS_PORT = 22
 APP_DIR = "/home/deploy/novax-price-alert"
 DOMAIN = "novax.alirezasafeidev.ir"
@@ -23,33 +23,29 @@ def print_step(title):
     print("=" * 60)
 
 
-def get_password():
-    """Get VPS password from environment variable."""
-    password = os.environ.get("NOVAX_VPS_PASSWORD")
-    if not password:
-        print("⚠️  Warning: NOVAX_VPS_PASSWORD environment variable not set")
-        print("Please set it: export NOVAX_VPS_PASSWORD='your_password'")
+def get_ssh_key_path():
+    """Get SSH key path for deployment."""
+    if not os.path.exists(VPS_SSH_KEY_PATH):
+        print(f"⚠️  Warning: SSH key not found at {VPS_SSH_KEY_PATH}")
+        print("Please set VPS_SSH_KEY_PATH or ensure SSH key exists")
         return None
-    return password
+    return VPS_SSH_KEY_PATH
 
 
-def run_ssh_command(command, use_password=True):
-    """Run SSH command, optionally with password"""
-    if use_password:
-        password = get_password()
-        if not password:
-            print("❌ Cannot run SSH command without password")
+def run_ssh_command(command, use_key=True):
+    """Run SSH command, optionally with SSH key"""
+    if use_key:
+        key_path = get_ssh_key_path()
+        if not key_path:
+            print("❌ Cannot run SSH command without SSH key")
             return False
 
-        # Create a temporary script with password embedded
+        # Use SSH key authentication
         ssh_cmd = (
             f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-            f"{VPS_USER}@{VPS_IP} '{command}'"
+            f"-i {key_path} {VPS_USER}@{VPS_IP} '{command}'"
         )
-        script = f"""#!/bin/bash
-echo "{password}" | {ssh_cmd}
-"""
-        result = subprocess.run(script, shell=True, capture_output=True, text=True)
+        result = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True)
     else:
         ssh_cmd = (
             f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
@@ -66,16 +62,12 @@ echo "{password}" | {ssh_cmd}
 
 def run_ssh_interactive():
     """Create an SSH connection for manual use"""
-    password = get_password()
+    key_path = get_ssh_key_path()
     print_step("SSH to VPS for Manual Deployment")
-    if password:
-        print(f"Password: {password}")
+    if key_path:
+        print(f"SSH Key: {key_path}")
     print("\nTo connect manually, run:")
-    print(f"ssh {VPS_USER}@{VPS_IP}")
-    if password:
-        print(f"Then use password: {password}")
-    else:
-        print("Then use password from environment variable: NOVAX_VPS_PASSWORD")
+    print(f"ssh -i {VPS_SSH_KEY_PATH} {VPS_USER}@{VPS_IP}")
     print()
     print("Commands to run on VPS:")
     print(f"1. cd {APP_DIR}")

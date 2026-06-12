@@ -10,13 +10,12 @@ import sys
 
 import paramiko
 
-VPS_IP = "<redacted-vps-host>"
-VPS_USER = "ubuntu"
-VPS_PASSWORD = ""  # Set via environment variable: NOVAX_VPS_PASSWORD
-VPS_PORT = 22
-APP_DIR = "/home/deploy/novax-price-alert"
-DOMAIN = "novax.alirezasafeidev.ir"
-LOCAL_DIR = "/home/dev13/my-project/sites/secondary/novax-price-alert"
+VPS_IP = os.environ.get("VPS_IP", "<redacted-vps-host>")
+VPS_USER = os.environ.get("VPS_USER", "ubuntu")
+VPS_PORT = int(os.environ.get("VPS_PORT", "22"))
+APP_DIR = os.environ.get("APP_DIR", "/home/deploy/novax-price-alert")
+DOMAIN = os.environ.get("DOMAIN", "novax.alirezasafeidev.ir")
+LOCAL_DIR = os.environ.get("LOCAL_DIR", "/home/dev13/my-project/sites/secondary/novax-price-alert")
 
 
 def print_step(title):
@@ -25,14 +24,14 @@ def print_step(title):
     print("=" * 60)
 
 
-def get_password():
-    """Get VPS password from environment variable."""
-    password = os.environ.get("NOVAX_VPS_PASSWORD")
-    if not password:
-        print("⚠️  Warning: NOVAX_VPS_PASSWORD environment variable not set")
-        print("Please set it: export NOVAX_VPS_PASSWORD='your_password'")
+def get_ssh_key_path():
+    """Get SSH key path from environment variable or default."""
+    key_path = os.environ.get("VPS_SSH_KEY_PATH", os.path.expanduser("~/.ssh/id_rsa"))
+    if not os.path.exists(key_path):
+        print(f"⚠️  Warning: SSH key not found at {key_path}")
+        print("Please set VPS_SSH_KEY_PATH or ensure SSH key exists")
         return None
-    return password
+    return key_path
 
 
 def run_local_command(cmd):
@@ -47,17 +46,24 @@ def run_local_command(cmd):
 
 
 def ssh_connect():
-    """Create SSH connection to VPS"""
+    """Create SSH connection to VPS using SSH key authentication"""
     print_step("Connecting to VPS")
-    password = get_password()
-    if not password:
-        print("❌ Cannot connect without password")
+    key_path = get_ssh_key_path()
+    if not key_path:
+        print("❌ Cannot connect without SSH key")
         return None
 
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(VPS_IP, port=VPS_PORT, username=VPS_USER, password=password, timeout=30)
+        private_key = paramiko.RSAKey.from_private_key_file(key_path)
+        ssh.connect(
+            VPS_IP,
+            port=VPS_PORT,
+            username=VPS_USER,
+            pkey=private_key,
+            timeout=30,
+        )
         print(f"✅ Connected to {VPS_USER}@{VPS_IP}")
         return ssh
     except Exception as e:
@@ -156,7 +162,7 @@ def main():
     print("=" * 60)
     print(f"VPS: {VPS_USER}@{VPS_IP}")
     print(f"Domain: {DOMAIN}")
-    print("Bot ID: 8858674032 (@novax_price_bot)")
+    print("Bot: @novax_price_bot")
     print("")
 
     # Check if paramiko is installed
@@ -247,7 +253,7 @@ def main():
         print(f"   https://{DOMAIN}")
         print(f"   https://{DOMAIN}/health")
         print(f"   https://{DOMAIN}/api/v1/prices/latest")
-        print("\n🤖 Bot: @novax_price_bot (ID: 8858674032)")
+        print("\n🤖 Bot: @novax_price_bot")
 
         return 0
 
