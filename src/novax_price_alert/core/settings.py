@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,7 +16,17 @@ def normalize_database_url(value: str) -> str:
         return value
 
     if value.startswith("postgres://"):
-        return value.replace("postgres://", "postgresql+asyncpg://", 1)
+        value = value.replace("postgres://", "postgresql+asyncpg://", 1)
+
+    # Strip sslmode from URL for asyncpg compatibility
+    # asyncpg uses connect_args={"ssl": True} instead of sslmode=query-param
+    if "sslmode=" in value:
+        parsed = urlparse(value)
+        qs = parse_qs(parsed.query, keep_blank_values=True)
+        qs.pop("sslmode", None)
+        new_qs = urlencode(qs, doseq=True)
+        value = urlunparse(parsed._replace(query=new_qs))
+
     return value
 
 
