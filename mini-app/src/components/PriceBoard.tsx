@@ -80,9 +80,11 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
 
   const isFa = language === 'fa';
 
-  const formatRawPrice = (price: number, type: 'crypto' | 'fiat' | 'gold') => {
+  const formatRawPrice = (price: number, type: 'crypto' | 'fiat' | 'gold', unit?: string) => {
     if (type === 'crypto') return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2 });
-    return price.toLocaleString('fa-IR') + ' تومان';
+    // Convert IRT (Rial) to Toman if needed
+    const displayPrice = unit && unit.toUpperCase() === 'IRT' ? price / 10 : price;
+    return displayPrice.toLocaleString('fa-IR') + ' تومان';
   };
 
   const minSliderVal = selectedAsset ? Math.round(selectedAsset.price * 0.7) : 0;
@@ -119,7 +121,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
             </div>
             <div className="text-right">
               <div className="text-2xl font-mono font-semibold text-teal-400">
-                {formatPrice(selectedAsset.price, selectedAsset.type)}
+                {formatPrice(selectedAsset.price, selectedAsset.type, selectedAsset.unit)}
               </div>
               <div className={`text-xs font-bold mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${
                 selectedAsset.change24h >= 0 ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'
@@ -148,10 +150,10 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
                 strokeWidth="2.5" strokeLinecap="round" className="transition-all duration-500" />
             </svg>
             <div className="absolute top-2 left-2 text-[10px] font-mono text-zinc-500 bg-slate-800/40 px-1.5 py-0.5 rounded">
-              High: {formatRawPrice(Math.max(...selectedAsset.history), selectedAsset.type)}
+              High: {formatRawPrice(Math.max(...selectedAsset.history), selectedAsset.type, selectedAsset.unit)}
             </div>
             <div className="absolute bottom-2 left-2 text-[10px] font-mono text-zinc-500 bg-slate-800/40 px-1.5 py-0.5 rounded">
-              Low: {formatRawPrice(Math.min(...selectedAsset.history), selectedAsset.type)}
+              Low: {formatRawPrice(Math.min(...selectedAsset.history), selectedAsset.type, selectedAsset.unit)}
             </div>
           </div>
 
@@ -184,14 +186,14 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
           <div className="bg-slate-900/80 border border-slate-800/60 rounded-xl p-4 space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-sm font-semibold text-white">{isFa ? 'قیمت شبیه‌سازی:' : 'Simulation quote:'}</span>
-              <span className="text-lg font-mono font-bold text-teal-400">{formatPrice(sliderPrice, selectedAsset.type)}</span>
+              <span className="text-lg font-mono font-bold text-teal-400">{formatPrice(sliderPrice, selectedAsset.type, selectedAsset.unit)}</span>
             </div>
             <input type="range" min={minSliderVal} max={maxSliderVal} step={sliderStep} value={sliderPrice} onChange={handleSliderChange}
               className="w-full rounded-lg appearance-none h-2 cursor-pointer" />
             <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
-              <span>Min: {formatRawPrice(minSliderVal, selectedAsset.type)}</span>
-              <span>Reset: {formatRawPrice(selectedAsset.price, selectedAsset.type)}</span>
-              <span>Max: {formatRawPrice(maxSliderVal, selectedAsset.type)}</span>
+              <span>Min: {formatRawPrice(minSliderVal, selectedAsset.type, selectedAsset.unit)}</span>
+              <span>Reset: {formatRawPrice(selectedAsset.price, selectedAsset.type, selectedAsset.unit)}</span>
+              <span>Max: {formatRawPrice(maxSliderVal, selectedAsset.type, selectedAsset.unit)}</span>
             </div>
           </div>
         </div>
@@ -243,7 +245,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
                     </svg>
                   </div>
                   <div>
-                    <div className="font-semibold font-mono text-sm">{formatPrice(asset.price, asset.type)}</div>
+                    <div className="font-semibold font-mono text-sm">{formatPrice(asset.price, asset.type, asset.unit)}</div>
                     <div className={`text-[11px] font-bold mt-0.5 font-mono ${priceUp ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {priceUp ? '+' : ''}{asset.change24h.toFixed(2)}%
                     </div>

@@ -17,19 +17,20 @@ interface SimulatedAsset {
   nameFa: string;
   price: number;
   type: 'crypto' | 'fiat' | 'gold';
+  unit?: string;
   change24h: number;
   history: number[];
 }
 
 let assets: SimulatedAsset[] = [
-  { symbol: "BTC", name: "Bitcoin", nameFa: "بیت‌کوین", price: 63060, type: "crypto", change24h: 1.45, history: [62000, 62200, 62500, 62300, 62700, 62800, 62900, 63000, 62950, 63020, 63040, 63060] },
-  { symbol: "ETH", name: "Ethereum", nameFa: "اتریوم", price: 1657, type: "crypto", change24h: -0.80, history: [1680, 1675, 1670, 1665, 1660, 1658, 1655, 1653, 1650, 1652, 1655, 1657] },
-  { symbol: "SOL", name: "Solana", nameFa: "سولانا", price: 142, type: "crypto", change24h: 4.82, history: [135, 136, 137, 138, 139, 140, 141, 140.5, 141.5, 142, 141.8, 142] },
-  { symbol: "TON", name: "Toncoin", nameFa: "تون‌کوین", price: 5.10, type: "crypto", change24h: 12.4, history: [4.5, 4.6, 4.7, 4.75, 4.8, 4.9, 4.95, 5.0, 5.05, 5.08, 5.09, 5.10] },
-  { symbol: "USDT_IRT", name: "Tether / Toman", nameFa: "تتر به تومان", price: 1804930, type: "fiat", change24h: 0.15, history: [1800000, 1801000, 1802000, 1802500, 1803000, 1803500, 1804000, 1804200, 1804500, 1804700, 1804800, 1804930] },
-  { symbol: "USD_IRT", name: "US Dollar / Toman", nameFa: "دلار آزاد به تومان", price: 1802000, type: "fiat", change24h: 0.20, history: [1798000, 1799000, 1800000, 1800500, 1801000, 1801200, 1801500, 1801700, 1801800, 1801900, 1801950, 1802000] },
-  { symbol: "GOLD18", name: "Gold 18k (Garam)", nameFa: "طلای ۱۸ عیار", price: 178789000, type: "gold", change24h: -0.42, history: [179000000, 178950000, 178900000, 178850000, 178820000, 178800000, 178790000, 178785000, 178782000, 178780000, 178785000, 178789000] },
-  { symbol: "COIN_EMAMI", name: "Emami Coin", nameFa: "سکه امامی", price: 1819900000, type: "gold", change24h: -0.25, history: [1822000000, 1821500000, 1821000000, 1820800000, 1820500000, 1820200000, 1820000000, 1819950000, 1819920000, 1819900000, 1819890000, 1819900000] },
+  { symbol: "BTC", name: "Bitcoin", nameFa: "بیت‌کوین", price: 63060, type: "crypto", unit: "USDT", change24h: 1.45, history: [62000, 62200, 62500, 62300, 62700, 62800, 62900, 63000, 62950, 63020, 63040, 63060] },
+  { symbol: "ETH", name: "Ethereum", nameFa: "اتریوم", price: 1657, type: "crypto", unit: "USDT", change24h: -0.80, history: [1680, 1675, 1670, 1665, 1660, 1658, 1655, 1653, 1650, 1652, 1655, 1657] },
+  { symbol: "SOL", name: "Solana", nameFa: "سولانا", price: 142, type: "crypto", unit: "USDT", change24h: 4.82, history: [135, 136, 137, 138, 139, 140, 141, 140.5, 141.5, 142, 141.8, 142] },
+  { symbol: "TON", name: "Toncoin", nameFa: "تون‌کوین", price: 5.10, type: "crypto", unit: "USDT", change24h: 12.4, history: [4.5, 4.6, 4.7, 4.75, 4.8, 4.9, 4.95, 5.0, 5.05, 5.08, 5.09, 5.10] },
+  { symbol: "USDT_IRT", name: "Tether / Toman", nameFa: "تتر به تومان", price: 1804930, type: "fiat", unit: "IRT", change24h: 0.15, history: [1800000, 1801000, 1802000, 1802500, 1803000, 1803500, 1804000, 1804200, 1804500, 1804700, 1804800, 1804930] },
+  { symbol: "USD_IRT", name: "US Dollar / Toman", nameFa: "دلار آزاد به تومان", price: 1802000, type: "fiat", unit: "IRT", change24h: 0.20, history: [1798000, 1799000, 1800000, 1800500, 1801000, 1801200, 1801500, 1801700, 1801800, 1801900, 1801950, 1802000] },
+  { symbol: "GOLD18", name: "Gold 18k (Garam)", nameFa: "طلای ۱۸ عیار", price: 178789000, type: "gold", unit: "IRT", change24h: -0.42, history: [179000000, 178950000, 178900000, 178850000, 178820000, 178800000, 178790000, 178785000, 178782000, 178780000, 178785000, 178789000] },
+  { symbol: "COIN_EMAMI", name: "Emami Coin", nameFa: "سکه امامی", price: 1819900000, type: "gold", unit: "IRT", change24h: -0.25, history: [1822000000, 1821500000, 1821000000, 1820800000, 1820500000, 1820200000, 1820000000, 1819950000, 1819920000, 1819900000, 1819890000, 1819900000] },
 ];
 
 interface ServerAlert {

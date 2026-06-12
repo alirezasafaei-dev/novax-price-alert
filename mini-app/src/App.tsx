@@ -144,6 +144,7 @@ export default function App() {
             nameFa: it.asset_name || it.name || it.asset_code,
             price: Number(it.price_value || it.price),
             type: (it.currency_code || it.display_unit || '').toUpperCase().includes('USDT') || (it.asset_code || '').toUpperCase().includes('USDT') ? 'crypto' : 'fiat',
+            unit: it.display_unit || it.currency_code || '',
             change24h: 0,
             history: [Number(it.price_value || it.price)],
           }));
