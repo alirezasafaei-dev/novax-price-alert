@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from novax_price_alert.application.services.alert_crud_service import AlertCRUDService
+from novax_price_alert.application.services.alert_crud_service import AlertLimitReachedError
 from novax_price_alert.domain.alert_rule import AlertRule
 from novax_price_alert.domain.asset import Asset
 from novax_price_alert.domain.enums import AlertCondition, AlertLifecycleState
@@ -258,6 +259,37 @@ async def test_no_trigger_when_price_not_met(
         ]
     )
     await db_session.commit()
+
+
+@pytest.mark.anyio
+async def test_create_alert_enforces_per_user_limit_of_five(
+    db_session: AsyncSession, seeded_user: User, seeded_asset: Asset
+) -> None:
+    service = AlertCRUDService(db_session)
+    for offset in range(5):
+      alert = AlertRule(
+          user_id=seeded_user.id,
+          asset_id=seeded_asset.id,
+          canonical_asset_id=seeded_asset.canonical_id,
+          display_asset_name_at_creation=seeded_asset.display_name,
+          condition_type=AlertCondition.ABOVE,
+          target_price=Decimal(str(91000 + offset)),
+          target_price_display_unit="IRT",
+      )
+      await service.create(alert)
+
+    with pytest.raises(AlertLimitReachedError):
+      await service.create(
+          AlertRule(
+              user_id=seeded_user.id,
+              asset_id=seeded_asset.id,
+              canonical_asset_id=seeded_asset.canonical_id,
+              display_asset_name_at_creation=seeded_asset.display_name,
+              condition_type=AlertCondition.ABOVE,
+              target_price=Decimal("99999"),
+              target_price_display_unit="IRT",
+          )
+      )
 
     events = await AlertEvaluatorService(db_session).evaluate_asset(seeded_asset.id)
     assert events == []

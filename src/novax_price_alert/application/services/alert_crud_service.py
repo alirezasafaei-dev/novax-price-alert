@@ -2,15 +2,21 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from novax_price_alert.api.i18n import ALERT_MAX_ACTIVE_REACHED
 from novax_price_alert.core.observability import emit_event, record_metric
+from novax_price_alert.core.settings import settings
 from novax_price_alert.domain.alert_rule import AlertRule, InvalidAlertTransitionError
 from novax_price_alert.domain.asset import Asset
 from novax_price_alert.domain.enums import AlertLifecycleState
 from novax_price_alert.domain.pricing import normalize_price
+
+
+class AlertLimitReachedError(ValueError):
+    pass
 
 
 class AlertCRUDService:
@@ -27,6 +33,7 @@ class AlertCRUDService:
         return result.scalars().all()
 
     async def create(self, alert: AlertRule) -> AlertRule:
+        await self._ensure_user_alert_capacity(alert.user_id)
         alert.target_price = normalize_price(alert.target_price)
         if not alert.canonical_asset_id:
             asset = getattr(alert, "asset", None)
@@ -49,6 +56,26 @@ class AlertCRUDService:
             lifecycle_state=str(alert.lifecycle_state),
         )
         return alert
+
+    async def _ensure_user_alert_capacity(self, user_id: str) -> None:
+        stmt = (
+            select(func.count())
+            .select_from(AlertRule)
+            .where(
+                AlertRule.user_id == user_id,
+                AlertRule.lifecycle_state.in_(
+                    (
+                        AlertLifecycleState.PENDING_CONFIRMATION,
+                        AlertLifecycleState.ACTIVE,
+                        AlertLifecycleState.PAUSED,
+                        AlertLifecycleState.FAILED,
+                    )
+                ),
+            )
+        )
+        count = (await self.session.execute(stmt)).scalar_one()
+        if count >= settings.max_alerts_per_user:
+            raise AlertLimitReachedError(ALERT_MAX_ACTIVE_REACHED)
 
     async def get_for_user(self, alert_id: str, user_id: str) -> AlertRule | None:
         stmt = (

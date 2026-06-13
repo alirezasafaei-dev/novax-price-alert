@@ -43,7 +43,7 @@ export async function handleHelp(env, chatId) {
 
 🔔 تنظیم هشدار: ساخت هشدار قیمت در ۵ مرحله (بازار → دارایی → شرط → قیمت هدف → تایید)
 
-📋 هشدارهای من: مشاهده هشدارها و حذف آن‌ها با دکمه‌ی 🗑
+📋 هشدارهای من: مشاهده، ویرایش و حذف هشدارها با دکمه‌های داخل هر کارت
 
 هشدارها هر ۱۰ دقیقه بررسی می‌شوند و هر هشدار فقط یک بار ارسال می‌شود.`;
   
@@ -94,6 +94,14 @@ export async function handleMyAlerts(env, chatId) {
 
   if (assetKeys.length > 5) {
     await sendMessage(env, chatId, `... و ${assetKeys.length - 5} دارایی دیگر.`, { reply_markup: MAIN_KEYBOARD });
+  }
+
+  for (const [index, alert] of alerts.slice(0, 10).entries()) {
+    const current = alert.market === "crypto" ? cryptoPrices?.[alert.symbol] : iranPrices?.[alert.symbol];
+    const currentPriceText = current != null ? `${formatPrice(current, alert.market==="crypto" && current<100 ? 2 : 0)} ${unitForMarket(alert.market)}` : "نامشخص";
+    await sendMessage(env, chatId, formatAlertLine(alert, index, currentPriceText), {
+      reply_markup: alertActionsKeyboard(alert.id),
+    });
   }
 
   // Encourage rich UI

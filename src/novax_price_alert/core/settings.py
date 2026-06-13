@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     metrics_access_token: str = ""
     ingest_api_token: str = ""
     admin_access_token: str = ""
+    max_alerts_per_user: int = Field(default=5, ge=1, le=100)
 
     alanchand_api_token: str = ""
     alanchand_base_url: str = "https://api.alanchand.com"

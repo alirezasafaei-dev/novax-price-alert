@@ -218,6 +218,21 @@ app.delete("/api/alerts/:id", (req, res) => {
   res.json({ success: true, message: "Alert removed" });
 });
 
+app.patch("/api/alerts/:id", (req, res) => {
+  const alert = alerts.find(a => a.id === req.params.id);
+  if (!alert) return res.status(404).json({ error: "Alert not found" });
+  const { thresholdPrice, label } = req.body;
+  if (thresholdPrice !== undefined) {
+    alert.thresholdPrice = Number(thresholdPrice);
+    alert.isTriggered = false;
+    delete alert.triggeredAt;
+  }
+  if (label !== undefined) {
+    alert.label = String(label || "");
+  }
+  res.json(alert);
+});
+
 app.put("/api/alerts/:id/toggle", (req, res) => {
   const alert = alerts.find(a => a.id === req.params.id);
   if (!alert) return res.status(404).json({ error: "Alert not found" });

@@ -172,7 +172,13 @@ export async function handleCallback(env, callbackQuery) {
     const session = await getSession(env, chatId);
 
     if (session?.pending_alert && session.step === FLOW_STATES.AWAITING_CONFIRMATION) {
-      const alert = await createAlert(env, chatId, { ...session.pending_alert, id: alertId });
+      let alert;
+      try {
+        alert = await createAlert(env, chatId, { ...session.pending_alert, id: alertId });
+      } catch (error) {
+        await editMessageText(env, chatId, messageId, String(error?.message || error));
+        return;
+      }
       await clearSession(env, chatId);
       const unit = alert.target_price_display_unit || unitForMarket(alert.market);
       await editMessageText(

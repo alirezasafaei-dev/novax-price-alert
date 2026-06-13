@@ -279,6 +279,57 @@ assert.ok(lastText().includes("حذف") || lastText().includes("پیدا نشد"
 alerts = await mockEnv.ALERTS_KV.get("alerts:user:123", "json");
 assert.ok(Array.isArray(alerts) && alerts.length >= 0, "alerts KV still accessible after delete attempt (dummy id used; full delete flow tested elsewhere)");
 
+// 6b) Limit is enforced at 5 alerts per user
+const limitEnv = {
+  ...mockEnv,
+  ALERTS_KV: new MockKV(),
+  SESSIONS_KV: new MockKV(),
+};
+await limitEnv.ALERTS_KV.put(
+  "alerts:user:7000",
+  JSON.stringify(
+    Array.from({ length: 5 }, (_, i) => ({
+      id: `existing-${i}`,
+      market: "crypto",
+      symbol: "BTC",
+      operator: "above",
+      target: 70000 + i,
+      lifecycle_state: "active",
+      enabled: true,
+    })),
+  ),
+);
+await limitEnv.SESSIONS_KV.put(
+  "session:7000",
+  JSON.stringify({
+    flow: "create_alert",
+    step: "awaiting_confirmation",
+    pending_alert: {
+      market: "crypto",
+      symbol: "BTC",
+      canonical_asset_id: "crypto:BTC",
+      display_asset_name_at_creation: "بیت‌کوین (BTC)",
+      operator: "above",
+      target: 75000,
+      target_price_display_unit: "USDT",
+    },
+  }),
+);
+sent = [];
+await worker.default.fetch(new Request("https://bot.example/webhook", {
+  method: "POST",
+  headers: { "X-Telegram-Bot-Api-Secret-Token": "test_secret" },
+  body: JSON.stringify({
+    callback_query: {
+      id: "limit-cb",
+      data: "confirm:limit-alert",
+      from: { first_name: "Limit", id: 7000 },
+      message: { chat: { id: 7000 }, message_id: 901 },
+    },
+  }),
+}), limitEnv, ctx);
+assert.ok(allText().includes("حداکثر تعداد هشدار"), "limit should return a clear user-facing message");
+
 // 7) back:market and back:asset navigation are handled
 sent = [];
 await sendMessageUpdate("🔔 تنظیم هشدار");

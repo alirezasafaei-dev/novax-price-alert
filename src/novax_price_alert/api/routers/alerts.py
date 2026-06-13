@@ -17,6 +17,7 @@ from novax_price_alert.api.schemas.alert import (
 )
 from novax_price_alert.api.schemas.alert_event import AlertEventListOut, AlertEventOut
 from novax_price_alert.application.services.alert_crud_service import AlertCRUDService
+from novax_price_alert.application.services.alert_crud_service import AlertLimitReachedError
 from novax_price_alert.application.services.user_resolver_service import UserResolverService
 from novax_price_alert.domain.alert_event import AlertEvent
 from novax_price_alert.domain.alert_rule import AlertRule, InvalidAlertTransitionError
@@ -62,7 +63,10 @@ async def create_alert(
         is_active=False,
     )
 
-    created = await alerts.create(alert)
+    try:
+        created = await alerts.create(alert)
+    except AlertLimitReachedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if payload.confirm:
         confirmed = await alerts.confirm(created.id, current_user.id)
         if confirmed is not None:

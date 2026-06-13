@@ -1,20 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { formatPrice, formatPercent } from '../utils';
+import { formatPrice, formatPercent, toDisplayPrice } from '../utils';
 import { Asset } from '../types';
 import { TrendingUp, TrendingDown, Bell, Coins, Activity, Sliders } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 
 interface PriceBoardProps {
   assets: Asset[];
   language: 'fa' | 'en';
   onSelectAssetForAlert: (symbol: string) => void;
   onManualTriggerPrice: (symbol: string, newPrice: number) => void;
+  mode?: 'board' | 'chart';
 }
 
-export default function PriceBoard({ assets, language, onSelectAssetForAlert, onManualTriggerPrice }: PriceBoardProps) {
+export default function PriceBoard({ assets, language, onSelectAssetForAlert, onManualTriggerPrice, mode = 'board' }: PriceBoardProps) {
   const [filter, setFilter] = useState<'all' | 'crypto' | 'fiat' | 'gold'>('all');
   const [selectedSymbol, setSelectedSymbol] = useState<string>('BTC');
   const [sliderPrice, setSliderPrice] = useState<number>(68500);
+  const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
+  const [range, setRange] = useState<'intraday' | 'swing'>('intraday');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevPrices = useRef<Record<string, number>>({});
 
@@ -36,6 +38,16 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
       setSliderPrice(selectedAsset.price);
     }
   }, [selectedSymbol]);
+
+  useEffect(() => {
+    if (assets.length === 0) return;
+    setCompareSymbols(prev => {
+      if (prev.length > 0) return prev;
+      const defaults = assets.slice(0, Math.min(3, assets.length)).map(asset => asset.symbol);
+      if (selectedAsset && !defaults.includes(selectedAsset.symbol)) defaults[0] = selectedAsset.symbol;
+      return defaults;
+    });
+  }, [assets, selectedAsset]);
 
   const filteredAssets = assets.filter(asset => {
     if (filter === 'all') return true;
@@ -82,10 +94,41 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
 
   const formatRawPrice = (price: number, type: 'crypto' | 'fiat' | 'gold', unit?: string) => {
     if (type === 'crypto') return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2 });
-    // Convert IRT (Rial) to Toman if needed
-    const displayPrice = unit && unit.toUpperCase() === 'IRT' ? price / 10 : price;
-    return displayPrice.toLocaleString('fa-IR') + ' تومان';
+    // Price is already converted to Toman in App.tsx, just format it
+    return price.toLocaleString('fa-IR') + ' تومان';
   };
+
+  const getDisplayHistory = (asset: Asset) => asset.history; // History is already in Toman for Iranian assets
+  const buildAdvancedPath = (history: number[], width: number, height: number) => {
+    if (!history || history.length < 2) return '';
+    const min = Math.min(...history);
+    const max = Math.max(...history);
+    const range = max - min || 1;
+    // Add padding to prevent lines from hitting edges
+    const padding = height * 0.15;
+    const drawHeight = height - (padding * 2);
+    return history.map((value, index) => {
+      const x = (index / (history.length - 1)) * width;
+      const normalizedValue = (value - min) / range;
+      const y = height - padding - (normalizedValue * drawHeight);
+      return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+  };
+  const chartAssets = compareSymbols.map(symbol => assets.find(asset => asset.symbol === symbol)).filter(Boolean) as Asset[];
+  const chartSeries = chartAssets.map(asset => ({
+    asset,
+    points: getDisplayHistory(asset),
+  }));
+  const legendColors = ['#22d3ee', '#34d399', '#f59e0b', '#f472b6', '#a78bfa'];
+  const advancedLabels = (() => {
+    const length = chartSeries[0]?.points.length || 0;
+    return Array.from({ length }, (_, index) => {
+      if (range === 'intraday') {
+        return isFa ? `نمونه ${index + 1}` : `Point ${index + 1}`;
+      }
+      return isFa ? `بازه ${index + 1}` : `Range ${index + 1}`;
+    });
+  })();
 
   const minSliderVal = selectedAsset ? Math.round(selectedAsset.price * 0.7) : 0;
   const maxSliderVal = selectedAsset ? Math.round(selectedAsset.price * 1.3) : 100000;
@@ -103,6 +146,163 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
         <p className="text-zinc-600 text-xs">
           {isFa ? 'لطفاً اتصال اینترنت خود را بررسی کنید' : 'Please check your internet connection'}
         </p>
+      </div>
+    );
+  }
+
+  if (mode === 'chart') {
+    return (
+      <div className="grid grid-cols-1 xl:grid-cols-[1.6fr,0.9fr] gap-6">
+        <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
+            <div>
+              <div className="text-xs font-mono text-zinc-400 uppercase tracking-widest">{isFa ? 'تحلیل چنددارایی' : 'Multi Asset Analysis'}</div>
+              <h2 className="text-2xl font-bold text-white mt-1">{isFa ? 'چارت پیشرفته و مقایسه‌ای' : 'Advanced Comparison Chart'}</h2>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {(['intraday', 'swing'] as const).map(item => (
+                <button
+                  key={item}
+                  onClick={() => setRange(item)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold border cursor-pointer ${range === item ? 'bg-teal-500/15 border-teal-500/40 text-teal-300' : 'bg-slate-950/50 border-slate-800 text-zinc-400'}`}
+                >
+                  {item === 'intraday' ? (isFa ? 'کوتاه‌مدت' : 'Intraday') : (isFa ? 'میان‌مدت' : 'Swing')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
+            {assets.map(asset => {
+              const active = compareSymbols.includes(asset.symbol);
+              return (
+                <button
+                  key={asset.symbol}
+                  onClick={() => setCompareSymbols(prev => active ? prev.filter(symbol => symbol !== asset.symbol) : prev.length >= 4 ? [...prev.slice(1), asset.symbol] : [...prev, asset.symbol])}
+                  className={`text-left rounded-2xl border p-3 transition-all cursor-pointer ${active ? 'bg-teal-500/10 border-teal-500/30' : 'bg-slate-950/30 border-slate-800/60 hover:border-slate-700'}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-bold text-white">{isFa ? asset.nameFa : asset.name}</div>
+                      <div className="text-zinc-500 text-xs font-mono">{asset.symbol}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-white">{formatPrice(asset.price, asset.type, asset.unit)}</div>
+                      <div className={`text-[11px] font-semibold ${asset.change24h >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{formatPercent(asset.change24h)}</div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="bg-slate-950/40 border border-slate-800/60 rounded-2xl p-4">
+            {chartSeries.length === 0 ? (
+              <div className="text-zinc-500 text-sm">{isFa ? 'حداقل یک دارایی برای مقایسه انتخاب کنید.' : 'Select at least one asset to compare.'}</div>
+            ) : (
+              <>
+                <svg viewBox="0 0 620 280" className="w-full h-[340px]">
+                  <defs>
+                    <linearGradient id="gridGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#1e293b" stopOpacity="0.5"/>
+                      <stop offset="100%" stopColor="#0f172a" stopOpacity="0.2"/>
+                    </linearGradient>
+                  </defs>
+                  {/* Grid lines */}
+                  <line x1="0" y1="40" x2="620" y2="40" stroke="#334155" strokeWidth="1" strokeDasharray="6 4" opacity="0.5" />
+                  <line x1="0" y1="100" x2="620" y2="100" stroke="#334155" strokeWidth="1" strokeDasharray="6 4" opacity="0.3" />
+                  <line x1="0" y1="160" x2="620" y2="160" stroke="#334155" strokeWidth="1" strokeDasharray="6 4" opacity="0.3" />
+                  <line x1="0" y1="220" x2="620" y2="220" stroke="#334155" strokeWidth="1" strokeDasharray="6 4" opacity="0.5" />
+                  {/* Chart lines */}
+                  {chartSeries.map((series, index) => (
+                    <g key={series.asset.symbol}>
+                      <path
+                        d={buildAdvancedPath(series.points, 620, 280)}
+                        fill="none"
+                        stroke={legendColors[index % legendColors.length]}
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="drop-shadow-lg"
+                      />
+                      {/* Data points */}
+                      {series.points.map((point, pointIndex) => {
+                        const min = Math.min(...series.points);
+                        const max = Math.max(...series.points);
+                        const range = max - min || 1;
+                        const padding = 280 * 0.15;
+                        const drawHeight = 280 - (padding * 2);
+                        const x = (pointIndex / (series.points.length - 1)) * 620;
+                        const normalizedValue = (point - min) / range;
+                        const y = 280 - padding - (normalizedValue * drawHeight);
+                        return (
+                          <circle
+                            key={pointIndex}
+                            cx={x}
+                            cy={y}
+                            r="4"
+                            fill={legendColors[index % legendColors.length]}
+                            className="hover:r-6 transition-all cursor-pointer"
+                            style={{ opacity: pointIndex === series.points.length - 1 ? 1 : 0.7 }}
+                          />
+                        );
+                      })}
+                    </g>
+                  ))}
+                </svg>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {chartSeries.map((series, index) => (
+                    <div key={series.asset.symbol} className="flex items-center gap-2 rounded-xl bg-slate-900/70 border border-slate-800 px-3 py-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: legendColors[index % legendColors.length] }} />
+                      <span className="text-xs font-semibold text-zinc-200">{isFa ? series.asset.nameFa : series.asset.name}</span>
+                      <span className="text-[11px] text-zinc-500">{formatPrice(series.asset.price, series.asset.type, series.asset.unit)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                  {chartSeries.map(series => {
+                    const values = series.points;
+                    const high = Math.max(...values);
+                    const low = Math.min(...values);
+                    const delta = values.length > 1 ? ((values[values.length - 1] - values[0]) / values[0]) * 100 : 0;
+                    return (
+                      <div key={series.asset.symbol} className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+                        <div className="text-xs text-zinc-500">{series.asset.symbol}</div>
+                        <div className="text-sm font-bold text-white mt-1">{isFa ? series.asset.nameFa : series.asset.name}</div>
+                        <div className="text-xs text-zinc-400 mt-2">{isFa ? 'بیشینه' : 'High'}: {series.asset.type === 'crypto' ? `$${high.toLocaleString('en-US')}` : `${high.toLocaleString(isFa ? 'fa-IR' : 'en-US')} ${isFa ? 'تومان' : 'Toman'}`}</div>
+                        <div className="text-xs text-zinc-400">{isFa ? 'کمینه' : 'Low'}: {series.asset.type === 'crypto' ? `$${low.toLocaleString('en-US')}` : `${low.toLocaleString(isFa ? 'fa-IR' : 'en-US')} ${isFa ? 'تومان' : 'Toman'}`}</div>
+                        <div className={`text-xs font-bold mt-1 ${delta >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{formatPercent(delta)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between text-[10px] text-zinc-500 mt-4 flex-wrap gap-2">
+                  {advancedLabels.map(label => <span key={label}>{label}</span>)}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-5 shadow-xl h-fit">
+          <div className="text-sm font-bold text-white mb-3">{isFa ? 'اکشن‌های سریع' : 'Quick Actions'}</div>
+          <div className="space-y-3">
+            {chartAssets.map(asset => (
+              <div key={asset.symbol} className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-bold text-white">{isFa ? asset.nameFa : asset.name}</div>
+                    <div className="text-xs text-zinc-500 font-mono">{asset.symbol}</div>
+                  </div>
+                  <div className="text-sm font-bold text-teal-300">{formatPrice(asset.price, asset.type, asset.unit)}</div>
+                </div>
+                <button onClick={() => onSelectAssetForAlert(asset.symbol)} className="mt-3 w-full rounded-xl bg-gradient-to-r from-teal-500 to-indigo-600 px-4 py-2 text-sm font-bold text-white cursor-pointer">
+                  {isFa ? 'ساخت هشدار برای این دارایی' : 'Create Alert For Asset'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

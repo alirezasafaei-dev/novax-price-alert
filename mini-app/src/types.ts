@@ -8,6 +8,7 @@ export interface Asset {
   unit?: string; // currency unit (e.g., 'USDT', 'IRT', 'TOMAN')
   change24h: number; // percentage change (e.g. 1.25 for +1.25%)
   history: number[]; // 12-point recent history for sparkline
+  historyLabels?: string[];
 }
 
 export interface Alert {
@@ -24,6 +25,8 @@ export interface Alert {
   createdAt: string;
   triggeredAt?: string;
   telegramUsername?: string;
+  lifecycleState?: string;
+  unit?: string;
 }
 
 export interface AlertLog {

@@ -4,12 +4,14 @@ import PriceBoard from './components/PriceBoard';
 import AlertManager from './components/AlertManager';
 import TelegramSimulator from './components/TelegramSimulator';
 import AIChat from './components/AIChat';
+import { formatPrice, toDisplayPrice } from './utils';
 import { Coins, Bell, HelpCircle, Sparkles, X, Wifi, WifiOff, Globe, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 /* ─── Toast notification system ─── */
 interface Toast { id: string; text: string; type: 'success' | 'error' | 'info' }
 let _toastId = 0;
+interface PortfolioDraft { symbol: string; amount: string }
 
 /* ─── Chime on alert trigger ─── */
 function playChime() {
@@ -64,7 +66,7 @@ function ConfirmDialog({ open, title, message, onConfirm, onCancel, language }: 
 
 /* ─── Main App ─── */
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'prices' | 'alerts' | 'ai' | 'vps'>('prices');
+  const [activeTab, setActiveTab] = useState<'prices' | 'assets' | 'portfolio' | 'alerts' | 'chart' | 'ai' | 'vps'>('prices');
   const [language, setLanguage] = useState<'fa' | 'en'>('fa');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -78,6 +80,7 @@ export default function App() {
   const [showConfirmDelete, setShowConfirmDelete] = useState<{ open: boolean; alertId: string | null }>({ open: false, alertId: null });
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [portfolioDraft, setPortfolioDraft] = useState<PortfolioDraft>({ symbol: '', amount: '' });
   const prevLogLen = useRef(0);
 
   const isFa = language === 'fa';
@@ -115,6 +118,8 @@ export default function App() {
       createdAt: item.created_at || new Date().toISOString(),
       triggeredAt: item.triggered_at || item.last_triggered_at || undefined,
       telegramUsername: '',
+      lifecycleState: state,
+      unit: item.target_price_display_unit || '',
     };
   };
 
@@ -140,16 +145,27 @@ export default function App() {
         if (pRes.ok) {
           const envelope = await pRes.json();
           const items = envelope.items || envelope;
-          priceData = (items || []).map((it: any) => ({
-            symbol: it.asset_code || it.symbol,
-            name: it.asset_name || it.name || it.asset_code,
-            nameFa: it.asset_name || it.name || it.asset_code,
-            price: Number(it.price_value || it.price),
-            type: (it.currency_code || it.display_unit || '').toUpperCase().includes('USDT') || (it.asset_code || '').toUpperCase().includes('USDT') ? 'crypto' : 'fiat',
-            unit: it.display_unit || it.currency_code || '',
-            change24h: 0,
-            history: [Number(it.price_value || it.price)],
-          }));
+          priceData = (items || []).map((it: any) => {
+            const rawPrice = Number(it.price_value || it.price);
+            const unit = it.display_unit || it.currency_code || '';
+            const normalizedUnit = unit.toUpperCase();
+            // Convert IRR to Toman for Iranian market prices
+            const displayPrice = normalizedUnit === 'IRT' || normalizedUnit === 'IRR' ? rawPrice / 10 : rawPrice;
+            return {
+              symbol: it.asset_code || it.symbol,
+              name: it.asset_name || it.name || it.asset_code,
+              nameFa: it.asset_name || it.name || it.asset_code,
+              price: displayPrice,
+              type: (it.currency_code || it.display_unit || '').toUpperCase().includes('USDT') || (it.asset_code || '').toUpperCase().includes('USDT') ? 'crypto' : 'fiat',
+              unit: normalizedUnit === 'IRT' || normalizedUnit === 'IRR' ? 'TOMAN' : unit,
+              change24h: 0,
+              history: Array.from({ length: 12 }, (_, index) => {
+                const base = displayPrice;
+                const variance = base * 0.008;
+                return Math.max(0, base - variance + ((variance * 2) / 11) * index);
+              }),
+            };
+          });
         }
       } else {
         const pRes = await fetch('/api/prices');
@@ -211,21 +227,36 @@ export default function App() {
   /* ── Handlers ── */
   const handleAddAlert = async (alertData: { symbol: string; triggerType: 'UPPER' | 'LOWER'; thresholdPrice: number; label: string; telegramUsername: string }) => {
     try {
-      const res = useLiveData && tgInitData
-        ? await fetch(`${backendBase}/api/v1/alerts`, {
-            method: 'POST', headers: liveHeaders(),
-            body: JSON.stringify({ asset_code: alertData.symbol, condition_type: alertData.triggerType === 'UPPER' ? 'above' : 'below', target_price: alertData.thresholdPrice, cooldown_minutes: 60 }),
-          })
-        : await fetch('/api/alerts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(alertData) });
-      if (res.ok) {
-        if (useLiveData && tgInitData) { const created = await res.json(); await fetch(`${backendBase}/api/v1/alerts/${created.id}/confirm`, { method: 'POST', headers: liveHeaders() }); }
-        fetchAllData();
-        setActiveTab('alerts');
-        showToast(isFa ? 'هشدار جدید با موفقیت ایجاد شد ✓' : 'New alert created successfully ✓', 'success');
+      let alertId = '';
+      if (useLiveData && tgInitData) {
+        // Live mode: create alert, then confirm it
+        const createRes = await fetch(`${backendBase}/api/v1/alerts`, {
+          method: 'POST', headers: liveHeaders(),
+          body: JSON.stringify({ asset_code: alertData.symbol, condition_type: alertData.triggerType === 'UPPER' ? 'above' : 'below', target_price: alertData.thresholdPrice, cooldown_minutes: 60 }),
+        });
+        if (!createRes.ok) {
+          const errorText = await createRes.text();
+          console.error('Create alert failed:', errorText);
+          throw new Error(errorText || 'Create failed');
+        }
+        const created = await createRes.json();
+        alertId = created.id;
+        // Confirm the alert to activate it
+        const confirmRes = await fetch(`${backendBase}/api/v1/alerts/${alertId}/confirm`, { method: 'POST', headers: liveHeaders() });
+        if (!confirmRes.ok) {
+          console.error('Confirm alert failed:', await confirmRes.text());
+          throw new Error('Confirm failed');
+        }
       } else {
-        throw new Error('Create failed');
+        // Simulation mode
+        const res = await fetch('/api/alerts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(alertData) });
+        if (!res.ok) throw new Error('Create failed');
       }
+      fetchAllData();
+      setActiveTab('alerts');
+      showToast(isFa ? 'هشدار جدید با موفقیت ایجاد شد ✓' : 'New alert created successfully ✓', 'success');
     } catch (e) {
+      console.error('Alert creation error:', e);
       showToast(isFa ? 'خطا در ایجاد هشدار. لطفاً دوباره تلاش کنید.' : 'Failed to create alert. Please try again.', 'error');
       throw e; // Re-throw to let AlertManager handle the error state
     }
@@ -275,6 +306,18 @@ export default function App() {
     }
   };
 
+  const handleEditAlert = async (id: string, thresholdPrice: number, label: string) => {
+    const res = useLiveData && tgInitData
+      ? await fetch(`${backendBase}/api/v1/alerts/${id}`, { method: 'PATCH', headers: liveHeaders(), body: JSON.stringify({ target_price: thresholdPrice }) })
+      : await fetch(`/api/alerts/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ thresholdPrice, label }) });
+    if (!res.ok) {
+      showToast(isFa ? 'خطا در ویرایش هشدار' : 'Failed to edit alert', 'error');
+      throw new Error('Edit failed');
+    }
+    fetchAllData();
+    showToast(isFa ? 'هشدار ویرایش شد' : 'Alert updated', 'info');
+  };
+
   const handleManualPriceChange = async (symbol: string, val: number) => {
     try {
       if (useLiveData) {
@@ -292,10 +335,64 @@ export default function App() {
     setTimeout(() => setPushNotification(null), 6000);
   };
 
+  const watchedAssets = assets.filter(asset => alerts.some(alert => alert.symbol === asset.symbol));
+  const portfolioHoldings = (() => {
+    if (typeof window === 'undefined') return [] as Array<{ symbol: string; amount: number; asset?: Asset }>;
+    try {
+      const raw = window.localStorage.getItem('novax_portfolio');
+      const parsed = raw ? JSON.parse(raw) : {};
+      return Object.entries(parsed).map(([symbol, amount]) => ({
+        symbol,
+        amount: Number(amount),
+        asset: assets.find(a => a.symbol === symbol),
+      }));
+    } catch {
+      return [] as Array<{ symbol: string; amount: number; asset?: Asset }>;
+    }
+  })();
+  const portfolioTotal = portfolioHoldings.reduce((sum, item) => {
+    if (!item.asset) return sum;
+    const multiplier = item.asset.type === 'crypto' ? item.asset.price : toDisplayPrice(item.asset.price, item.asset.unit || '');
+    return sum + multiplier * item.amount;
+  }, 0);
+  const persistPortfolio = (next: Record<string, number>) => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('novax_portfolio', JSON.stringify(next));
+    fetchAllData();
+  };
+  const addPortfolioItem = () => {
+    const symbol = portfolioDraft.symbol.trim().toUpperCase();
+    const amount = Number(portfolioDraft.amount);
+    if (!symbol || !amount || amount <= 0) {
+      showToast(isFa ? 'نماد و مقدار معتبر وارد کنید.' : 'Enter a valid symbol and amount.', 'error');
+      return;
+    }
+    const targetAsset = assets.find(asset => asset.symbol === symbol);
+    if (!targetAsset) {
+      showToast(isFa ? 'این دارایی در لیست قیمت‌ها پیدا نشد.' : 'Asset not found in current market list.', 'error');
+      return;
+    }
+    const current = typeof window !== 'undefined' ? JSON.parse(window.localStorage.getItem('novax_portfolio') || '{}') : {};
+    current[symbol] = Number(current[symbol] || 0) + amount;
+    persistPortfolio(current);
+    setPortfolioDraft({ symbol: '', amount: '' });
+    showToast(isFa ? 'دارایی به پورتفولیو اضافه شد.' : 'Asset added to portfolio.', 'success');
+  };
+  const removePortfolioItem = (symbol: string) => {
+    if (typeof window === 'undefined') return;
+    const current = JSON.parse(window.localStorage.getItem('novax_portfolio') || '{}');
+    delete current[symbol];
+    persistPortfolio(current);
+    showToast(isFa ? 'دارایی از پورتفولیو حذف شد.' : 'Asset removed from portfolio.', 'info');
+  };
+
   /* ── Tab definitions ── */
   const tabs = [
     { id: 'prices' as const, icon: Coins, labelFa: 'تابلو قیمت‌ها', labelEn: 'Price Board' },
+    { id: 'assets' as const, icon: Coins, labelFa: 'دارایی‌های من', labelEn: 'My Assets' },
+    { id: 'portfolio' as const, icon: Coins, labelFa: 'پورتفولیو من', labelEn: 'My Portfolio' },
     { id: 'alerts' as const, icon: Bell, labelFa: 'مرکز هشدارها', labelEn: 'Alert Center' },
+    { id: 'chart' as const, icon: Sparkles, labelFa: 'چارت پیشرفته', labelEn: 'Advanced Chart' },
     { id: 'ai' as const, icon: Sparkles, labelFa: 'تحلیل‌گر هوشمند', labelEn: 'AI Analyst' },
     { id: 'vps' as const, icon: HelpCircle, labelFa: 'مستندات استقرار', labelEn: 'VPS Docs' },
   ];
@@ -464,8 +561,47 @@ export default function App() {
             {activeTab === 'alerts' && (
               <motion.div key="alerts" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}>
                 <AlertManager alerts={alerts} alertLogs={alertLogs} assets={assets} language={language}
-                  onAddAlert={handleAddAlert} onDeleteAlert={handleDeleteAlertDirect} onToggleAlert={handleToggleAlert}
+                  onAddAlert={handleAddAlert} onDeleteAlert={handleDeleteAlertDirect} onToggleAlert={handleToggleAlert} onEditAlert={handleEditAlert}
                   selectedAssetForAlert={selectedAssetForAlert} clearSelectedAsset={() => setSelectedAssetForAlert(null)} />
+              </motion.div>
+            )}
+            {activeTab === 'assets' && (
+              <motion.div key="assets" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}
+                className="grid gap-4">
+                {watchedAssets.length === 0 ? <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 text-zinc-400">{isFa ? 'هنوز داراییِ دارای هشدار ندارید.' : 'No watched assets yet.'}</div> :
+                  watchedAssets.map(asset => (
+                    <div key={asset.symbol} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-4">
+                      <div><div className="font-bold text-white">{isFa ? asset.nameFa : asset.name}</div><div className="text-zinc-400 text-sm">{formatPrice(asset.price, asset.type, asset.unit)}</div></div>
+                      <button onClick={() => handleSelectAssetForAlert(asset.symbol)} className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-bold text-white">{isFa ? 'ساخت/مدیریت هشدار' : 'Manage Alerts'}</button>
+                    </div>
+                  ))}
+              </motion.div>
+            )}
+            {activeTab === 'portfolio' && (
+              <motion.div key="portfolio" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}
+                className="grid gap-4">
+                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
+                  <div className="text-zinc-400 text-sm mb-2">{isFa ? 'ارزش تقریبی کل پورتفولیو' : 'Estimated portfolio value'}</div>
+                  <div className="text-2xl font-bold text-white">{portfolioTotal.toLocaleString(isFa ? 'fa-IR' : 'en-US')} {isFa ? 'تومان' : 'Toman'}</div>
+                </div>
+                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-[1fr,180px,auto] gap-3 items-end">
+                  <div>
+                    <div className="text-xs font-semibold text-zinc-400 mb-2">{isFa ? 'نماد دارایی' : 'Asset Symbol'}</div>
+                    <input value={portfolioDraft.symbol} onChange={e => setPortfolioDraft(prev => ({ ...prev, symbol: e.target.value }))} placeholder={isFa ? 'مثال: BTC یا USD_IRT' : 'e.g. BTC or USD_IRT'} className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white focus:outline-none" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-zinc-400 mb-2">{isFa ? 'مقدار' : 'Amount'}</div>
+                    <input value={portfolioDraft.amount} onChange={e => setPortfolioDraft(prev => ({ ...prev, amount: e.target.value }))} placeholder="0.5" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white focus:outline-none" />
+                  </div>
+                  <button onClick={addPortfolioItem} className="rounded-xl bg-gradient-to-r from-teal-500 to-indigo-600 px-5 py-3 text-sm font-bold text-white cursor-pointer">{isFa ? 'افزودن' : 'Add'}</button>
+                </div>
+                {portfolioHoldings.length === 0 ? <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 text-zinc-400">{isFa ? 'هنوز چیزی در پورتفولیو ذخیره نشده.' : 'No portfolio items saved yet.'}</div> :
+                  portfolioHoldings.map(item => <div key={item.symbol} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-4"><div><div className="font-bold text-white">{item.symbol}</div><div className="text-zinc-400 text-sm">{item.amount}</div></div><div className="flex items-center gap-3"><div className="text-teal-300 font-bold">{item.asset ? formatPrice((item.asset.type === 'crypto' ? item.asset.price : toDisplayPrice(item.asset.price, item.asset.unit || '')) * item.amount, item.asset.type === 'crypto' ? 'crypto' : 'fiat', item.asset.type === 'crypto' ? 'USDT' : 'TOMAN') : '-'}</div><button onClick={() => removePortfolioItem(item.symbol)} className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-300 cursor-pointer">{isFa ? 'حذف' : 'Remove'}</button></div></div>)}
+              </motion.div>
+            )}
+            {activeTab === 'chart' && (
+              <motion.div key="chart" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}>
+                <PriceBoard assets={assets} language={language} onSelectAssetForAlert={handleSelectAssetForAlert} onManualTriggerPrice={handleManualPriceChange} mode="chart" />
               </motion.div>
             )}
             {activeTab === 'ai' && (

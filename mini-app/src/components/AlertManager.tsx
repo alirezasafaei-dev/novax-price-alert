@@ -18,6 +18,7 @@ interface AlertManagerProps {
   }) => Promise<void>;
   onDeleteAlert: (id: string) => Promise<void>;
   onToggleAlert: (id: string) => Promise<void>;
+  onEditAlert?: (id: string, thresholdPrice: number, label: string) => Promise<void>;
   selectedAssetForAlert: string | null;
   clearSelectedAsset: () => void;
 }
@@ -41,6 +42,7 @@ export default function AlertManager({
   onAddAlert,
   onDeleteAlert,
   onToggleAlert,
+  onEditAlert,
   selectedAssetForAlert,
   clearSelectedAsset
 }: AlertManagerProps) {
@@ -54,6 +56,9 @@ export default function AlertManager({
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editThresholdPrice, setEditThresholdPrice] = useState<string>('');
+  const [editLabel, setEditLabel] = useState<string>('');
 
   const isFa = language === 'fa';
   const activeAsset = assets.find(a => a.symbol === selectedSymbol) || assets[0];
@@ -86,6 +91,23 @@ export default function AlertManager({
         return newSet;
       });
     }
+  };
+
+  const startEdit = (alert: Alert) => {
+    setEditingId(alert.id);
+    setEditThresholdPrice(String(alert.thresholdPrice));
+    setEditLabel(alert.label || '');
+  };
+
+  const saveEdit = async (alert: Alert) => {
+    if (!onEditAlert) return;
+    const rawNum = persianToEntDigits(editThresholdPrice).trim();
+    if (!rawNum || isNaN(Number(rawNum)) || Number(rawNum) <= 0) {
+      setErrorText(isFa ? 'قیمت جدید معتبر نیست.' : 'Invalid new target.');
+      return;
+    }
+    await onEditAlert(alert.id, Number(rawNum), editLabel.trim());
+    setEditingId(null);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -320,12 +342,22 @@ export default function AlertManager({
                       <div className="text-zinc-400 text-xs mt-1 flex flex-wrap items-center gap-1">
                         <span>{isFa ? 'هدف:' : 'Target:'}</span>
                         <span className="font-mono text-zinc-200 font-semibold">
-                          {formatPrice(alert.thresholdPrice, alert.isCrypto ? 'crypto' : 'fiat')}
+                          {formatPrice(alert.thresholdPrice, alert.isCrypto ? 'crypto' : 'fiat', alert.unit)}
                         </span>
                         {alert.label && (
                           <span className="text-zinc-500 text-[11px] font-normal italic">({alert.label})</span>
                         )}
                       </div>
+                      {editingId === alert.id && (
+                        <div className="mt-3 space-y-2">
+                          <input value={editThresholdPrice} onChange={(e) => setEditThresholdPrice(persianToEntDigits(e.target.value))} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-sm" />
+                          <input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-sm" />
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => saveEdit(alert)} className="rounded-lg bg-teal-600 px-3 py-2 text-xs font-bold text-white">{isFa ? 'ذخیره' : 'Save'}</button>
+                            <button type="button" onClick={() => setEditingId(null)} className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-zinc-300">{isFa ? 'انصراف' : 'Cancel'}</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -360,6 +392,16 @@ export default function AlertManager({
                             <span className="hidden sm:inline text-[10px] uppercase font-mono">{isFa ? 'غیرفعال' : 'OFF'}</span>
                           </div>
                         )}
+                      </button>
+                    )}
+
+                    {onEditAlert && (
+                      <button
+                        onClick={() => startEdit(alert)}
+                        className="p-1 px-2.5 rounded-lg text-sky-400/80 hover:text-sky-300 hover:bg-sky-500/10 transition-all cursor-pointer text-xs flex items-center gap-1"
+                        title="Edit alert"
+                      >
+                        {isFa ? 'ویرایش' : 'Edit'}
                       </button>
                     )}
 

@@ -8,6 +8,7 @@ import { recordMetric } from "./metrics.js";
 // contract in docs/ALERT_HARDENING_CONTRACTS.md: 3 attempts with backoff).
 export const DEFAULT_MAX_DELIVERY_ATTEMPTS = 3;
 export const RETRY_BACKOFF_MS = 60 * 1000;
+export const MAX_ALERTS_PER_USER = 5;
 
 export async function getUserAlerts(env, chatId) {
   const key = `alerts:user:${chatId}`;
@@ -22,6 +23,20 @@ export async function saveUserAlerts(env, chatId, alerts) {
 
 export async function createAlert(env, chatId, alertData) {
   const alerts = await getUserAlerts(env, chatId);
+  const manageableStates = new Set([
+    ALERT_LIFECYCLE.ACTIVE,
+    ALERT_LIFECYCLE.PAUSED,
+    ALERT_LIFECYCLE.FAILED,
+    ALERT_LIFECYCLE.PENDING_CONFIRMATION,
+  ]);
+  const currentCount = alerts.filter(
+    (alert) => manageableStates.has(alert.lifecycle_state || ALERT_LIFECYCLE.ACTIVE),
+  ).length;
+  if (currentCount >= MAX_ALERTS_PER_USER) {
+    const error = new Error("به حداکثر تعداد هشدارهای مجاز این نسخه رسیده‌اید. لطفاً ابتدا یکی از هشدارهای فعلی را حذف کنید.");
+    error.code = "MAX_ALERTS_REACHED";
+    throw error;
+  }
   const asset =
     getAssetByCanonicalId(alertData.canonical_asset_id) ||
     getAssetByMarketSymbol(alertData.market, alertData.symbol);

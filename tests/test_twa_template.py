@@ -34,3 +34,10 @@ def test_twa_template_supports_alert_target_edit() -> None:
     assert "async function editAlertTarget(id,currentTarget,unit)" in TWA_SHELL_HTML
     assert 'method:"PATCH"' in TWA_SHELL_HTML
     assert "JSON.stringify({target_price:val})" in TWA_SHELL_HTML
+
+
+def test_twa_template_uses_toman_display_helpers_in_chart_and_history() -> None:
+    assert "function displayNumericPrice(value, unit)" in TWA_SHELL_HTML
+    assert "const values = items.map(x => displayNumericPrice(x.price_value, x.display_unit || x.currency_code)).reverse();" in TWA_SHELL_HTML
+    assert "label: `${dataset.label} (${displayUnitLabel(dataset.unit)})`" in TWA_SHELL_HTML
+    assert "friendlyLifecycleLabel" in TWA_SHELL_HTML

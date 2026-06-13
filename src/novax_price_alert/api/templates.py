@@ -58,10 +58,15 @@ TWA_SHELL_HTML = """
   </div>
 
   <div id="tab-assets" class="tab-content">
-    <section id="my-assets-card" class="card">
+    <section id="my-assets-card" class="card hidden">
       <div class="name">دارایی‌هایی که دنبال می‌کنی</div>
       <div class="text-[11px] text-slate-400 mb-2">قیمت‌های ذخیره‌شده برای پیشنهاد سریع هشدار</div>
       <div id="my-assets-list" class="grid"></div>
+    </section>
+    <section id="suggestions-card" class="card hidden" style="margin-top:12px">
+      <div class="name">پیشنهادهای هوشمند</div>
+      <div class="text-[11px] text-slate-400 mb-2">دارایی‌های مناسب برای ساخت هشدار جدید</div>
+      <div id="suggestions-list" class="grid"></div>
     </section>
   </div>
 
@@ -145,7 +150,6 @@ TWA_SHELL_HTML = """
     <p class="notice">برای کاهش فشار روی منابع رایگان، قیمت‌ها با کش و برچسب زمان بروزرسانی نمایش داده می‌شوند.</p>
   </section>
   
-  <section class="grid" id="alerts" style="margin-top:12px"></section>
 </main>
 <script>
 const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
@@ -165,7 +169,9 @@ function persianToEnDigits(str) {
   return out;
 }
 let priceChart = null;
+let advChartInstance = null;
 let userAlerts = [];
+window.latest = latest;
 const auth = document.getElementById("auth");
 const prices = document.getElementById("prices");
 const asset = document.getElementById("asset");
@@ -191,10 +197,28 @@ function assetLabel(alert){return alert.asset_name || latest.find(x=>x.asset_cod
 function resetDraft(){alertDraft = {asset_code:null,condition_type:null,target_price:null,unit:null,asset_name:null,current_price:null}; target.value = ""}
 function showStep(stepId){document.querySelectorAll(".step").forEach(s=>s.classList.remove("active")); document.getElementById(stepId).classList.add("active")}
 async function api(path, opts={}){const r=await fetch(path,{...opts,headers:{...headers,...(opts.headers||{})}}); if(!r.ok) throw new Error(await r.text()); return r.json()}
+function isIranUnit(unit){const normalized = String(unit || "").toUpperCase(); return normalized === "IRT" || normalized === "IRR" || normalized === "TOMAN"}
+function displayUnitLabel(unit){return isIranUnit(unit) ? "تومان" : String(unit || "")}
+function displayNumericPrice(value, unit){const num = Number(value || 0); if(!Number.isFinite(num)) return 0; return isIranUnit(unit) ? num / 10 : num}
+function formatDisplayPrice(value, unit){return `${fmt.format(displayNumericPrice(value, unit))} ${displayUnitLabel(unit)}`.trim()}
+function chartPalette(index){return ["#38bdf8","#34d399","#fb7185","#f59e0b","#a78bfa","#22c55e"][index % 6]}
+function friendlyLifecycleLabel(state){
+  const normalized = String(state || "").toLowerCase();
+  if (normalized === "active") return "فعال";
+  if (normalized === "paused") return "متوقف";
+  if (normalized === "pending_confirmation") return "در انتظار تایید";
+  if (normalized === "delivery_in_progress") return "در حال ارسال";
+  if (normalized === "delivered") return "ارسال شده";
+  if (normalized === "failed") return "خطادار";
+  if (normalized === "cancelled") return "حذف شده";
+  return normalized || "نامشخص";
+}
 async function loadPrices(){
   const data = await api("/api/v1/prices/latest"); latest = data.items || [];
-  prices.innerHTML = latest.map(x=>`<article class="card"><div class="row"><div><div class="name">${escapeHtml(x.asset_name)}</div><div class="meta">${escapeHtml(x.asset_code)} · ${ (x.freshness|| (x.is_stale?'stale':'fresh')) === 'fresh' ? 'تازه' : 'قدیمی/نامعتبر' }</div></div><div class="price">${fmt.format(Number(x.price_value))} ${escapeHtml(x.display_unit || x.currency_code)}</div></div><div class="meta">آخرین بروزرسانی: ${new Date(x.fetched_at).toLocaleString("fa-IR")}</div><button class="ghost mini" data-history-asset="${escapeHtml(x.asset_code)}">تاریخچه قیمت</button></article>`).join("");
+  window.latest = latest;
+  prices.innerHTML = latest.map(x=>`<article class="card"><div class="row"><div><div class="name">${escapeHtml(x.asset_name)}</div><div class="meta">${escapeHtml(x.asset_code)} · ${ (x.freshness|| (x.is_stale?'stale':'fresh')) === 'fresh' ? 'تازه' : 'قدیمی/نامعتبر' }</div></div><div class="price">${formatDisplayPrice(x.price_value, x.display_unit || x.currency_code)}</div></div><div class="meta">آخرین بروزرسانی: ${new Date(x.fetched_at).toLocaleString("fa-IR")}</div><button class="ghost mini" data-history-asset="${escapeHtml(x.asset_code)}">تاریخچه قیمت</button><button class="mini" data-create-for-asset="${escapeHtml(x.asset_code)}">ساخت هشدار</button></article>`).join("");
   prices.querySelectorAll("button[data-history-asset]").forEach(button => button.onclick = () => loadHistory(button.dataset.historyAsset));
+  prices.querySelectorAll("button[data-create-for-asset]").forEach(button => button.onclick = () => startAlertForAsset(button.dataset.createForAsset));
   asset.innerHTML = latest.map(x=>`<option value="${escapeHtml(x.asset_code)}">${escapeHtml(x.asset_name)}</option>`).join("");
 }
 async function loadHistory(assetCode){
@@ -206,13 +230,14 @@ async function loadHistory(assetCode){
   if (priceChart) { priceChart.destroy(); priceChart = null; }
   const data = await api(`/api/v1/prices/history?asset_code=${encodeURIComponent(assetCode)}&limit=10`);
   const items = data.items || [];
-  historyList.innerHTML = items.length ? items.map(x=>`<div class="history-row"><span>${new Date(x.observed_at).toLocaleString("fa-IR")}</span><strong>${fmt.format(Number(x.price_value))} ${escapeHtml(x.display_unit || x.currency_code)}</strong></div>`).join("") : `<div class="meta">برای این دارایی هنوز تاریخچه‌ای ثبت نشده است.</div>`;
+  historyList.innerHTML = items.length ? items.map(x=>`<div class="history-row"><span>${new Date(x.observed_at).toLocaleString("fa-IR")}</span><strong>${formatDisplayPrice(x.price_value, x.display_unit || x.currency_code)}</strong></div>`).join("") : `<div class="meta">برای این دارایی هنوز تاریخچه‌ای ثبت نشده است.</div>`;
 
   // Simple price chart (new UX feature)
   const canvas = document.getElementById("price-chart");
   if (items.length > 1 && canvas) {
+    canvas.style.display = "";
     const labels = items.map(x => new Date(x.observed_at).toLocaleTimeString("fa-IR", {hour:'2-digit', minute:'2-digit'})).reverse();
-    const values = items.map(x => Number(x.price_value)).reverse();
+    const values = items.map(x => displayNumericPrice(x.price_value, x.display_unit || x.currency_code)).reverse();
     const ctx = canvas.getContext("2d");
     priceChart = new Chart(ctx, {
       type: "line",
@@ -232,10 +257,18 @@ async function loadHistory(assetCode){
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { mode: "index" } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            mode: "index",
+            callbacks: {
+              label: context => `${fmt.format(Number(context.parsed.y || 0))} ${displayUnitLabel(selected?.display_unit || selected?.currency_code)}`
+            }
+          }
+        },
         scales: {
           x: { grid: { color: "rgba(148,163,184,0.1)" }, ticks: { color: "#9ca3af", font: { size: 10 } } },
-          y: { grid: { color: "rgba(148,163,184,0.1)" }, ticks: { color: "#9ca3af", font: { size: 10 }, callback: v => fmt.format(v) } }
+          y: { grid: { color: "rgba(148,163,184,0.1)" }, ticks: { color: "#9ca3af", font: { size: 10 }, callback: v => fmt.format(Number(v || 0)) } }
         }
       }
     });
@@ -247,7 +280,7 @@ async function loadAlerts(){
   if(!initData){auth.classList.remove("hidden"); return}
   const data = await api("/api/v1/alerts");
   userAlerts = data.items || [];
-  alerts.innerHTML = userAlerts.map(a=>`<article class="card"><div class="row"><div><div class="name">${escapeHtml(assetLabel(a))}</div><div class="meta">${a.condition_type==="above"?"بالای":"زیر"} ${fmt.format(Number(a.target_price))} ${escapeHtml(a.target_price_display_unit||"")}</div></div><span class="${a.is_active?"ok":"danger"}">${a.is_active?"فعال":"خاموش"}</span></div><div class="actions"><button class="ghost" data-edit-alert-id="${escapeHtml(a.id)}" data-current-target="${escapeHtml(a.target_price)}" data-target-unit="${escapeHtml(a.target_price_display_unit||"")}">اصلاح قیمت</button><button class="danger" data-alert-id="${escapeHtml(a.id)}">حذف</button></div></article>`).join("");
+  alerts.innerHTML = userAlerts.map(a=>`<article class="card"><div class="row"><div><div class="name">${escapeHtml(assetLabel(a))}</div><div class="meta">${a.condition_type==="above"?"بالای":"زیر"} ${formatDisplayPrice(a.target_price, a.target_price_display_unit||"")}</div></div><span class="${a.is_active?"ok":"danger"}">${a.is_active?"فعال":"خاموش"}</span></div><div class="meta">وضعیت: ${escapeHtml(friendlyLifecycleLabel(a.lifecycle_state || (a.is_active ? "active" : "paused")))}</div><div class="actions"><button class="ghost" data-edit-alert-id="${escapeHtml(a.id)}" data-current-target="${escapeHtml(a.target_price)}" data-target-unit="${escapeHtml(a.target_price_display_unit||"")}">اصلاح قیمت</button><button class="danger" data-alert-id="${escapeHtml(a.id)}">حذف</button></div></article>`).join("");
   alerts.querySelectorAll("button[data-alert-id]").forEach(button => button.onclick = () => removeAlert(button.dataset.alertId));
   alerts.querySelectorAll("button[data-edit-alert-id]").forEach(button => button.onclick = () => editAlertTarget(button.dataset.editAlertId, button.dataset.currentTarget, button.dataset.targetUnit));
   renderMyAssets();
@@ -261,7 +294,7 @@ nextAsset.onclick = ()=>{
   if(!selected) return;
   alertDraft.asset_code = selected.asset_code;
   alertDraft.asset_name = selected.asset_name;
-  alertDraft.unit = selected.display_unit || selected.currency_code || "تومان";
+  alertDraft.unit = displayUnitLabel(selected.display_unit || selected.currency_code || "تومان");
   alertDraft.current_price = selected.price_value;
   showStep("step-condition");
 };
@@ -271,7 +304,7 @@ nextCondition.onclick = ()=>{
   showStep("step-target");
   targetLabel.textContent = `قیمت هدف را با واحد ${alertDraft.unit} وارد کنید:`;
   if(alertDraft.current_price){
-    target.placeholder = `مثال: ${Math.round(alertDraft.current_price)}`;
+    target.placeholder = `مثال: ${Math.round(displayNumericPrice(alertDraft.current_price, alertDraft.unit))}`;
   }
 };
 
@@ -283,8 +316,8 @@ nextTarget.onclick = ()=>{
   if(!val || val <= 0){alert("لطفاً یک قیمت معتبر وارد کنید"); return}
   alertDraft.target_price = val;
   const sign = alertDraft.condition_type==="above"?"بالاتر از":"پایین‌تر از";
-  const currentText = alertDraft.current_price ? `${fmt.format(alertDraft.current_price)} ${alertDraft.unit}` : "نامشخص";
-  summary.innerHTML = `دارایی: ${escapeHtml(alertDraft.asset_name)}<br>شرط: ${sign} ${fmt.format(alertDraft.target_price)} ${escapeHtml(alertDraft.unit)}<br>قیمت فعلی: ${escapeHtml(currentText)}<br><br>بعد از تایید، هشدار فعال می‌شود.`;
+  const currentText = alertDraft.current_price ? formatDisplayPrice(alertDraft.current_price, alertDraft.unit) : "نامشخص";
+  summary.innerHTML = `دارایی: ${escapeHtml(alertDraft.asset_name)}<br>شرط: ${sign} ${formatDisplayPrice(alertDraft.target_price, alertDraft.unit)}<br>قیمت فعلی: ${escapeHtml(currentText)}<br><br>بعد از تایید، هشدار فعال می‌شود.`;
   showStep("step-confirm");
 };
 
@@ -292,12 +325,21 @@ backTarget.onclick = ()=>showStep("step-condition");
 
 confirmAlert.onclick = async ()=>{
   if(!initData){auth.classList.remove("hidden"); return}
-  const created = await api("/api/v1/alerts",{method:"POST",body:JSON.stringify({asset_code:alertDraft.asset_code,condition_type:alertDraft.condition_type,target_price:alertDraft.target_price,cooldown_minutes:60})});
-  await api(`/api/v1/alerts/${created.id}/confirm`,{method:"POST"});
-  alert("هشدار فعال شد ✅");
-  resetDraft();
-  showStep("step-asset");
-  await loadAlerts();
+  confirmAlert.disabled = true;
+  try {
+    const created = await api("/api/v1/alerts",{method:"POST",body:JSON.stringify({asset_code:alertDraft.asset_code,condition_type:alertDraft.condition_type,target_price:alertDraft.target_price,cooldown_minutes:60})});
+    await api(`/api/v1/alerts/${created.id}/confirm`,{method:"POST"});
+    alert("هشدار فعال شد ✅");
+    resetDraft();
+    showStep("step-asset");
+    showMainTab("tab-alerts");
+    await loadAlerts();
+  } catch (error) {
+    const message = String(error?.message || error);
+    alert(`خطا در ثبت هشدار: ${message}`);
+  } finally {
+    confirmAlert.disabled = false;
+  }
 };
 
 editTarget.onclick = ()=>showStep("step-target");
@@ -329,7 +371,7 @@ function renderMyAssets(){
       assetMap[code] = {
         code,
         name: assetLabel(a) || (lp ? lp.asset_name : code),
-        current: lp ? `${fmt.format(Number(lp.price_value))} ${lp.display_unit || lp.currency_code}` : 'نامشخص',
+        current: lp ? formatDisplayPrice(lp.price_value, lp.display_unit || lp.currency_code) : 'نامشخص',
         fresh: lp && lp.freshness ? (lp.freshness==='fresh' ? 'تازه' : 'قدیمی') : '',
         count: 0
       };
@@ -343,7 +385,7 @@ function renderMyAssets(){
         <span>${item.count} هشدار</span>
       </div>
       <div class="meta">قیمت فعلی: ${escapeHtml(item.current)} ${item.fresh}</div>
-      <button class="ghost mini" onclick="document.getElementById('alerts').scrollIntoView({behavior:'smooth'})">مشاهده و ویرایش هشدارها</button>
+      <button class="ghost mini" onclick="showMainTab('tab-alerts')">مشاهده و ویرایش هشدارها</button>
     </article>
   `).join('');
   listEl.innerHTML = html;
@@ -364,7 +406,7 @@ function renderSuggestions(){
         <article class="card mini">
           <div class="row">
             <div class="name">${escapeHtml(p.asset_name)}</div>
-            <span class="meta">${fmt.format(Number(p.price_value))} ${p.display_unit} ${p.change_pct!=null ? (p.change_pct>0?'+':'')+p.change_pct+'%' : ''} ${p.volatility!=null ? 'vol:'+p.volatility : ''}</span>
+            <span class="meta">${formatDisplayPrice(p.price_value, p.display_unit)} ${p.change_pct!=null ? (p.change_pct>0?'+':'')+p.change_pct+'%' : ''} ${p.volatility!=null ? 'vol:'+p.volatility : ''}</span>
           </div>
           <button class="ghost mini" onclick="startAlertForAsset('${p.asset_code}')">شروع هشدار</button>
         </article>
@@ -378,7 +420,7 @@ function renderSuggestions(){
       const wset = new Set((userAlerts||[]).map(a=>a.asset_code));
       const cands = latest.filter(p=>!wset.has(p.asset_code)).slice(0,3);
       if(!cands.length){ container.classList.add('hidden'); return; }
-      const html = cands.map(p => `<article class="card mini"><div class="row"><div class="name">${escapeHtml(p.asset_name)}</div><span class="meta">${fmt.format(Number(p.price_value))} ${p.display_unit}</span></div><button class="ghost mini" onclick="startAlertForAsset('${p.asset_code}')">شروع هشدار</button></article>`).join('');
+      const html = cands.map(p => `<article class="card mini"><div class="row"><div class="name">${escapeHtml(p.asset_name)}</div><span class="meta">${formatDisplayPrice(p.price_value, p.display_unit)}</span></div><button class="ghost mini" onclick="startAlertForAsset('${p.asset_code}')">شروع هشدار</button></article>`).join('');
       listEl.innerHTML = html;
       container.classList.remove('hidden');
     }); // اگر خطا ادامه داشت، از بات /alert استفاده کنید یا TWA را رفرش کنید.
@@ -389,14 +431,15 @@ function startAlertForAsset(code){
   if(!selected) return;
   alertDraft.asset_code = selected.asset_code;
   alertDraft.asset_name = selected.asset_name;
-  alertDraft.unit = selected.display_unit || selected.currency_code || "تومان";
+  alertDraft.unit = displayUnitLabel(selected.display_unit || selected.currency_code || "تومان");
   alertDraft.current_price = selected.price_value;
   const sel = document.getElementById('asset');
   if(sel) sel.value = code;
+  showMainTab('tab-create');
   showStep("step-condition");
   targetLabel.textContent = `قیمت هدف را با واحد ${alertDraft.unit} وارد کنید:`;
   if(alertDraft.current_price){
-    target.placeholder = `مثال: ${Math.round(alertDraft.current_price)}`;
+    target.placeholder = `مثال: ${Math.round(displayNumericPrice(alertDraft.current_price, alertDraft.unit))}`;
   }
 }
 
@@ -419,16 +462,17 @@ function showMainTab(tabId) {
 
 function initChartSelectors() {
   const sel = document.getElementById('chart-multi');
-  if (!sel || sel.options.length > 0) return;
+  if (!sel) return;
+  sel.innerHTML = "";
   latest.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.asset_code;
     opt.text = p.asset_name;
     sel.appendChild(opt);
   });
+  Array.from(sel.options).slice(0, Math.min(3, sel.options.length)).forEach(opt => { opt.selected = true; });
 }
 
-let advChartInstance = null;
 function renderAdvancedMultiChart(days) {
   const sel = document.getElementById('chart-multi');
   if (!sel) return;
@@ -441,28 +485,77 @@ function renderAdvancedMultiChart(days) {
   const rangeParam = days ? `&range=${days}d` : '';
   Promise.all(codes.map(code => api(`/api/v1/prices/history?asset_code=${code}&limit=120${rangeParam}`)))
     .then(results => {
+      const timeline = new Map();
       const datasets = [];
-      const allLabels = new Set();
       results.forEach((res, i) => {
         const code = codes[i];
-        const name = latest.find(x=>x.asset_code===code)?.asset_name || code;
-        const items = (res.items || []);
-        items.forEach(it => allLabels.add(new Date(it.observed_at).toLocaleDateString('fa-IR')));
-        const data = items.map(it => Number(it.price_value));
+        const selectedAsset = latest.find(x=>x.asset_code===code);
+        const unit = selectedAsset?.display_unit || selectedAsset?.currency_code || "";
+        const name = selectedAsset?.asset_name || code;
+        const items = (res.items || []).slice().sort((a,b) => new Date(a.observed_at) - new Date(b.observed_at));
+        items.forEach(it => {
+          const key = new Date(it.observed_at).toISOString();
+          timeline.set(key, true);
+        });
+        const dataByTs = new Map(items.map(it => [new Date(it.observed_at).toISOString(), displayNumericPrice(it.price_value, it.display_unit || it.currency_code || unit)]));
         datasets.push({
           label: name,
-          data: data.reverse(),
-          borderColor: ['#38bdf8','#34d399','#fb7185','#f59e0b'][i % 4],
-          tension: 0.2
+          unit,
+          dataByTs,
+          borderColor: chartPalette(i),
+          backgroundColor: chartPalette(i),
+          tension: 0.28,
+          borderWidth: 2,
+          pointRadius: 0,
+          spanGaps: true,
+          fill: false
         });
       });
-      const labels = Array.from(allLabels);
+      const sortedTimeline = Array.from(timeline.keys()).sort();
+      const labels = sortedTimeline.map(ts => {
+        const date = new Date(ts);
+        return days <= 1
+          ? date.toLocaleTimeString('fa-IR', {hour:'2-digit', minute:'2-digit'})
+          : date.toLocaleDateString('fa-IR', {month:'short', day:'numeric'});
+      });
+      const normalizedDatasets = datasets.map(dataset => ({
+        label: `${dataset.label} (${displayUnitLabel(dataset.unit)})`,
+        data: sortedTimeline.map(ts => dataset.dataByTs.get(ts) ?? null),
+        borderColor: dataset.borderColor,
+        backgroundColor: dataset.backgroundColor,
+        tension: dataset.tension,
+        borderWidth: dataset.borderWidth,
+        pointRadius: dataset.pointRadius,
+        spanGaps: dataset.spanGaps,
+        fill: dataset.fill
+      }));
       const ctx = document.getElementById('adv-chart').getContext('2d');
       if (advChartInstance) advChartInstance.destroy();
       advChartInstance = new Chart(ctx, {
         type: 'line',
-        data: { labels: labels.slice(-30), datasets },
-        options: { responsive:true, plugins:{legend:{position:'top'}}, scales:{x:{ticks:{font:{size:10}}}, y:{ticks:{font:{size:10}}}} }
+        data: { labels, datasets: normalizedDatasets },
+        options: {
+          responsive:true,
+          maintainAspectRatio:false,
+          interaction:{mode:'index',intersect:false},
+          plugins:{
+            legend:{position:'top', labels:{color:'#e5e7eb', boxWidth:12}},
+            tooltip:{
+              callbacks:{
+                label: context => {
+                  const rawLabel = String(context.dataset.label || "");
+                  const unitMatch = rawLabel.match(/\(([^)]+)\)$/);
+                  const unit = unitMatch ? unitMatch[1] : "";
+                  return `${rawLabel.replace(/\s*\([^)]+\)$/, "")}: ${fmt.format(Number(context.parsed.y || 0))} ${unit}`;
+                }
+              }
+            }
+          },
+          scales:{
+            x:{grid:{color:"rgba(148,163,184,0.08)"}, ticks:{color:"#9ca3af",font:{size:10}, maxRotation:0}},
+            y:{grid:{color:"rgba(148,163,184,0.08)"}, ticks:{color:"#9ca3af",font:{size:10}, callback:v => fmt.format(Number(v || 0))}}
+          }
+        }
       });
     });
 }
@@ -501,6 +594,12 @@ function addHolding() {
   input.value = '';
   renderPortfolio();
 }
+function removeHolding(code) {
+  let holdings = JSON.parse(localStorage.getItem('novax_portfolio') || '{}');
+  delete holdings[code];
+  localStorage.setItem('novax_portfolio', JSON.stringify(holdings));
+  renderPortfolio();
+}
 function renderPortfolio() {
   const list = document.getElementById('portfolio-list');
   const totalEl = document.getElementById('portfolio-total');
@@ -510,10 +609,10 @@ function renderPortfolio() {
   let totalVal = 0;
   Object.keys(holdings).forEach(code => {
     const amt = holdings[code];
-    const p = (window.prices || []).find(x => x.asset_code === code);
-    const val = p ? amt * Number(p.price_value) : 0;
+    const p = (window.latest || []).find(x => x.asset_code === code);
+    const val = p ? amt * displayNumericPrice(p.price_value, p.display_unit || p.currency_code) : 0;
     totalVal += val;
-    html += `<div class="history-row"><span>${code} ${amt}</span><strong>${fmt.format(val)} ${p ? p.display_unit : ''}</strong></div>`;
+    html += `<div class="history-row"><span>${code} ${amt}</span><div style="display:flex;align-items:center;gap:8px;"><strong>${fmt.format(val)} تومان</strong><button class="ghost mini" style="width:auto;margin-top:0" onclick="removeHolding('${code}')">حذف</button></div></div>`;
   });
   list.innerHTML = html || '<div class="meta">هیچ دارایی اضافه نشده.</div>';
   totalEl.textContent = `ارزش کل: ${fmt.format(totalVal)} تومان (تقریبی)`;
