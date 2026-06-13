@@ -48,7 +48,9 @@ class TelegramNotificationSender(BaseNotificationSender):
         chat_id = user.telegram_user_id
 
         display_name = asset.display_name or asset.name or asset.symbol or rule.canonical_asset_id
-        condition_text = "رسیدن به بالاتر از" if rule.condition_type == "above" else "رسیدن به پایین‌تر از"
+        condition_text = (
+            "رسیدن به بالاتر از" if rule.condition_type == "above" else "رسیدن به پایین‌تر از"
+        )
         unit = asset.unit or rule.target_price_display_unit or ""
 
         text = (

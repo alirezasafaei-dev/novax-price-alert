@@ -10,6 +10,7 @@ import sys
 
 VPS_IP = os.environ.get("VPS_IP", "193.93.169.58")
 VPS_USER = os.environ.get("VPS_USER", "ubuntu")
+VPS_PASSWORD = os.environ.get("VPS_PASSWORD", "<set VPS_PASSWORD env var>")
 VPS_SSH_KEY_PATH = os.environ.get("VPS_SSH_KEY_PATH", os.path.expanduser("~/.ssh/id_rsa"))
 VPS_PORT = 22
 APP_DIR = "/home/deploy/novax-price-alert"
