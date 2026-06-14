@@ -4,6 +4,22 @@
 
 **مرجع اصلی فازبندی و تسک‌ها:** گزارش کامل بهبود پروژه (مسائل ۹گانه، راهکارهای اجرایی، ۵ فاز دقیق، taskهای T-xxx با اولویت P0/P1/P2 + owner + acceptance criteria، sprint plan، KPI، risk register).
 
+## 2026-06-14: Cloudflare bot stabilization; mini-app paused
+
+- تصمیم عملیاتی: مینی‌اپ روی VPS/دامنه ایرانی فعلاً pause شد تا بعد از تهیه VPS خارجی و دامنه خارجی دوباره فعال شود.
+- Cloudflare Worker به عنوان مسیر پایدار بات حفظ شد و هیچ وابستگی جدیدی به VPS برای کارکرد اصلی بات اضافه نشد.
+- دکمه `web_app` و ارجاع‌های داخل چت به مینی‌اپ از کیبورد/پیام‌های Worker حذف شد تا کاربر به مسیر خراب هدایت نشود.
+- بات فعلاً فقط از مسیر chat-first کار می‌کند: قیمت‌ها، ساخت هشدار، مدیریت هشدارها و cron ده‌دقیقه‌ای Cloudflare.
+- دیپلوی Worker انجام شد:
+  - Worker URL: `https://novax-telegram-relay.asdevelooper.workers.dev`
+  - Version ID: `3feefd12-b6bf-4af3-b0f6-13b4cb0c44f8`
+  - `/health` = 200
+  - `/status` سالم و cron غیر stale
+  - `/setup-webhook` موفق؛ `pending_update_count=0`
+  - تست webhook شبیه‌سازی‌شده `/start` = 200
+- اعتبارسنجی لوکال:
+  - `cd deploy/cloudflare-worker && npm test`
+
 ## 2026-06-14: Telegram mini-app live connection fix on `novax.alirezasafeidev.ir`
 
 - مشکل connection مینی‌اپ با تست واقعی روی VPS بررسی شد؛ دامنه درست production همان `novax.alirezasafeidev.ir` و VPS فعال `<redacted-vps-host>` است.

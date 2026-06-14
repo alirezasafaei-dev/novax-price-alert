@@ -59,7 +59,7 @@ export async function handleMyAlerts(env, chatId) {
   const alerts = await getUserAlerts(env, chatId);
 
   if (alerts.length === 0) {
-    await sendMessage(env, chatId, "هنوز هشدار فعالی نداری.\n\nبرای ساخت هشدار از «🔔 تنظیم هشدار» یا دکمه وب‌اپ استفاده کن.", { reply_markup: MAIN_KEYBOARD });
+    await sendMessage(env, chatId, "هنوز هشدار فعالی نداری.\n\nبرای ساخت هشدار از «🔔 تنظیم هشدار» استفاده کن.", { reply_markup: MAIN_KEYBOARD });
     return;
   }
 
@@ -82,13 +82,13 @@ export async function handleMyAlerts(env, chatId) {
   const assetNames = Object.keys(byAsset).map(k => byAsset[k].name).join("، ");
   await sendMessage(env, chatId, `📁 دارایی‌های شما با هشدار فعال: ${assetNames}\n\nجزئیات:`, { reply_markup: MAIN_KEYBOARD });
 
-  // Send per-asset summary + quick TWA link
+  // Send per-asset summary in chat while the mini-app is paused.
   const assetKeys = Object.keys(byAsset);
   for (const key of assetKeys.slice(0, 5)) {  // limit for chat
     const item = byAsset[key];
     const current = item.market === "crypto" ? cryptoPrices?.[item.symbol] : iranPrices?.[item.symbol];
     let cur = current != null ? `${formatPrice(current, item.market==="crypto" && current<100 ? 2 : 0)} ${unitForMarket(item.market)}` : "نامشخص";
-    const msg = `• ${item.name}\n  قیمت فعلی: ${cur}\n  تعداد هشدار: ${item.alerts.length}\n\nبرای مدیریت کامل و چارت، از دکمه وب‌اپ استفاده کنید.`;
+    const msg = `• ${item.name}\n  قیمت فعلی: ${cur}\n  تعداد هشدار: ${item.alerts.length}\n\nبرای مدیریت، از دکمه‌های همین چت استفاده کنید.`;
     await sendMessage(env, chatId, msg, { reply_markup: MAIN_KEYBOARD });
   }
 
@@ -104,8 +104,7 @@ export async function handleMyAlerts(env, chatId) {
     });
   }
 
-  // Encourage rich UI
-  await sendMessage(env, chatId, "برای تجربه کامل (چارت پیشرفته، پیشنهادهای هوشمند، دارایی‌های من) از دکمه «🌐 داشبورد هوشمند» استفاده کنید.", { reply_markup: MAIN_KEYBOARD });
+  await sendMessage(env, chatId, "مینی‌اپ فعلاً غیرفعال است؛ مدیریت هشدارها از همین چت انجام می‌شود.", { reply_markup: MAIN_KEYBOARD });
 }
 
 export async function handleCreateAlertStart(env, chatId) {
