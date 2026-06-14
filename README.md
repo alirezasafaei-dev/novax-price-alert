@@ -100,17 +100,19 @@ sudo journalctl -u novax-price-alert-worker -f
 - Staged alert creation with confirmation
 - Rich TWA with charts and analytics
 - 10-minute price refresh
+- Crypto prices from CoinGecko with Binance fallback
+- Iran market prices from TGJU
 
 ---
 
 ## 📊 Current Prices (Live)
 
-- USD_IRT: 1,801,800 تومان
-- EUR_IRT: 2,078,100 تومان
-- GOLD_18K_IRT: 178,669,000 تومان
-- SEKKEH_EMAMI_IRT: 1,820,100,000 تومان
-- USDT_IRT: 1,757,010 تومان
-- BTC/ETH/BNB: Currently mock data
+- USD_IRT: 1,720,100 تومان
+- EUR_IRT: 1,989,600 تومان
+- GOLD_18K_IRT: 172,208,000 تومان
+- SEKKEH_EMAMI_IRT: 1,733,950,000 تومان
+- USDT_IRT: 1,683,990 تومان
+- BTC/ETH/BNB: Real-time from CoinGecko (USDT)
 
 ---
 
@@ -124,7 +126,7 @@ sudo journalctl -u novax-price-alert-worker -f
 
 - بات و relay در production کار می‌کنند.
 - قیمت‌ها:
-  - کریپتو از Binance با `USDT`
+  - کریپتو از CoinGecko با `USDT` (با fallback از Binance)
   - ارز و طلا از TGJU با `تومان`
 - هشدارها مرحله‌ای ساخته می‌شوند و فقط بعد از تایید فعال می‌شوند.
 - Cron هر 10 دقیقه هشدارها را بررسی می‌کند.
