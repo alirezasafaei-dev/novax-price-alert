@@ -23,6 +23,12 @@ export default function AIChat({ assets, language }: AIChatProps) {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isFa = language === 'fa';
+  const chatEndpoint =
+    typeof window !== 'undefined' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1'
+      ? '/studio/api/chat'
+      : '/api/chat';
 
   const quickPrompts = isFa
     ? [
@@ -50,7 +56,7 @@ export default function AIChat({ assets, language }: AIChatProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch(chatEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

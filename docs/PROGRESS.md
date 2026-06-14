@@ -4,6 +4,23 @@
 
 **مرجع اصلی فازبندی و تسک‌ها:** گزارش کامل بهبود پروژه (مسائل ۹گانه، راهکارهای اجرایی، ۵ فاز دقیق، taskهای T-xxx با اولویت P0/P1/P2 + owner + acceptance criteria، sprint plan، KPI، risk register).
 
+## 2026-06-14: Telegram mini-app live connection fix on `novax.alirezasafeidev.ir`
+
+- مشکل connection مینی‌اپ با تست واقعی روی VPS بررسی شد؛ دامنه درست production همان `novax.alirezasafeidev.ir` و VPS فعال `<redacted-vps-host>` است.
+- React mini-app دیگر در production مقدار build-time `VITE_NOVAX_API_BASE` را داخل bundle bake نمی‌کند و API را same-origin از `https://novax.alirezasafeidev.ir/api/v1/...` صدا می‌زند.
+- حالت live data در production به صورت پیش‌فرض فعال شد؛ localhost همچنان برای تست local/sim امن باقی می‌ماند.
+- مسیر AI chat با nginx فعلی هم‌راستا شد: client در production از `/studio/api/chat` استفاده می‌کند، چون `/api/*` روی دامنه اصلی به FastAPI وصل است.
+- دیپلوی production روی VPS انجام و تأیید شد:
+  - `/mini-app/` = 200
+  - JS asset جدید زیر `/mini-app/assets/...` = 200
+  - bundle بدون `alirezasafaeisystems`، `localhost:8001` و `VITE_NOVAX_API_BASE`
+  - `/api/v1/prices/latest` = 200 با 8 آیتم قیمت
+  - `/studio/api/chat` = 200
+- اعتبارسنجی لوکال:
+  - `cd mini-app && npm run type-check`
+  - `cd mini-app && npm run build`
+  - `cd mini-app && npm test -- --runInBand`
+
 ## 2026-06-14: Telegram mini-app blank-screen production fix
 
 - ریشه‌یابی بدون حدس انجام شد: HTML مینی‌اپ در `/mini-app/` با 200 برمی‌گشت، اما build React assetها را از `/assets/...` می‌خواست و production همان فایل‌ها را 404 می‌داد.

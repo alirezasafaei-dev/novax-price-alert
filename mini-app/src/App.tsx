@@ -19,6 +19,11 @@ interface TelegramWebAppUser {
   last_name?: string;
 }
 
+function isLocalHost() {
+  if (typeof window === 'undefined') return false;
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+}
+
 /* ─── Chime on alert trigger ─── */
 function playChime() {
   try {
@@ -79,7 +84,7 @@ export default function App() {
   const [alertLogs, setAlertLogs] = useState<AlertLog[]>([]);
   const [selectedAssetForAlert, setSelectedAssetForAlert] = useState<string | null>(null);
   const [pushNotification, setPushNotification] = useState<{ id: string; text: string } | null>(null);
-  const [useLiveData, setUseLiveData] = useState<boolean>(false);
+  const [useLiveData, setUseLiveData] = useState<boolean>(() => !isLocalHost());
   const [tgInitData, setTgInitData] = useState<string>('');
   const [tgUser, setTgUser] = useState<TelegramWebAppUser | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -100,7 +105,16 @@ export default function App() {
   }, []);
 
   /* ── Backend base ── */
-  const backendBase = ((import.meta as any).env?.VITE_NOVAX_API_BASE || (window as any).NOVAX_API_BASE || window.location.origin).replace(/\/$/, '');
+  const resolveBackendBase = () => {
+    const runtimeOverride = (window as any).NOVAX_API_BASE;
+    if (runtimeOverride) return String(runtimeOverride).replace(/\/$/, '');
+
+    const currentOrigin = window.location.origin;
+    if (!isLocalHost()) return currentOrigin.replace(/\/$/, '');
+
+    return currentOrigin.replace(/\/$/, '');
+  };
+  const backendBase = resolveBackendBase();
   const liveHeaders = (): Record<string, string> => {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
     if (tgInitData) h['X-Telegram-Init-Data'] = tgInitData;
