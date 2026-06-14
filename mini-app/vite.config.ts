@@ -24,11 +24,17 @@ export default defineConfig(() => {
       minify: 'esbuild',
       rollupOptions: {
         output: {
-          manualChunks: {
+          manualChunks: (id) => {
             // Vendor chunks for better caching
-            'react-vendor': ['react', 'react-dom', 'react-dom/client'],
-            'motion-vendor': ['motion', 'framer-motion'],
-            'icons-vendor': ['lucide-react'],
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-dom/client')) {
+              return 'react-vendor';
+            }
+            if (id.includes('motion') || id.includes('framer-motion')) {
+              return 'motion-vendor';
+            }
+            if (id.includes('lucide-react')) {
+              return 'icons-vendor';
+            }
           },
           chunkFileNames: 'assets/[name]-[hash].js',
           entryFileNames: 'assets/[name]-[hash].js',
