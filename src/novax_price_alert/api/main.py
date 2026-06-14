@@ -1,11 +1,13 @@
 import logging
 import time
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from novax_price_alert.api.routers.admin import router as admin_router
 from novax_price_alert.api.routers.alerts import router as alerts_router
@@ -20,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Novax Price Alert API")
+    repo_root = Path(__file__).resolve().parents[3]
+    mini_app_dist = repo_root / "mini-app" / "dist"
 
     # Request logging middleware
     @app.middleware("http")
@@ -41,7 +45,12 @@ def create_app() -> FastAPI:
     async def add_security_headers(request: Request, call_next: Callable) -> Response:
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        if request.url.path.startswith("/mini-app"):
+            response.headers["Content-Security-Policy"] = (
+                "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org"
+            )
+        else:
+            response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -69,6 +78,45 @@ def create_app() -> FastAPI:
     app.include_router(alerts_router, prefix="/api/v1")
     app.include_router(webhook_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="")
+
+    if mini_app_dist.exists():
+        app.mount(
+            "/mini-app/assets",
+            StaticFiles(directory=mini_app_dist / "assets"),
+            name="mini_app_assets",
+        )
+
+        @app.get("/mini-app", response_class=HTMLResponse)
+        @app.get("/mini-app/", response_class=HTMLResponse)
+        async def mini_app_shell() -> str:
+            return (mini_app_dist / "index.html").read_text(encoding="utf-8")
+
+        @app.get("/mini-app/robots.txt")
+        async def mini_app_robots() -> FileResponse:
+            return FileResponse(mini_app_dist / "robots.txt")
+
+        @app.get("/mini-app/manifest.json", response_class=JSONResponse)
+        async def mini_app_manifest() -> dict[str, Any]:
+            return {
+                "name": "Novax Smart Dashboard",
+                "short_name": "Novax",
+                "start_url": "/mini-app/",
+                "scope": "/mini-app/",
+                "display": "standalone",
+                "background_color": "#060814",
+                "theme_color": "#060814",
+                "icons": [
+                    {
+                        "src": (
+                            "data:image/svg+xml,"
+                            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+                            '<text y=".9em" font-size="90">📈</text></svg>'
+                        ),
+                        "sizes": "any",
+                        "type": "image/svg+xml",
+                    }
+                ],
+            }
 
     @app.get("/manifest.json", response_class=JSONResponse)
     async def twa_manifest() -> dict[str, Any]:

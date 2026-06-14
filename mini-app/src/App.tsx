@@ -12,6 +12,12 @@ import { motion, AnimatePresence } from 'motion/react';
 interface Toast { id: string; text: string; type: 'success' | 'error' | 'info' }
 let _toastId = 0;
 interface PortfolioDraft { symbol: string; amount: string }
+interface TelegramWebAppUser {
+  id?: number;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+}
 
 /* ─── Chime on alert trigger ─── */
 function playChime() {
@@ -75,6 +81,7 @@ export default function App() {
   const [pushNotification, setPushNotification] = useState<{ id: string; text: string } | null>(null);
   const [useLiveData, setUseLiveData] = useState<boolean>(false);
   const [tgInitData, setTgInitData] = useState<string>('');
+  const [tgUser, setTgUser] = useState<TelegramWebAppUser | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [showConfirmDelete, setShowConfirmDelete] = useState<{ open: boolean; alertId: string | null }>({ open: false, alertId: null });
@@ -93,7 +100,7 @@ export default function App() {
   }, []);
 
   /* ── Backend base ── */
-  const backendBase = ((import.meta as any).env?.VITE_NOVAX_API_BASE || (window as any).NOVAX_API_BASE || 'http://localhost:8001').replace(/\/$/, '');
+  const backendBase = ((import.meta as any).env?.VITE_NOVAX_API_BASE || (window as any).NOVAX_API_BASE || window.location.origin).replace(/\/$/, '');
   const liveHeaders = (): Record<string, string> => {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
     if (tgInitData) h['X-Telegram-Init-Data'] = tgInitData;
@@ -149,21 +156,45 @@ export default function App() {
             const rawPrice = Number(it.price_value || it.price);
             const unit = it.display_unit || it.currency_code || '';
             const normalizedUnit = unit.toUpperCase();
-            // Convert IRR to Toman for Iranian market prices
-            const displayPrice = normalizedUnit === 'IRT' || normalizedUnit === 'IRR' ? rawPrice / 10 : rawPrice;
             return {
               symbol: it.asset_code || it.symbol,
               name: it.asset_name || it.name || it.asset_code,
               nameFa: it.asset_name || it.name || it.asset_code,
-              price: displayPrice,
+              price: rawPrice,
               type: (it.currency_code || it.display_unit || '').toUpperCase().includes('USDT') || (it.asset_code || '').toUpperCase().includes('USDT') ? 'crypto' : 'fiat',
-              unit: normalizedUnit === 'IRT' || normalizedUnit === 'IRR' ? 'TOMAN' : unit,
+              unit,
               change24h: 0,
-              history: Array.from({ length: 12 }, (_, index) => {
-                const base = displayPrice;
-                const variance = base * 0.008;
-                return Math.max(0, base - variance + ((variance * 2) / 11) * index);
-              }),
+              history: [rawPrice],
+            };
+          });
+          const historyResponses = await Promise.all(
+            priceData.map(async (asset) => {
+              try {
+                const range = asset.type === 'crypto' ? '7d' : '30d';
+                const response = await fetch(`${backendBase}/api/v1/prices/history?asset_code=${encodeURIComponent(asset.symbol)}&limit=24&range=${range}`);
+                if (!response.ok) return [asset.symbol, null] as const;
+                const payload = await response.json();
+                const history = (payload.items || []).slice().sort((a: any, b: any) => new Date(a.observed_at).getTime() - new Date(b.observed_at).getTime());
+                return [asset.symbol, history] as const;
+              } catch {
+                return [asset.symbol, null] as const;
+              }
+            }),
+          );
+          const historyMap = new Map(historyResponses);
+          priceData = priceData.map((asset) => {
+            const historyItems = historyMap.get(asset.symbol);
+            if (!historyItems || historyItems.length === 0) {
+              const base = asset.price;
+              const variance = base * 0.008;
+              return {
+                ...asset,
+                history: Array.from({ length: 12 }, (_, index) => Math.max(0, base - variance + ((variance * 2) / 11) * index)),
+              };
+            }
+            return {
+              ...asset,
+              history: historyItems.map((item: any) => Number(item.price_value || 0)),
             };
           });
         }
@@ -188,7 +219,7 @@ export default function App() {
           prevLogLen.current = mapped.length;
           setAlertLogs(mapped);
         }
-      } else {
+      } else if (!useLiveData) {
         const aRes = await fetch('/api/alerts');
         if (aRes.ok) setAlerts(await aRes.json());
         const lRes = await fetch('/api/alerts/logs');
@@ -203,6 +234,10 @@ export default function App() {
           setAlertLogs(d);
         }
       }
+      if (useLiveData && !tgInitData) {
+        setAlerts([]);
+        setAlertLogs([]);
+      }
       setIsOnline(true);
     } catch (e) {
       setIsOnline(false);
@@ -213,7 +248,16 @@ export default function App() {
   };
 
   useEffect(() => {
-    try { const tg = (window as any).Telegram?.WebApp; if (tg?.initData) { setTgInitData(tg.initData); tg.expand?.(); } } catch { /* not in TG */ }
+    try {
+      const tg = (window as any).Telegram?.WebApp;
+      if (tg?.initData) {
+        setTgInitData(tg.initData);
+        setTgUser(tg.initDataUnsafe?.user || null);
+        setUseLiveData(true);
+        tg.ready?.();
+        tg.expand?.();
+      }
+    } catch { /* not in TG */ }
     fetchAllData();
     const timer = setInterval(fetchAllData, 4000);
     return () => clearInterval(timer);
@@ -221,7 +265,13 @@ export default function App() {
 
   useEffect(() => { setMobileMenuOpen(false); }, [activeTab]);
 
-  const toggleLiveData = () => { setUseLiveData(p => !p); setTimeout(() => fetchAllData(), 10); };
+  const toggleLiveData = () => {
+    if (!useLiveData && !tgInitData) {
+      showToast(isFa ? 'برای هشدارهای واقعی، این مینی‌اپ را از داخل بات تلگرام باز کنید.' : 'Open this mini app from Telegram bot to use real alert APIs.', 'info');
+    }
+    setUseLiveData(p => !p);
+    setTimeout(() => fetchAllData(), 10);
+  };
   const handleRetryConnection = () => { fetchAllData(); };
 
   /* ── Handlers ── */
@@ -257,7 +307,13 @@ export default function App() {
       showToast(isFa ? 'هشدار جدید با موفقیت ایجاد شد ✓' : 'New alert created successfully ✓', 'success');
     } catch (e) {
       console.error('Alert creation error:', e);
-      showToast(isFa ? 'خطا در ایجاد هشدار. لطفاً دوباره تلاش کنید.' : 'Failed to create alert. Please try again.', 'error');
+      const message = String((e as Error)?.message || '');
+      showToast(
+        message.includes('Unauthorized') || message.includes('initData')
+          ? (isFa ? 'برای ساخت هشدار واقعی باید مینی‌اپ را از داخل تلگرام باز کنید.' : 'Open the mini app inside Telegram to create real alerts.')
+          : (isFa ? 'خطا در ایجاد هشدار. لطفاً دوباره تلاش کنید.' : 'Failed to create alert. Please try again.'),
+        'error',
+      );
       throw e; // Re-throw to let AlertManager handle the error state
     }
   };
@@ -321,7 +377,12 @@ export default function App() {
   const handleManualPriceChange = async (symbol: string, val: number) => {
     try {
       if (useLiveData) {
-        await fetch(`${backendBase}/api/v1/prices/test/override-price`, { method: 'POST', headers: liveHeaders(), body: JSON.stringify({ symbol, price: val }) });
+        showToast(
+          isFa
+            ? 'تغییر دستی قیمت در LIVE برای کاربر عادی غیرفعال است و فقط در حالت شبیه‌سازی فعال است.'
+            : 'Manual price override is disabled for normal users in LIVE mode; use SIM mode for testing.',
+          'info',
+        );
       } else {
         await fetch('/api/prices/trigger-manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol, targetPrice: val }) });
       }
@@ -482,7 +543,7 @@ export default function App() {
               </div>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-zinc-400 font-semibold">{isFa ? 'کاربر:' : 'User:'}</span>
-                <span className="text-xs text-white font-bold font-mono">@novax_user</span>
+                <span className="text-xs text-white font-bold font-mono">{tgUser?.username ? `@${tgUser.username}` : tgUser?.first_name || '@guest'}</span>
                 {!isOnline && (
                   <button
                     onClick={handleRetryConnection}
@@ -500,6 +561,11 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap justify-end">
+            {useLiveData && !tgInitData && (
+              <span className="text-[10px] text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full">
+                {isFa ? 'LIVE بدون احراز تلگرام: فقط مشاهده قیمت' : 'LIVE without Telegram auth: prices only'}
+              </span>
+            )}
             <button onClick={() => setLanguage(language === 'fa' ? 'en' : 'fa')}
               className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs px-3 py-2 rounded-xl transition-all font-semibold text-zinc-300 cursor-pointer">
               <Globe size={13} /> {isFa ? 'EN' : 'FA'}

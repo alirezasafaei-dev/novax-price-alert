@@ -75,11 +75,11 @@ mini-app/
 │   ├── manifest.json       # PWA manifest
 │   └── robots.txt          # SEO robots file
 ├── server.ts               # Express server (development)
-├── monitoring.config.js    # Monitoring configuration
+├── monitoring.config.ts    # Monitoring configuration
 ├── vite.config.ts          # Vite configuration
 ├── tsconfig.json           # TypeScript configuration
-├── jest.config.js          # Jest testing configuration
-├── jest.setup.js           # Jest setup file
+├── jest.config.cjs         # Jest testing configuration
+├── jest.setup.ts           # Jest setup file
 ├── Dockerfile              # Docker configuration
 ├── docker-compose.yml      # Docker Compose configuration
 └── package.json            # Dependencies and scripts
@@ -300,7 +300,7 @@ chore: maintenance
 - `vite.config.ts`: Vite build configuration
 - `tsconfig.json`: TypeScript configuration
 - `.eslintrc.json`: ESLint rules
-- `jest.config.js`: Jest testing configuration
+- `jest.config.cjs`: Jest testing configuration
 - `tailwind.config.js`: Tailwind CSS configuration
 
 ## 🚦 Environment Variables

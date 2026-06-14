@@ -279,7 +279,7 @@ assert.ok(lastText().includes("حذف") || lastText().includes("پیدا نشد"
 alerts = await mockEnv.ALERTS_KV.get("alerts:user:123", "json");
 assert.ok(Array.isArray(alerts) && alerts.length >= 0, "alerts KV still accessible after delete attempt (dummy id used; full delete flow tested elsewhere)");
 
-// 6b) Limit is enforced at 5 alerts per user
+// 6b) Limit is enforced at 10 alerts per user
 const limitEnv = {
   ...mockEnv,
   ALERTS_KV: new MockKV(),
@@ -288,7 +288,7 @@ const limitEnv = {
 await limitEnv.ALERTS_KV.put(
   "alerts:user:7000",
   JSON.stringify(
-    Array.from({ length: 5 }, (_, i) => ({
+    Array.from({ length: 10 }, (_, i) => ({
       id: `existing-${i}`,
       market: "crypto",
       symbol: "BTC",
@@ -518,6 +518,10 @@ assert.equal(managedAlert.lifecycle_state, "active", "resume action should react
 assert.equal(managedAlert.enabled, true, "resume action should re-enable evaluation");
 
 await alertsModule.updateAlertTarget(managementEnv, 3000, "mg1", 3600, "USDT");
+managedAlerts = await managementEnv.ALERTS_KV.get("alerts:user:3000", "json");
+managedAlert = managedAlerts.find((item) => item.id === "mg1");
+assert.equal(managedAlert.target, 3600, "edit action should persist the new target");
+assert.equal(managedAlert.lifecycle_state, "paused", "edit action should pause alert until user resumes");
 managedAlerts = await managementEnv.ALERTS_KV.get("alerts:user:3000", "json");
 managedAlert = managedAlerts.find((item) => item.id === "mg1");
 assert.equal(managedAlert.target, 3600, "edit action should update the target");

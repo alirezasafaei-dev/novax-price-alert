@@ -1,16 +1,14 @@
-import type { Config } from 'jest';
-import { defaults as tsjestDefaults } from 'ts-jest/presets';
-
-const config: Config = {
+/** @type {import('jest').Config} */
+module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
-    '\\.(css|less|scss|sass)$': 'identity-proxy',
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', tsjestDefaults.transform],
+    '^.+\\.tsx?$': 'ts-jest',
   },
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
@@ -31,5 +29,3 @@ const config: Config = {
     '<rootDir>/src/**/*.spec.{ts,tsx}',
   ],
 };
-
-export default config;

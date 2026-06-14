@@ -1,6 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
-import PriceBoard from '../PriceBoard';
+import PriceBoard from './PriceBoard';
 import { Asset } from '../types';
 
 describe('PriceBoard', () => {
@@ -37,8 +36,8 @@ describe('PriceBoard', () => {
       />
     );
 
-    expect(screen.getByText(/بیت‌کوین/i)).toBeInTheDocument();
-    expect(screen.getByText(/تتر به تومان/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/بیت‌کوین/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/تتر به تومان/i).length).toBeGreaterThan(0);
   });
 
   it('shows loading state when no assets', () => {
@@ -51,7 +50,7 @@ describe('PriceBoard', () => {
       />
     );
 
-    expect(screen.getByText(/در انتظار داده‌های قیمت/i)).toBeInTheDocument();
+    expect(screen.getByText(/در انتظار دریافت قیمت‌ها/i)).toBeInTheDocument();
   });
 
   it('formats prices correctly', () => {
@@ -64,7 +63,7 @@ describe('PriceBoard', () => {
       />
     );
 
-    // Check that prices are displayed (Toman converted from Rial)
-    expect(screen.getByText(/180,000/)).toBeInTheDocument();
+    // Check that IRT prices are displayed as Toman using Persian digits.
+    expect(screen.getAllByText(/۱۸۰٬۰۰۰ تومان/).length).toBeGreaterThan(0);
   });
 });

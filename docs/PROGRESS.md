@@ -4,6 +4,25 @@
 
 **مرجع اصلی فازبندی و تسک‌ها:** گزارش کامل بهبود پروژه (مسائل ۹گانه، راهکارهای اجرایی، ۵ فاز دقیق، taskهای T-xxx با اولویت P0/P1/P2 + owner + acceptance criteria، sprint plan، KPI، risk register).
 
+## 2026-06-14: Telegram mini-app blank-screen production fix
+
+- ریشه‌یابی بدون حدس انجام شد: HTML مینی‌اپ در `/mini-app/` با 200 برمی‌گشت، اما build React assetها را از `/assets/...` می‌خواست و production همان فایل‌ها را 404 می‌داد.
+- علت دوم Telegram WebApp هم پیدا و رفع شد: nginx/FastAPI برای صفحه مینی‌اپ `X-Frame-Options` ناسازگار می‌فرستادند؛ مسیر `/mini-app` حالا با CSP مناسب Telegram کنترل می‌شود.
+- اصلاحات انجام‌شده:
+  - Vite base روی `/mini-app/` تنظیم شد تا JS/CSS در مسیر درست ساخته شوند.
+  - FastAPI خروجی `mini-app/dist`، assetها، manifest و robots را زیر `/mini-app` سرو می‌کند.
+  - `ErrorBoundary` اضافه شد تا خطاهای React دیگر صفحه سفید خام نسازند.
+  - نمونه‌های nginx repo با production هم‌راستا شدند و `X-Frame-Options` global حذف شد.
+  - loader امن dotenv برای اسکریپت‌های PM2 اضافه شد تا کلید malformed در `.env` باعث شکست start نشود.
+- دیپلوی production انجام و تأیید شد:
+  - `https://novax.alirezasafeidev.ir/mini-app/` = 200
+  - JS/CSS زیر `/mini-app/assets/...` = 200
+  - `/mini-app/manifest.json`، `/health` و `/api/v1/prices/latest` = 200
+- اعتبارسنجی لوکال:
+  - `uv run ruff check src/novax_price_alert/api/main.py tests/integration/test_api_e2e.py`
+  - `uv run pytest tests/integration/test_api_e2e.py::test_mini_app_shell_references_served_assets tests/test_twa_template.py`
+  - `cd mini-app && npm run type-check && npm run build && npm test -- --runInBand`
+
 ## 2026-06-09: Iranian VPS stabilization for `novax.alirezasafeidev.ir`
 
 - دیپلوی روی VPS جدید تکمیل و دامنه عملیاتی روی `novax.alirezasafeidev.ir` تثبیت شد.
@@ -60,6 +79,21 @@
   - برای مسیر LIVE که history کامل ندارد، history مصنوعی خطی و پایدار تولید می‌شود تا چارت شکسته یا بی‌معنا نباشد.
 - متن راهنمای Worker هم با قابلیت واقعی edit/delete هم‌راستا شد.
 - **بدون دیپلوی:** فقط منطق، UI و docs لوکال تکمیل شد.
+
+## 2026-06-13: Telegram mini-app end-to-end hardening pass
+
+- مسیر واقعی React mini-app برای استفاده از داخل Telegram WebApp هم‌راستا شد:
+  - دکمه `🌐 داشبورد هوشمند` در بات حالا به `mini-app` مستقل اشاره می‌کند.
+  - خود FastAPI در صورت موجود بودن build، خروجی `mini-app/dist` را روی `/mini-app/` سرو می‌کند.
+- `mini-app` دیگر به‌صورت پیش‌فرض به `localhost` تکیه نمی‌کند و در production از `window.location.origin` به عنوان backend base استفاده می‌کند.
+- وقتی کاربر mini-app را از داخل تلگرام باز کند:
+  - `initData` واقعی خوانده می‌شود.
+  - LIVE mode به‌صورت خودکار فعال می‌شود.
+  - user context در UI از داده‌ی واقعی Telegram WebApp می‌آید.
+- وقتی کاربر خارج از تلگرام باشد:
+  - قیمت‌های LIVE هنوز قابل مشاهده هستند.
+  - مسیرهای احراز‌شده‌ی alerts با پیام واضح degrade می‌شوند، نه با رفتار مبهم.
+- قابلیت override دستی قیمت در LIVE برای کاربر عادی خاموش شد تا mini-app رفتار production-safe داشته باشد و فقط SIM mode برای playground باقی بماند.
 
 ## 2026-06-10: Worker price-ingestion hardening on Iranian VPS
 

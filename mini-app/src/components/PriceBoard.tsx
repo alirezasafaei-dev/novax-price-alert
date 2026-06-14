@@ -94,11 +94,10 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
 
   const formatRawPrice = (price: number, type: 'crypto' | 'fiat' | 'gold', unit?: string) => {
     if (type === 'crypto') return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2 });
-    // Price is already converted to Toman in App.tsx, just format it
-    return price.toLocaleString('fa-IR') + ' تومان';
+    return toDisplayPrice(price, unit).toLocaleString('fa-IR') + ' تومان';
   };
 
-  const getDisplayHistory = (asset: Asset) => asset.history; // History is already in Toman for Iranian assets
+  const getDisplayHistory = (asset: Asset) => asset.history.map(point => asset.type === 'crypto' ? point : toDisplayPrice(point, asset.unit));
   const buildAdvancedPath = (history: number[], width: number, height: number) => {
     if (!history || history.length < 2) return '';
     const min = Math.min(...history);

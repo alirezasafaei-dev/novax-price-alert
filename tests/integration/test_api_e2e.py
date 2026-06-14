@@ -74,6 +74,20 @@ async def test_suggestions_empty(api_client: AsyncClient):
     assert "items" in data
 
 
+@pytest.mark.anyio
+async def test_mini_app_shell_references_served_assets(api_client: AsyncClient):
+    response = await api_client.get("/mini-app/")
+    assert response.status_code == 200
+    assert 'src="/mini-app/assets/' in response.text
+    assert 'href="/mini-app/assets/' in response.text
+    assert response.headers.get("x-frame-options") is None
+    assert "web.telegram.org" in response.headers["content-security-policy"]
+
+    manifest_response = await api_client.get("/mini-app/manifest.json")
+    assert manifest_response.status_code == 200
+    assert manifest_response.json()["start_url"] == "/mini-app/"
+
+
 # ── Alert CRUD: Auth required ───────────────────────────────────────
 
 

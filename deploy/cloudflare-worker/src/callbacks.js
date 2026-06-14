@@ -1,10 +1,10 @@
-import { MARKET_KEYBOARD, CRYPTO_ASSETS, FIAT_ASSETS, GOLD_ASSETS, OPERATOR_KEYBOARD, confirmAlertKeyboard } from "./keyboards.js";
+import { MARKET_KEYBOARD, CRYPTO_ASSETS, FIAT_ASSETS, GOLD_ASSETS, OPERATOR_KEYBOARD, confirmAlertKeyboard, alertActionsKeyboard } from "./keyboards.js";
 import { FLOW_STATES, buildAlertSummary, normalizeTargetPrice } from "./alert-flow.js";
 import { getAssetByMarketSymbol } from "./asset-catalog.js";
 import { editMessageText, answerCallbackQuery, sendMessage } from "./telegram.js";
 import { getSession, setSession, clearSession } from "./sessions.js";
-import { createAlert, deleteAlert, getUserAlerts, pauseAlert, resumeAlert, updateAlertTarget, setAlertRepeat } from "./alerts.js";
-import { getCryptoPrices, getIranMarketPrices, formatPrice, formatCryptoPricesMessage, formatFiatPricesMessage, formatGoldPricesMessage, unitForMarket, getCurrentPrice, formatCurrentPrice } from "./prices.js";
+import { createAlert, deleteAlert, getUserAlerts, pauseAlert, resumeAlert, updateAlertTarget, setAlertRepeat, formatAlertLine } from "./alerts.js";
+import { getCryptoPrices, getIranMarketPrices, formatPrice, formatCryptoPricesMessage, formatFiatPricesMessage, formatGoldPricesMessage, unitForMarket, getCurrentPrice, formatCurrentPrice, assetLabel } from "./prices.js";
 import { handleStart, handleMyAlerts, handleCreateAlertStart } from "./commands.js";
 import { logWarn } from "./log.js";
 
@@ -22,18 +22,41 @@ const ASSET_PROMPTS = {
 
 // پیام ورود قیمت هدف: واحد صریح، قیمت فعلی (اگر موجود باشد) و مثال متناسب با دارایی.
 function priceEntryPrompt(session, { isEdit = false } = {}) {
-  const unit = session.target_price_display_unit || unitForMarket(session.market);
+  const unit = session.edit_alert_unit || session.target_price_display_unit || unitForMarket(session.market);
   const priceLine =
-    session.current_price_text && session.current_price_text !== "نامشخص"
+    session.edit_alert_current_price_text || (session.current_price_text && session.current_price_text !== "نامشخص")
       ? `قیمت فعلی: ${session.current_price_text}\n`
       : "";
-  const example = session.current_price
-    ? String(Math.round(session.current_price))
+  const basePrice = session.edit_alert_current_price ?? session.current_price;
+  const example = basePrice
+    ? String(Math.round(basePrice))
     : session.market === "crypto"
       ? "70000"
       : "180000";
   const label = isEdit ? "قیمت هدف جدید" : "قیمت هدف";
   return `${priceLine}${label} را با واحد ${unit} وارد کن:\n\nمثال: ${example}`;
+}
+
+async function currentPriceTextForAlert(alert) {
+  const price = await getCurrentPrice(alert.market, alert.symbol);
+  return formatCurrentPrice(price, alert.market, alert.target_price_display_unit || unitForMarket(alert.market));
+}
+
+async function renderManagedAlertCard(env, chatId, messageId, alert, fallbackText) {
+  if (!alert) {
+    await editMessageText(env, chatId, messageId, fallbackText);
+    return;
+  }
+  const currentText = await currentPriceTextForAlert(alert);
+  const storedAlerts = await getUserAlerts(env, chatId);
+  const currentIndex = storedAlerts.findIndex((item) => item.id === alert.id);
+  await editMessageText(
+    env,
+    chatId,
+    messageId,
+    formatAlertLine(alert, currentIndex >= 0 ? currentIndex : 0, currentText),
+    { reply_markup: alertActionsKeyboard(alert.id) },
+  );
 }
 
 export async function handleCallback(env, callbackQuery) {
@@ -62,6 +85,8 @@ export async function handleCallback(env, callbackQuery) {
       await editMessageText(env, chatId, messageId, "هشدار پیدا نشد.");
       return;
     }
+    const livePrice = await getCurrentPrice(alert.market, alert.symbol);
+    const livePriceText = formatCurrentPrice(livePrice, alert.market, alert.target_price_display_unit || unitForMarket(alert.market));
     await setSession(env, chatId, {
       flow: "edit_alert",
       step: FLOW_STATES.ENTERING_PRICE,
@@ -70,13 +95,20 @@ export async function handleCallback(env, callbackQuery) {
       edit_alert_asset_name: alert.display_asset_name_at_creation,
       edit_alert_market: alert.market,
       edit_alert_symbol: alert.symbol,
+      current_price: livePrice,
+      current_price_text: livePriceText,
+      edit_alert_current_price: livePrice,
+      edit_alert_current_price_text: livePriceText,
     });
-    await editMessageText(
-      env,
-      chatId,
-      messageId,
-      `قیمت جدید برای ${alert.display_asset_name_at_creation || alert.symbol} را وارد کن:\n\nمثال: ${alert.market === "crypto" ? "70000" : "180000"}`,
-    );
+    await editMessageText(env, chatId, messageId, `ویرایش هشدار ${alert.display_asset_name_at_creation || alert.symbol}\n\n${priceEntryPrompt({
+      market: alert.market,
+      target_price_display_unit: alert.target_price_display_unit,
+      current_price: livePrice,
+      current_price_text: livePriceText,
+      edit_alert_current_price: livePrice,
+      edit_alert_current_price_text: livePriceText,
+      edit_alert_unit: alert.target_price_display_unit,
+    }, { isEdit: true })}`);
     return;
   }
 
@@ -207,14 +239,14 @@ export async function handleCallback(env, callbackQuery) {
   if (data.startsWith("pause:")) {
     const alertId = data.split(":")[1];
     const paused = await pauseAlert(env, chatId, alertId);
-    await editMessageText(env, chatId, messageId, paused ? "⏸ هشدار متوقف شد." : "❌ هشدار پیدا نشد یا قابل توقف نیست.");
+    await renderManagedAlertCard(env, chatId, messageId, paused, "❌ هشدار پیدا نشد یا قابل توقف نیست.");
     return;
   }
 
   if (data.startsWith("resume:")) {
     const alertId = data.split(":")[1];
     const resumed = await resumeAlert(env, chatId, alertId);
-    await editMessageText(env, chatId, messageId, resumed ? "▶️ هشدار دوباره فعال شد." : "❌ هشدار پیدا نشد یا قابل ادامه نیست.");
+    await renderManagedAlertCard(env, chatId, messageId, resumed, "❌ هشدار پیدا نشد یا قابل ادامه نیست.");
     return;
   }
 
@@ -228,12 +260,7 @@ export async function handleCallback(env, callbackQuery) {
     }
     const enabled = !alert.repeat_every_minutes;
     const updated = await setAlertRepeat(env, chatId, alertId, enabled ? 60 : null);
-    await editMessageText(
-      env,
-      chatId,
-      messageId,
-      updated?.repeat_every_minutes ? "🔁 تکرار ساعتی فعال شد." : "🔁 تکرار غیرفعال شد.",
-    );
+    await renderManagedAlertCard(env, chatId, messageId, updated, "❌ هشدار پیدا نشد.");
     return;
   }
 
@@ -319,12 +346,19 @@ export async function handleTextInSession(env, chatId, text) {
   if (session.flow === "edit_alert" && session.edit_alert_id) {
     const updatedAlert = await updateAlertTarget(env, chatId, session.edit_alert_id, target, targetPriceDisplayUnit);
     await clearSession(env, chatId);
+    if (!updatedAlert) {
+      await sendMessage(env, chatId, "❌ هشدار پیدا نشد.");
+      return true;
+    }
+    const currentText = await currentPriceTextForAlert(updatedAlert);
+    const storedAlerts = await getUserAlerts(env, chatId);
+    const currentIndex = storedAlerts.findIndex((item) => item.id === updatedAlert.id);
+    await sendMessage(env, chatId, `✏️ قیمت هشدار برای ${updatedAlert.display_asset_name_at_creation || assetLabel(updatedAlert.symbol)} به‌روزرسانی شد و برای امنیت، فعلاً در وضعیت توقف قرار گرفت.\n\nاز کارت زیر می‌توانی دوباره آن را ادامه بدهی.`);
     await sendMessage(
       env,
       chatId,
-      updatedAlert
-        ? `✏️ قیمت هشدار برای ${updatedAlert.display_asset_name_at_creation || updatedAlert.symbol} به‌روزرسانی شد و موقتاً متوقف شد.\n\nبرای ادامه دوباره از دکمه ▶️ ادامه استفاده کن.`
-        : "❌ هشدار پیدا نشد.",
+      formatAlertLine(updatedAlert, currentIndex >= 0 ? currentIndex : 0, currentText),
+      { reply_markup: alertActionsKeyboard(updatedAlert.id) },
     );
     return true;
   }

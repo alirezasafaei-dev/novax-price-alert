@@ -262,11 +262,11 @@ async def test_no_trigger_when_price_not_met(
 
 
 @pytest.mark.anyio
-async def test_create_alert_enforces_per_user_limit_of_five(
+async def test_create_alert_enforces_per_user_limit_of_ten(
     db_session: AsyncSession, seeded_user: User, seeded_asset: Asset
 ) -> None:
     service = AlertCRUDService(db_session)
-    for offset in range(5):
+    for offset in range(10):
       alert = AlertRule(
           user_id=seeded_user.id,
           asset_id=seeded_asset.id,
