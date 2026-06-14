@@ -82,7 +82,7 @@ export async function handleMyAlerts(env, chatId) {
   const assetNames = Object.keys(byAsset).map(k => byAsset[k].name).join("، ");
   await sendMessage(env, chatId, `📁 دارایی‌های شما با هشدار فعال: ${assetNames}\n\nجزئیات:`, { reply_markup: MAIN_KEYBOARD });
 
-  // Send per-asset summary in chat while the mini-app is paused.
+  // Send per-asset summary in chat.
   const assetKeys = Object.keys(byAsset);
   for (const key of assetKeys.slice(0, 5)) {  // limit for chat
     const item = byAsset[key];
@@ -104,7 +104,7 @@ export async function handleMyAlerts(env, chatId) {
     });
   }
 
-  await sendMessage(env, chatId, "مینی‌اپ فعلاً غیرفعال است؛ مدیریت هشدارها از همین چت انجام می‌شود.", { reply_markup: MAIN_KEYBOARD });
+  await sendMessage(env, chatId, "مدیریت هشدارها از دکمه‌های همین چت انجام می‌شود.", { reply_markup: MAIN_KEYBOARD });
 }
 
 export async function handleCreateAlertStart(env, chatId) {
