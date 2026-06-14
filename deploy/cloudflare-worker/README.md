@@ -41,6 +41,10 @@ Run from this directory:
 npm test
 ```
 
+Wrangler 4 currently runs in this repo with Node 20. Do not run `npm audit fix --force`
+blindly here: npm may suggest a Wrangler downgrade or a latest Wrangler build that requires
+Node 22. Upgrade the runtime first, then update Wrangler within a compatible major line.
+
 To run the Worker under Wrangler during manual validation:
 
 ```bash

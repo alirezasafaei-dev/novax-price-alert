@@ -50,6 +50,9 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "--ignore=tests/integration"
+markers = [
+    "integration: tests that exercise API integration flows and are excluded from the default suite",
+]
 
 [dependency-groups]
 dev = [
