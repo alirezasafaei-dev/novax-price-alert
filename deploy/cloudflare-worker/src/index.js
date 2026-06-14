@@ -1,5 +1,5 @@
 import { FLOW_STATES } from "./alert-flow.js";
-import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage } from "./commands.js";
+import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage, handleFaq, handleContact, handleGrowthMenu } from "./commands.js";
 import { handleCallback, handleTextInSession } from "./callbacks.js";
 import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession } from "./sessions.js";
 import { runCronJob } from "./cron.js";
@@ -58,6 +58,44 @@ export default {
         return Response.json({ error: error.message }, { status: 500 });
       }
     }
+
+    if (url.pathname === "/setup-bot" && request.method === "GET") {
+      const botToken = env.TELEGRAM_BOT_TOKEN;
+      const webhookUrl = `${url.origin}/webhook`;
+      const secretToken = env.TELEGRAM_SECRET_TOKEN;
+
+      const [setWebhookResponse, commandsResponse] = await Promise.all([
+        fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: webhookUrl,
+            secret_token: secretToken,
+            allowed_updates: ["message", "edited_message", "callback_query"],
+          }),
+        }),
+        fetch(`https://api.telegram.org/bot${botToken}/setMyCommands`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            commands: [
+              { command: "start", description: "شروع ربات" },
+              { command: "help", description: "راهنما" },
+              { command: "prices", description: "قیمت‌های لحظه‌ای" },
+              { command: "faq", description: "سوالات پرتکرار" },
+              { command: "contact", description: "ارتباط و ثبت درخواست" },
+              { command: "lead", description: "ثبت درخواست" },
+            ],
+          }),
+        }),
+      ]);
+
+      return Response.json({
+        webhook: await setWebhookResponse.json(),
+        commands: await commandsResponse.json(),
+        webhook_url: webhookUrl,
+      }, { status: setWebhookResponse.ok && commandsResponse.ok ? 200 : 500 });
+    }
     
     if (url.pathname === "/webhook" && request.method === "POST") {
       const unauthorized = requireSecret(request, env);
@@ -101,6 +139,34 @@ export default {
         await handleHelp(env, chatId);
         return Response.json({ ok: true });
       }
+
+      if (text.startsWith("/faq")) {
+        await handleFaq(env, chatId);
+        return Response.json({ ok: true });
+      }
+
+      if (text.startsWith("/contact")) {
+        await handleContact(env, chatId);
+        return Response.json({ ok: true });
+      }
+
+      if (text.startsWith("/lead ")) {
+        const leadText = text.replace(/^\/lead\s+/u, "").trim();
+        await sendMessage(env, chatId, "✅ درخواستت ثبت شد. اگر مسیر ادمین تنظیم شده باشد، برای پیگیری هم ارسال می‌شود.", { reply_markup: MAIN_KEYBOARD });
+        if (env.OPS_CHAT_ID) {
+          const forwarded = [
+            "لید جدید از نواکس",
+            "",
+            `نام: ${message.from?.first_name || "-"} ${message.from?.last_name || ""}`.trim(),
+            `یوزرنیم: ${message.from?.username ? "@" + message.from.username : "-"}`,
+            `آیدی تلگرام: ${message.from?.id || "-"}`,
+            "",
+            `متن درخواست: ${leadText}`,
+          ].join("\n");
+          await sendMessage(env, env.OPS_CHAT_ID, forwarded);
+        }
+        return Response.json({ ok: true });
+      }
       
       if (text === "💰 قیمت‌ها") {
         await clearSession(env, chatId);
@@ -116,6 +182,16 @@ export default {
       
       if (text === "📋 هشدارهای من") {
         await handleMyAlerts(env, chatId);
+        return Response.json({ ok: true });
+      }
+
+      if (text === "📝 ثبت درخواست") {
+        await handleGrowthMenu(env, chatId);
+        return Response.json({ ok: true });
+      }
+
+      if (text === "💬 تماس") {
+        await handleContact(env, chatId);
         return Response.json({ ok: true });
       }
       

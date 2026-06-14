@@ -1,11 +1,37 @@
 export const MAIN_KEYBOARD = {
   keyboard: [
     ["💰 قیمت‌ها", "🔔 تنظیم هشدار"],
-    ["📋 هشدارهای من"],
-    ["❓ راهنما"]
+    ["📋 هشدارهای من", "📝 ثبت درخواست"],
+    ["❓ راهنما", "💬 تماس"]
   ],
   resize_keyboard: true,
   one_time_keyboard: false
+};
+
+export const GROWTH_KEYBOARD = {
+  inline_keyboard: [
+    [
+      { text: "❓ سوالات پرتکرار", callback_data: "menu:faq" },
+      { text: "📝 ثبت درخواست", callback_data: "menu:lead" }
+    ],
+    [
+      { text: "💬 تماس", callback_data: "menu:contact" },
+      { text: "🔙 منوی اصلی", callback_data: "menu:main" }
+    ]
+  ]
+};
+
+export const FAQ_KEYBOARD = {
+  inline_keyboard: [
+    [
+      { text: "💸 قیمت", callback_data: "faq:pricing" },
+      { text: "🔒 حریم خصوصی", callback_data: "faq:privacy" }
+    ],
+    [
+      { text: "⚙️ نحوه کار", callback_data: "faq:how" },
+      { text: "🔙 بازگشت", callback_data: "menu:growth" }
+    ]
+  ]
 };
 
 export const MARKET_KEYBOARD = {

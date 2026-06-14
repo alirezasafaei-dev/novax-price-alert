@@ -1,4 +1,4 @@
-import { MAIN_KEYBOARD, MARKET_KEYBOARD, alertActionsKeyboard } from "./keyboards.js";
+import { FAQ_KEYBOARD, GROWTH_KEYBOARD, MAIN_KEYBOARD, MARKET_KEYBOARD, alertActionsKeyboard } from "./keyboards.js";
 import { sendMessage } from "./telegram.js";
 import { setUser, clearSession } from "./sessions.js";
 import {
@@ -45,9 +45,37 @@ export async function handleHelp(env, chatId) {
 
 📋 هشدارهای من: مشاهده، ویرایش، توقف/ادامه، تکرار و حذف هشدارها با دکمه‌های داخل هر کارت
 
+💬 ارتباط: /contact
+❓ سوالات پرتکرار: /faq
+📝 ثبت درخواست: /lead <متن>
+
 هشدارها هر ۱۰ دقیقه بررسی می‌شوند و هر هشدار فقط یک بار ارسال می‌شود.`;
   
   await sendMessage(env, chatId, text, { reply_markup: MAIN_KEYBOARD });
+}
+
+export async function handleFaq(env, chatId) {
+  const text = `❓ سوالات پرتکرار
+
+موضوع موردنظرت را انتخاب کن.`;
+  await sendMessage(env, chatId, text, { reply_markup: FAQ_KEYBOARD });
+}
+
+export async function handleContact(env, chatId) {
+  const text = `💬 ارتباط و ثبت درخواست
+
+برای ثبت سریع درخواست، این دستور را بفرست:
+\`/lead می‌خواهم درباره هشدار قیمت مشاوره بگیرم\`
+
+اگر \`OPS_CHAT_ID\` تنظیم شده باشد، پیام تو برای ادمین هم ارسال می‌شود.`;
+  await sendMessage(env, chatId, text, { reply_markup: GROWTH_KEYBOARD, parse_mode: "Markdown" });
+}
+
+export async function handleGrowthMenu(env, chatId) {
+  const text = `🚀 خدمات و پیگیری
+
+از این بخش می‌توانی سوالات پرتکرار را ببینی یا درخواستت را ثبت کنی.`;
+  await sendMessage(env, chatId, text, { reply_markup: GROWTH_KEYBOARD });
 }
 
 export async function handlePricesMenu(env, chatId) {

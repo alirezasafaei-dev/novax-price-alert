@@ -1,11 +1,11 @@
-import { MARKET_KEYBOARD, CRYPTO_ASSETS, FIAT_ASSETS, GOLD_ASSETS, OPERATOR_KEYBOARD, confirmAlertKeyboard, alertActionsKeyboard } from "./keyboards.js";
+import { MARKET_KEYBOARD, CRYPTO_ASSETS, FIAT_ASSETS, GOLD_ASSETS, OPERATOR_KEYBOARD, confirmAlertKeyboard, alertActionsKeyboard, FAQ_KEYBOARD, GROWTH_KEYBOARD } from "./keyboards.js";
 import { FLOW_STATES, buildAlertSummary, normalizeTargetPrice } from "./alert-flow.js";
 import { getAssetByMarketSymbol } from "./asset-catalog.js";
 import { editMessageText, answerCallbackQuery, sendMessage } from "./telegram.js";
 import { getSession, setSession, clearSession } from "./sessions.js";
 import { createAlert, deleteAlert, getUserAlerts, pauseAlert, resumeAlert, updateAlertTarget, setAlertRepeat, formatAlertLine } from "./alerts.js";
 import { getCryptoPrices, getIranMarketPrices, formatPrice, formatCryptoPricesMessage, formatFiatPricesMessage, formatGoldPricesMessage, unitForMarket, getCurrentPrice, formatCurrentPrice, assetLabel } from "./prices.js";
-import { handleStart, handleMyAlerts, handleCreateAlertStart } from "./commands.js";
+import { handleStart, handleMyAlerts, handleCreateAlertStart, handleGrowthMenu } from "./commands.js";
 import { logWarn } from "./log.js";
 
 const ASSET_KEYBOARDS = {
@@ -74,6 +74,60 @@ export async function handleCallback(env, callbackQuery) {
 
   if (data === "menu:main") {
     await handleStart(env, chatId, callbackQuery.from);
+    return;
+  }
+
+  if (data === "menu:growth") {
+    await handleGrowthMenu(env, chatId);
+    return;
+  }
+
+  if (data === "menu:faq") {
+    await editMessageText(env, chatId, messageId, `❓ سوالات پرتکرار
+
+موضوع موردنظرت را انتخاب کن.`, { reply_markup: FAQ_KEYBOARD });
+    return;
+  }
+
+  if (data === "menu:lead") {
+    await editMessageText(env, chatId, messageId, `📝 ثبت درخواست
+
+برای ثبت درخواست، این فرمت را بفرست:
+\`/lead برای هشدار قیمت و مشاوره پیام می‌دهم\``, { reply_markup: GROWTH_KEYBOARD, parse_mode: "Markdown" });
+    return;
+  }
+
+  if (data === "menu:contact") {
+    await editMessageText(env, chatId, messageId, `💬 تماس
+
+برای ارتباط سریع:
+\`/contact\`
+
+برای ثبت مستقیم درخواست:
+\`/lead متن درخواست\``, { reply_markup: GROWTH_KEYBOARD, parse_mode: "Markdown" });
+    return;
+  }
+
+  if (data === "faq:pricing") {
+    await editMessageText(env, chatId, messageId, `💸 درباره قیمت
+
+هزینه نهایی بسته به تعداد هشدارها، نوع بازار و نیاز عملیاتی شما مشخص می‌شود.
+برای استعلام، یک پیام با \`/lead\` بفرست.`, { reply_markup: FAQ_KEYBOARD, parse_mode: "Markdown" });
+    return;
+  }
+
+  if (data === "faq:privacy") {
+    await editMessageText(env, chatId, messageId, `🔒 حریم خصوصی
+
+این بات فقط داده‌های لازم برای مدیریت هشدارها و پاسخ‌گویی را نگه می‌دارد.
+در مسیر Worker، اطلاعات حساس اضافه ذخیره نمی‌شود مگر برای کارکرد ضروری.`, { reply_markup: FAQ_KEYBOARD });
+    return;
+  }
+
+  if (data === "faq:how") {
+    await editMessageText(env, chatId, messageId, `⚙️ نحوه کار
+
+نواکس روی Cloudflare Worker اجرا می‌شود، قیمت‌ها را از providerها می‌گیرد و هشدارها را هر ۱۰ دقیقه بررسی می‌کند.`, { reply_markup: FAQ_KEYBOARD });
     return;
   }
 

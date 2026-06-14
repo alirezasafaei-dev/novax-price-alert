@@ -8,40 +8,149 @@
 
 ## 🚀 Quick Start
 
-### 1. Check Live Status
+### Option 1: Telegram-Only (Serverless - بدون VPS) ⭐ توصیه می‌شود
+
+برای اجرای بات تلگرام به صورت کاملاً serverless با Cloudflare Workers:
+
 ```bash
-curl https://novax.alirezasafeidev.ir/health
-curl https://novax.alirezasafeidev.ir/api/v1/prices/latest
+# مستندات کامل
+📖 راهنما: docs/TELEGRAM_ONLY_WITHOUT_VPS.md
+✅ چک‌لیست: docs/TELEGRAM_BOT_EXECUTION_CHECKLIST.md
+📊 تحلیل: docs/PROJECT_DECISION_ANALYSIS.md
 ```
 
-### 2. Sync Latest Changes (Optional)
+**مزایا:**
+- ✅ بدون نیاز به VPS
+- ✅ هزینه صفر (Free Tier Cloudflare)
+- ✅ مقیاس‌پذیری خودکار
+- ✅ آماده در 30 دقیقه
+
+**مراحل سریع:**
 ```bash
+cd deploy/cloudflare-worker
+npm install
+npx wrangler login
+npx wrangler secret put TELEGRAM_BOT_TOKEN
+npx wrangler deploy
+curl "https://<your-worker>.workers.dev/setup-bot"
+```
+
+### Option 2: VPS Deployment (فعلی)
+
+برای اجرای کامل با backend، database و mini-app:
+
+```bash
+# بررسی وضعیت production
+curl https://novax.alirezasafeidev.ir/health
+curl https://novax.alirezasafeidev.ir/api/v1/prices/latest
+
+# Sync و deploy
 bash scripts/ONE-COMMAND-SYNC.sh
 ```
 
-### 3. Setup BotFather (Required for First-Time Setup)
-See `docs/BOTFATHER_SETUP.md` for complete guide.
-
-### 4. Test Bot
-In Telegram, search @novax_price_bot and send `/start`
+**VPS**: <redacted-vps-host> (ubuntu)
+**Services**: systemd (novax-price-alert-api, novax-price-alert-worker, novax-mini-app)
 
 ---
 
-## 📚 Documentation
+## 📚 مستندات جدید (2026-06-14)
 
-- **COMPLETE_DEPLOYMENT_GUIDE.md** - Complete automated deployment guide for agents
-- **DEPLOYMENT_CHECKLIST.md** - Deployment checklist with verification steps
-- **DEPLOY_SECURITY.md** - Security deployment guide and procedures
-- **docs/RECENT_CHANGES.md** - Latest changes and improvements
-- **docs/SECURITY.md** - Security policies and best practices
-- **START_HERE.md** - Quick start guide (BEGIN HERE)
-- **docs/README.md** - Documentation index
-- **docs/FINAL_STATUS_REPORT.md** - Complete status report
-- **docs/SERVER_STATUS.md** - Real server configuration
-- **docs/BOTFATHER_SETUP.md** - Telegram bot setup
-- **docs/DEPLOYMENT_GUIDE.md** - Deployment instructions
-- **docs/DEPLOYMENT_ARCHITECTURE.md** - Architecture documentation
-- **docs/PREMIUM_FEATURES_PLAN.md** - Monetization strategy
+### 🎯 اجرای Telegram-Only
+
+| سند | شرح | استفاده |
+|-----|-----|----------|
+| **[TELEGRAM_ONLY_WITHOUT_VPS.md](docs/TELEGRAM_ONLY_WITHOUT_VPS.md)** | راهنمای کامل اجرای serverless | برای راه‌اندازی اولیه |
+| **[TELEGRAM_BOT_EXECUTION_CHECKLIST.md](docs/TELEGRAM_BOT_EXECUTION_CHECKLIST.md)** | چک‌لیست گام به گام (10 بخش) | برای دنبال کردن مراحل |
+| **[PROJECT_DECISION_ANALYSIS.md](docs/PROJECT_DECISION_ANALYSIS.md)** | تحلیل تصمیم‌گیری و مقایسه | برای فهم دلایل انتخاب |
+
+### 📖 مستندات عملیاتی
+
+| سند | شرح |
+|-----|-----|
+| [START_HERE.md](START_HERE.md) | نقطه شروع کلی پروژه |
+| [TELEGRAM_FIRST_RUNBOOK.md](docs/TELEGRAM_FIRST_RUNBOOK.md) | راهنمای عملیاتی Telegram-First |
+| [COMPLETE_DEPLOYMENT_GUIDE.md](COMPLETE_DEPLOYMENT_GUIDE.md) | راهنمای deployment کامل |
+| [SERVER_STATUS.md](docs/SERVER_STATUS.md) | وضعیت واقعی سرور production |
+
+### 🏗️ مستندات فنی
+
+| سند | شرح |
+|-----|-----|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | معماری سیستم |
+| [API.md](docs/API.md) | مستندات API |
+| [DEPLOYMENT_ARCHITECTURE.md](docs/DEPLOYMENT_ARCHITECTURE.md) | معماری deployment |
+
+### 💼 مستندات تجاری
+
+| سند | شرح |
+|-----|-----|
+| [PREMIUM_FEATURES_PLAN.md](docs/PREMIUM_FEATURES_PLAN.md) | برنامه ویژگی‌های پریمیوم |
+| [USER_GUIDE_FA.md](docs/USER_GUIDE_FA.md) | راهنمای کاربر فارسی |
+
+---
+
+## 🤖 دستورات بات
+
+### دستورات اصلی
+- `/start` - شروع و معرفی بات
+- `/help` - راهنمای استفاده
+- `/prices` - نمایش قیمت‌های لحظه‌ای
+
+### مدیریت هشدار
+```bash
+# ایجاد هشدار
+/alert USD 170000 above    # دلار بالای 170,000 تومان
+/alert USDT 175000 below   # تتر زیر 175,000 تومان
+/alert GOLD 18000000 above # طلا بالای 18 میلیون تومان
+
+# مشاهده هشدارها
+/alerts
+
+# حذف هشدار
+/delete <alert_id>
+```
+
+### نمادهای پشتیبانی شده
+- `USD` / `DOLLAR` - دلار آزاد (تومان)
+- `USDT` / `TETHER` - تتر (تومان)
+- `GOLD` / `18K` - طلای 18 عیار (تومان)
+- `SEKKEH` / `COIN` - سکه امامی (تومان)
+
+---
+
+## 🏗️ معماری
+
+### Telegram-Only Mode (Serverless)
+
+```
+User → Telegram → Cloudflare Worker
+                       ↓
+                  TGJU API (قیمت‌ها)
+                       ↓
+                  KV Storage (هشدارها)
+```
+
+**ویژگی‌ها:**
+- Serverless execution
+- Global edge deployment
+- Auto-scaling
+- Free tier: 100k requests/day
+
+### Full Stack Mode (VPS)
+
+```
+User → Telegram → Cloudflare Worker → Backend API
+                                         ↓
+                                    PostgreSQL
+                                         ↓
+                                    Worker Process
+```
+
+**ویژگی‌ها:**
+- Complete feature set
+- Mini-app (React)
+- Advanced analytics
+- Premium features
 
 ---
 
@@ -62,208 +171,137 @@ uv run pytest
 uv run ruff check .
 ```
 
+### Type Checking
+```bash
+uv run mypy src
+```
+
 ---
 
-## 🌐 Production
+## 🌐 Production (VPS)
 
-**VPS**: <redacted-vps-host> (ubuntu)
-**Path**: /home/ubuntu/novax-price-alert
-**Services**: systemd (novax-price-alert-api, novax-price-alert-worker, novax-mini-app)
+### Server Details
+- **VPS**: <redacted-vps-host> (ubuntu)
+- **Path**: `/home/ubuntu/novax-price-alert`
+- **Domain**: novax.alirezasafeidev.ir
+- **SSL**: Let's Encrypt
 
-### Management
+### Services (systemd)
 ```bash
-# SSH to VPS
-ssh ubuntu@<redacted-vps-host>
-
-# Check services
+# وضعیت
 sudo systemctl status novax-price-alert-api
 sudo systemctl status novax-price-alert-worker
 sudo systemctl status novax-mini-app
 
-# Restart services
+# Restart
 sudo systemctl restart novax-price-alert-api
 sudo systemctl restart novax-price-alert-worker
-sudo systemctl restart novax-mini-app
 
-# View logs
+# Logs
 sudo journalctl -u novax-price-alert-api -f
 sudo journalctl -u novax-price-alert-worker -f
 ```
 
 ---
 
-## 🤖 Telegram Bot
+## 📊 قیمت‌های فعلی (از TGJU)
 
-**Bot**: @novax_price_bot
-**Features**:
-- Live price alerts (crypto + fiat/gold)
-- Staged alert creation with confirmation
-- Rich TWA with charts and analytics
-- 10-minute price refresh
-- Crypto prices from Binance in `USDT`
-- Iran market prices from TGJU
+قیمت‌ها هر 5 دقیقه به‌روز می‌شوند:
 
----
+- **دلار آزاد**: ~1,720,000 تومان
+- **یورو**: ~1,990,000 تومان
+- **طلای 18 عیار**: ~172,000,000 تومان
+- **سکه امامی**: ~1,734,000,000 تومان
+- **تتر**: ~1,684,000 تومان
 
-## 📊 Current Prices (Live)
-
-- USD_IRT: 1,720,100 تومان
-- EUR_IRT: 1,989,600 تومان
-- GOLD_18K_IRT: 172,208,000 تومان
-- SEKKEH_EMAMI_IRT: 1,733,950,000 تومان
-- USDT_IRT: 1,683,990 تومان
-- BTC/ETH/BNB/SOL: Real-time from Binance (USDT)
+*قیمت‌ها از TGJU.org دریافت می‌شوند*
 
 ---
 
-*Novax Price Alert - Production Live*
+## 🎯 Use Cases
 
-[![CI](https://github.com/novax/novax-price-alert/actions/workflows/ci.yml/badge.svg)](https://github.com/novax/novax-price-alert/actions/workflows/ci.yml)
+### برای کاربران
+- دریافت هشدار قیمت برای خرید/فروش
+- پیگیری قیمت دلار، طلا، سکه، تتر
+- مقایسه قیمت‌های بازار
 
-یک بات تلگرام برای نمایش قیمت و ثبت هشدار قیمت، با معماری سبک و قابل‌استقرار روی VPS.
+### برای توسعه‌دهندگان
+- الگوی Telegram Bot با Cloudflare Workers
+- معماری serverless برای بات‌های ایرانی
+- Integration با TGJU API
 
-## وضعیت کوتاه
+---
 
-- بات و relay در production کار می‌کنند.
-- قیمت‌ها:
-  - کریپتو از Binance با `USDT`
-  - ارز و طلا از TGJU با `تومان`
-- هشدارها مرحله‌ای ساخته می‌شوند و فقط بعد از تایید فعال می‌شوند.
-- Cron هر 10 دقیقه هشدارها را بررسی می‌کند.
+## 🛠️ Technology Stack
 
-## راهنمای شروع سریع برای کاربران
+### Telegram-Only
+- **Runtime**: Cloudflare Workers
+- **Language**: JavaScript
+- **Storage**: KV Storage
+- **API**: Telegram Bot API, TGJU
 
-### نحوهٔ آغاز کار با بات
+### Full Stack
+- **Backend**: Python, FastAPI, SQLAlchemy
+- **Database**: PostgreSQL, Redis
+- **Frontend**: React, Vite
+- **Deployment**: systemd, Nginx
+- **Package Manager**: uv
 
-1. در تلگرام به آدرس `@novax_price_bot` پیام دهید.
-2. دستور `/start` را بزنید تا منوی اصلی نمایش داده شود.
-3. برای دیدن قیمت لحظه‌ای، دستور `/price` را بزنید و نام دارایی را انتخاب کنید
-   (مثلاً `دلار`، `طلا`، `بیت‌کوین`).
-4. برای ثبت هشدار، دستور `/alert` را بزنید و مراحل را دنبال کنید:
-   - **انتخاب دارایی**: از لیست ارز، طلا یا کریپتو انتخاب کنید.
-   - **نمایش قیمت**: قیمت لحظه‌ای نمایش داده می‌شود.
-   - **وارد کردن هدف**: قیمت مورد نظر خود را وارد کنید.
-   - **تأیید هشدار**: هشدار شما پس از تأیید فعال می‌شود.
+---
 
-### سیاست نمایش قیمت
+## 💰 Monetization (Planned)
 
-- قیمت‌های بازار ایران (ارز، طلا) به **تومان** نمایش داده می‌شوند.
-- قیمت‌های کریپتو به **USDT** نمایش داده می‌شوند.
-- قیمت‌ها هر ۵ دقیقه به‌روز می‌شوند. اگر منقطع شوند، پیام «داده کهنه» نمایش داده می‌شود.
+طبق `PREMIUM_FEATURES_PLAN.md`:
+- **Free Tier**: تا 5 هشدار فعال
+- **Premium**: هشدار نامحدود، analytics، API access
+- **Target**: $5-10/month subscription
 
-### جریان تأیید صریح هشدار
+---
 
-هر هشدار **فقط پس از تأیید صریح شما** فعال می‌شود:
+## 🤝 Contributing
 
-1. هشدار در وضعیت «در انتظار تأیید» قرار می‌گیرد.
-2. شما باید با دستور `/confirm` یا دکمه «تأیید»، هشدار را فعال کنید.
-3. پس از تأیید، هشدار «فعال» شده و در صورت رسیدن قیمت به هدف، اعلان دریافت می‌کنید.
-4. تا زمانی که تأیید نکنید، هشدار فعال نیست و اعلانی ارسال نمی‌شود.
+این پروژه بخشی از workspace `my-project` است.
 
-### محدودیت‌ها
+**Development Guidelines:**
+- Python: 4-space indentation, ruff, mypy
+- JavaScript: 2-space indentation, prettier
+- Commits: Conventional Commits (feat, fix, chore)
 
-- هر کاربر در این نسخه می‌تواند حداکثر **۱۰ هشدار فعال/قابل‌مدیریت** داشته باشد.
-- پس از تریگر شدن، هشدار به صورت خودکار غیرفعال می‌شود (مگر آنکه دوباراً فعال کنید).
+---
 
-## شروع سریع (توسعه‌دهندگان)
+## 📄 License
 
-- برای راه‌اندازی: [docs/QUICK_START_FA.md](docs/QUICK_START_FA.md)
-- برای راهنمای کاربر: [docs/USER_GUIDE_FA.md](docs/USER_GUIDE_FA.md)
-- برای جزئیات فنی: [docs/README.md](docs/README.md)
-- مستندات قدیمی و retired drafts در خارج از مسیر مستندات فعال نگهداری می‌شوند.
-- برای مسیر سریع ایجنت و چت جدید: [AGENTS.md](AGENTS.md) و [INDEX.md](INDEX.md)
+Proprietary - All rights reserved
 
-## مستندات اصلی
+---
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [API](docs/API.md)
-- [Deployment (VPS)](docs/DEPLOYMENT.md)
-- [Deployment (Cloudflare + Render)](docs/CLOUDFLARE_RENDER_DEPLOYMENT.md) ⭐️ پیشنهادی
-- [Operations](docs/OPERATIONS.md)
-- [Observability](docs/OBSERVABILITY.md)
-- [Progress](docs/PROGRESS.md)
+## 👤 Author
 
-## پنل ادمین (برای مالک)
-پنل مدیریت حرفه‌ای و امن در مسیر `/admin` در دسترس است.
+**Alireza Safaei**
+- Website: https://alirezasafaeisystems.ir
+- Projects: https://audit.alirezasafaeisystems.ir
 
-- دسترسی: `https://novax.alirezasafeidev.ir/admin?token=YOUR_ADMIN_ACCESS_TOKEN`
-- قابلیت‌ها: نمای کلی سیستم، لیست همه هشدارها (با فیلتر و جستجو)، لیست کاربران، لغو دستی هشدار، لاگ اقدامات ادمین (audit)، عملیات سریع.
-- توکن را در `.env` با کلید `ADMIN_ACCESS_TOKEN` ست کنید (رشته قوی و طولانی). سپس `sudo systemctl restart novax-price-alert-api`.
+---
 
-این پنل فقط برای مالک سیستم طراحی شده و از همان الگوی امنیتی metrics استفاده می‌کند.
+## 🔗 Quick Links
 
-## داشبورد هوشمند (مینی‌اپ تعاملی جدید)
-یک پروتوتایپ پیشرفته و زیبا (React + Gemini سرور‌ساید) در پوشه `mini-app/` موجود است.
+### 🚀 Getting Started
+- [شروع سریع Telegram-Only](docs/TELEGRAM_ONLY_WITHOUT_VPS.md)
+- [چک‌لیست اجرا](docs/TELEGRAM_BOT_EXECUTION_CHECKLIST.md)
+- [تحلیل پروژه](docs/PROJECT_DECISION_ANALYSIS.md)
 
-- داشبورد قیمت با چارت‌های SVG زنده + **محیط آزمایشی اسلایدر دستی** برای تست فوری هشدارها.
-- شبیه‌ساز اعلان تلگرام (پاپ‌آپ + صدای واقعی).
-- دستیار AI جمینای با آگاهی از قیمت‌های لحظه‌ای.
-- **حالت Live**: با زدن دکمه "LIVE"، قیمت‌ها از بک‌اند واقعی خوانده می‌شوند و اسلایدر قیمت را در LatestPrice واقعی تزریق می‌کند (برای تست واقعی تریگرها).
+### 📖 Documentation
+- [Index کامل مستندات](docs/README.md)
+- [راهنمای deployment](COMPLETE_DEPLOYMENT_GUIDE.md)
+- [وضعیت سرور](docs/SERVER_STATUS.md)
 
-اجرا:
-```bash
-cd mini-app
-npm install
-npm run dev   # http://localhost:3012
-```
+### 🔧 Development
+- [Cloudflare Worker Code](deploy/cloudflare-worker/telegram-relay.js)
+- [Backend API](src/novax_price_alert/)
+- [Tests](tests/)
 
-برای اتصال به بک‌اند محلی (روی پورت پیش‌فرض ۸۰۰۱):
-- در mini-app/.env (کپی از .env.example) مقدار `VITE_NOVAX_API_BASE=http://localhost:8001` را ست کنید.
-- بک‌اند اصلی را اجرا کنید (`python -m src.novax_price_alert` یا PM2).
-- در داشبورد هوشمند دکمه SIM/LIVE را بزنید.
+---
 
-این ابزار برای تست، دمو و validation UX قبل از ویژگی‌های پریمیوم بسیار مفید است و مستقیماً چند آیتم از roadmap فاز ۱ (نوتیفیکیشن غنی + تست) را پوشش می‌دهد.
+**Novax Price Alert** - بات هشدار قیمت برای بازار ایران 🇮🇷
 
-## وضعیت مستندات
-
-- مستندات فعال باید کوتاه، همسو با کد، و قابل پیگیری باشند.
-- drafts تاریخی جدا از مسیر مستندات فعال نگهداری می‌شوند.
-
-### فایل‌های فعال (مستندات زنده)
-
-| فایل | توضیح |
-|------|-------|
-| `README.md` | نقطه ورود اصلی (همین فایل) |
-| `AGENTS.md` | راهنمای ایجنت برای هر نشست جدید |
-| `INDEX.md` | فهرست فایل‌های کلیدی پروژه |
-| `docs/README.md` | فهرست مستندات فعال |
-| `docs/PROGRESS.md` | وضعیت پیاده‌سازی فعلی |
-| `docs/API.md` | مستندات API |
-| `docs/ARCHITECTURE.md` | معماری سیستم |
-| `docs/OPERATIONS.md` | عملیات و نگهداری |
-| `docs/OBSERVABILITY.md` | مشاهده‌پذیری |
-| `docs/DEPLOYMENT.md` | راه‌اندازی VPS |
-| `docs/CLOUDFLARE_RENDER_DEPLOYMENT.md` | راه‌اندازی Cloudflare + Render |
-| `docs/QUICK_START_FA.md` | شروع سریع (فارسی) |
-| `docs/USER_GUIDE_FA.md` | راهنمای کاربر (فارسی) |
-| `docs/adr/` | تصمیمات معماری دائمی |
-
-### فایل‌های آرشیو (غیرفعال)
-
-برچسب: **آرشیو** — این فایل‌ها فقط برای مرجع تاریخی نگهداری می‌شوند و راهنمای عملیاتی فعلی نیستند.
-
-مسیر: `docs/archive/`
-
-- `docs/archive/ALERT_FLOW_CONTRACT.md` — قرارداد جریان هشدار (قدیمی)
-- `docs/archive/ALERT_HARDENING_CONTRACTS.md` — قراردادهای سخت‌سازی هشدار
-- `docs/archive/ALERT_LIFECYCLE_CONTRACT.md` — قرارداد چرخه عمر هشدار
-- `docs/archive/ASSET_IDENTITY_POLICY.md` — سیاست هویت دارایی
-- `docs/archive/BOT_BEHAVIOR.md` — رفتار بات (قدیمی)
-- `docs/archive/DOMAIN_MODEL.md` — مدل دامنه (قدیمی)
-- `docs/archive/FINAL_TEST_CHECKLIST_FA.md` — چک‌لیست تست نهایی
-- `docs/archive/FRESHNESS_POLICY.md` — سیاست تازگی قیمت
-- `docs/archive/HARDENING_IMPLEMENTATION_GUIDE.md` — راهنمای پیاده‌سازی سخت‌سازی
-- `docs/archive/JOBS_AND_WORKERS.md` — کارها و ورکرها (قدیمی)
-- `docs/archive/NEXT_STEPS_AND_ROADMAP_FA.md` — نقشه راه (قدیمی)
-- `docs/archive/PRICING_PRESENTATION_POLICY.md` — سیاست نمایش قیمت
-- `docs/archive/PRODUCTION_CHECKLIST_FA.md` — چک‌لیست تولید
-- `docs/archive/PRODUCT_SCOPE.md` — محدوده محصول
-- `docs/archive/PROVIDERS.md` — ارائه‌دهندگان (قدیمی)
-- `docs/archive/RELEASE_READINESS_FA.md` — آمادگی انتشار
-- `docs/archive/REUSE_PLAN.md` — برنامه استفاده مجدد
-- `docs/archive/ROADMAP.md` — نقشه راه (قدیمی)
-- `docs/archive/TELEGRAM_RUNBOOK.md` — دفترچه راهنمای تلگرام
-- `docs/archive/USER_GUIDE_COMPLETE_FA.md` — راهنمای کاربر کامل (قدیمی)
-- `docs/archive/root/` — فایل‌های وضعیت قدیمی ریشه
-
-اگر موضوعی دوباره فعال شد، یک سند کوتاه زنده جدید بسازید و از `docs/README.md` به آن لینک دهید.
+*آخرین بروزرسانی: 2026-06-14*
