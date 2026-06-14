@@ -264,7 +264,7 @@ docker run -p 3000:3000 novax-mini-app
 2. **Port already in use**
    ```bash
    # Change port in .env
-   PORT=3002 npm run dev
+   NOVAX_MINI_PORT=3012 npm run dev
    ```
 
 3. **API connection issues**

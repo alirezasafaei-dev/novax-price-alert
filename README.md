@@ -100,7 +100,7 @@ sudo journalctl -u novax-price-alert-worker -f
 - Staged alert creation with confirmation
 - Rich TWA with charts and analytics
 - 10-minute price refresh
-- Crypto prices from CoinGecko with Binance fallback
+- Crypto prices from Binance in `USDT`
 - Iran market prices from TGJU
 
 ---
@@ -112,7 +112,7 @@ sudo journalctl -u novax-price-alert-worker -f
 - GOLD_18K_IRT: 172,208,000 تومان
 - SEKKEH_EMAMI_IRT: 1,733,950,000 تومان
 - USDT_IRT: 1,683,990 تومان
-- BTC/ETH/BNB: Real-time from CoinGecko (USDT)
+- BTC/ETH/BNB/SOL: Real-time from Binance (USDT)
 
 ---
 
@@ -126,7 +126,7 @@ sudo journalctl -u novax-price-alert-worker -f
 
 - بات و relay در production کار می‌کنند.
 - قیمت‌ها:
-  - کریپتو از CoinGecko با `USDT` (با fallback از Binance)
+  - کریپتو از Binance با `USDT`
   - ارز و طلا از TGJU با `تومان`
 - هشدارها مرحله‌ای ساخته می‌شوند و فقط بعد از تایید فعال می‌شوند.
 - Cron هر 10 دقیقه هشدارها را بررسی می‌کند.
@@ -135,7 +135,7 @@ sudo journalctl -u novax-price-alert-worker -f
 
 ### نحوهٔ آغاز کار با بات
 
-1. در تلگرام به آدرس `@NovaxPriceAlert` پیام دهید.
+1. در تلگرام به آدرس `@novax_price_bot` پیام دهید.
 2. دستور `/start` را بزنید تا منوی اصلی نمایش داده شود.
 3. برای دیدن قیمت لحظه‌ای، دستور `/price` را بزنید و نام دارایی را انتخاب کنید
    (مثلاً `دلار`، `طلا`، `بیت‌کوین`).
@@ -162,7 +162,7 @@ sudo journalctl -u novax-price-alert-worker -f
 
 ### محدودیت‌ها
 
-- هر کاربر در این نسخه می‌تواند حداکثر **۵ هشدار فعال** داشته باشد.
+- هر کاربر در این نسخه می‌تواند حداکثر **۱۰ هشدار فعال/قابل‌مدیریت** داشته باشد.
 - پس از تریگر شدن، هشدار به صورت خودکار غیرفعال می‌شود (مگر آنکه دوباراً فعال کنید).
 
 ## شروع سریع (توسعه‌دهندگان)
@@ -186,9 +186,9 @@ sudo journalctl -u novax-price-alert-worker -f
 ## پنل ادمین (برای مالک)
 پنل مدیریت حرفه‌ای و امن در مسیر `/admin` در دسترس است.
 
-- دسترسی: `https://novax.alirezasafaeisystems.ir/admin?token=YOUR_ADMIN_ACCESS_TOKEN`
+- دسترسی: `https://novax.alirezasafeidev.ir/admin?token=YOUR_ADMIN_ACCESS_TOKEN`
 - قابلیت‌ها: نمای کلی سیستم، لیست همه هشدارها (با فیلتر و جستجو)، لیست کاربران، لغو دستی هشدار، لاگ اقدامات ادمین (audit)، عملیات سریع.
-- توکن را در `.env` با کلید `ADMIN_ACCESS_TOKEN` ست کنید (رشته قوی و طولانی). سپس `pm2 restart novax-api --update-env`.
+- توکن را در `.env` با کلید `ADMIN_ACCESS_TOKEN` ست کنید (رشته قوی و طولانی). سپس `sudo systemctl restart novax-price-alert-api`.
 
 این پنل فقط برای مالک سیستم طراحی شده و از همان الگوی امنیتی metrics استفاده می‌کند.
 

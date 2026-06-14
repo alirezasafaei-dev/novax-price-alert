@@ -30,6 +30,6 @@ RUN chown -R nextjs:nodejs /app
 
 USER nextjs
 
-EXPOSE 3000
+EXPOSE 3012
 
 CMD ["node", "dist/server.cjs"]

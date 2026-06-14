@@ -6,10 +6,10 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3002:3000"
+      - "3012:3012"
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - NOVAX_MINI_PORT=3012
       - NOVAX_API_BASE=http://host.docker.internal:8001
     restart: unless-stopped
     networks:

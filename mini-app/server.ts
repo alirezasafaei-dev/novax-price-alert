@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-const PORT = parseInt(process.env.PORT || "3002", 10);
+const PORT = parseInt(process.env.PORT || process.env.NOVAX_MINI_PORT || "3012", 10);
 
 app.use(express.json());
 

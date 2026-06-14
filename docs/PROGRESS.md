@@ -156,7 +156,7 @@
 - چارت پیشرفته: انتخاب چند دارایی + بازه‌های زمانی (1d/7d/30d/90d) + لاین‌های چندرنگ + تم دارک.
 - ingest واقعی (POST /api/v1/prices/ingest با توکن) + GitHub Action (price-fetcher) که از runner خارجی قیمت‌ها را به canonical code می‌فرستد.
 - DB: Postgres (جداگانه)، Alembic migrations کامل، Redis کش/صف، health + backup.
-- دیپلوی: PM2 (novax-api روی 8001 + novax-worker)، nginx اختصاصی برای novax.alirezasafaeisystems.ir + SSL (certbot با novax در SAN)، .env-driven، healthcheck گسترش‌یافته.
+- دیپلوی فعلی: systemd (`novax-price-alert-api` روی 8001، `novax-price-alert-worker`، `novax-mini-app`) + nginx روی `novax.alirezasafeidev.ir` + SSL + `.env` امن + healthcheck.
 
 ## چیزهای تثبیت‌شده (هم‌راستا با گزارش)
 

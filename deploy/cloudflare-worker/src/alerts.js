@@ -8,7 +8,7 @@ import { recordMetric } from "./metrics.js";
 // contract in docs/ALERT_HARDENING_CONTRACTS.md: 3 attempts with backoff).
 export const DEFAULT_MAX_DELIVERY_ATTEMPTS = 3;
 export const RETRY_BACKOFF_MS = 60 * 1000;
-export const MAX_ALERTS_PER_USER = 5;
+export const MAX_ALERTS_PER_USER = 10;
 
 export async function getUserAlerts(env, chatId) {
   const key = `alerts:user:${chatId}`;
