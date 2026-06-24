@@ -1,4 +1,4 @@
-import { FAQ_KEYBOARD, GROWTH_KEYBOARD, MAIN_KEYBOARD, MARKET_KEYBOARD, alertActionsKeyboard } from "./keyboards.js";
+import { FAQ_KEYBOARD, GROWTH_KEYBOARD, MAIN_KEYBOARD, MARKET_KEYBOARD, alertActionsKeyboard, miniAppKeyboard } from "./keyboards.js";
 import { sendMessage } from "./telegram.js";
 import { setUser, clearSession } from "./sessions.js";
 import {
@@ -34,6 +34,11 @@ export async function handleStart(env, chatId, from) {
 از منوی زیر شروع کن:`;
   
   await sendMessage(env, chatId, text, { reply_markup: MAIN_KEYBOARD });
+  if (env.NOVAX_MINI_APP_URL || env.MINI_APP_URL) {
+    await sendMessage(env, chatId, "برای تجربه داشبورد داخل تلگرام:", {
+      reply_markup: miniAppKeyboard(env),
+    });
+  }
 }
 
 export async function handleHelp(env, chatId) {

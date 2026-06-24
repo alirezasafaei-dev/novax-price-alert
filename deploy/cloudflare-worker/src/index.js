@@ -6,6 +6,9 @@ import { runCronJob } from "./cron.js";
 import { recordCronHeartbeat, getCronStatus } from "./heartbeat.js";
 import { sendMessage } from "./telegram.js";
 import { logEvent, logError } from "./log.js";
+import { MAIN_KEYBOARD } from "./keyboards.js";
+import { handleMiniAppApi } from "./miniapp-api.js";
+import { handleMiniAppStatic } from "./miniapp-static.js";
 
 function requireSecret(request, env) {
   const secret = env.TELEGRAM_SECRET_TOKEN;
@@ -21,6 +24,14 @@ function requireSecret(request, env) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    const miniAppResponse = await handleMiniAppStatic(request, env);
+    if (miniAppResponse) return miniAppResponse;
+
+    if (request.method === "OPTIONS" || url.pathname.startsWith("/api/v1/")) {
+      const apiResponse = await handleMiniAppApi(request, env);
+      if (apiResponse) return apiResponse;
+    }
     
     if (url.pathname === "/health") {
       return Response.json({ status: "ok", service: "telegram-bot" });

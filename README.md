@@ -1,46 +1,43 @@
 # Novax Price Alert
 
-**🟢 Live**: https://novax.alirezasafeidev.ir
-**🤖 Bot**: @novax_price_bot (ID: 8858674032)
+**🟢 Live**: https://novax-telegram-relay.asdevelooper.workers.dev
+**🌐 Mini-App**: https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/
+**🤖 Bot**: @novax_price_bot
 **📊 Status**: Production Ready
 
 ---
 
 ## 🚀 Quick Start
 
-### Option 1: Telegram-Only (Serverless - بدون VPS) ⭐ توصیه می‌شود
+### Option 1: Cloudflare Worker + Mini-App (Serverless - بدون VPS) ⭐ فعلی
 
-برای اجرای بات تلگرام به صورت کاملاً serverless با Cloudflare Workers:
+برای اجرای بات تلگرام و مینی‌اپ به صورت serverless با Cloudflare Workers + KV:
 
 ```bash
-# مستندات کامل
-📖 راهنما: docs/TELEGRAM_ONLY_WITHOUT_VPS.md
-✅ چک‌لیست: docs/TELEGRAM_BOT_EXECUTION_CHECKLIST.md
-📊 تحلیل: docs/PROJECT_DECISION_ANALYSIS.md
+deploy/cloudflare-worker/scripts/deploy-miniapp-worker-kv.sh
+curl -fsS "https://novax-telegram-relay.asdevelooper.workers.dev/health"
+curl -fsS "https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/"
 ```
 
 **مزایا:**
-- ✅ بدون نیاز به VPS
+- ✅ بدون نیاز به VPS ایرانی برای تجربه Telegram
 - ✅ هزینه صفر (Free Tier Cloudflare)
 - ✅ مقیاس‌پذیری خودکار
-- ✅ آماده در 30 دقیقه
+- ✅ Worker، webhook، cron و mini-app در یک مسیر خارجی
 
-**مراحل سریع:**
+**مستندات:**
 ```bash
-cd deploy/cloudflare-worker
-npm install
-npx wrangler login
-npx wrangler secret put TELEGRAM_BOT_TOKEN
-npx wrangler deploy
-curl "https://<your-worker>.workers.dev/setup-bot"
+📖 راهنما: docs/CLOUDFLARE_PAGES_MINI_APP.md
+📖 راهنمای Worker: deploy/cloudflare-worker/README.md
+📊 وضعیت: docs/PROGRESS.md
 ```
 
-### Option 2: VPS Deployment (فعلی)
+### Option 2: Legacy VPS Deployment
 
-برای اجرای کامل با backend، database و mini-app:
+برای مسیر قدیمی backend/database روی VPS:
 
 ```bash
-# بررسی وضعیت production
+# بررسی وضعیت legacy
 curl https://novax.alirezasafeidev.ir/health
 curl https://novax.alirezasafeidev.ir/api/v1/prices/latest
 
@@ -48,18 +45,19 @@ curl https://novax.alirezasafeidev.ir/api/v1/prices/latest
 bash scripts/ONE-COMMAND-SYNC.sh
 ```
 
-**VPS**: <redacted-vps-host> (ubuntu)
+**VPS**: legacy; جزئیات اتصال نباید در git یا docs نوشته شود.
 **Services**: systemd (novax-price-alert-api, novax-price-alert-worker, novax-mini-app)
 
 ---
 
-## 📚 مستندات جدید (2026-06-14)
+## 📚 مستندات جدید
 
 ### 🎯 اجرای Telegram-Only
 
 | سند | شرح | استفاده |
 |-----|-----|----------|
 | **[TELEGRAM_ONLY_WITHOUT_VPS.md](docs/TELEGRAM_ONLY_WITHOUT_VPS.md)** | راهنمای کامل اجرای serverless | برای راه‌اندازی اولیه |
+| **[CLOUDFLARE_PAGES_MINI_APP.md](docs/CLOUDFLARE_PAGES_MINI_APP.md)** | مسیر فعلی Worker-hosted mini-app | برای دیپلوی مینی‌اپ خارجی |
 | **[TELEGRAM_BOT_EXECUTION_CHECKLIST.md](docs/TELEGRAM_BOT_EXECUTION_CHECKLIST.md)** | چک‌لیست گام به گام (10 بخش) | برای دنبال کردن مراحل |
 | **[PROJECT_DECISION_ANALYSIS.md](docs/PROJECT_DECISION_ANALYSIS.md)** | تحلیل تصمیم‌گیری و مقایسه | برای فهم دلایل انتخاب |
 
@@ -178,28 +176,17 @@ uv run mypy src
 
 ---
 
-## 🌐 Production (VPS)
+## 🌐 Production (Cloudflare)
 
 ### Server Details
-- **VPS**: <redacted-vps-host> (ubuntu)
-- **Path**: `/home/ubuntu/novax-price-alert`
-- **Domain**: novax.alirezasafeidev.ir
-- **SSL**: Let's Encrypt
+- **Worker**: `https://novax-telegram-relay.asdevelooper.workers.dev`
+- **Mini-App**: `https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/`
+- **Storage**: Cloudflare KV (`ALERTS_KV`, `SESSIONS_KV`, `USERS_KV`)
+- **Cron**: Cloudflare Worker schedule every 10 minutes
 
-### Services (systemd)
+### Deploy
 ```bash
-# وضعیت
-sudo systemctl status novax-price-alert-api
-sudo systemctl status novax-price-alert-worker
-sudo systemctl status novax-mini-app
-
-# Restart
-sudo systemctl restart novax-price-alert-api
-sudo systemctl restart novax-price-alert-worker
-
-# Logs
-sudo journalctl -u novax-price-alert-api -f
-sudo journalctl -u novax-price-alert-worker -f
+deploy/cloudflare-worker/scripts/deploy-miniapp-worker-kv.sh
 ```
 
 ---
@@ -286,17 +273,18 @@ Proprietary - All rights reserved
 ## 🔗 Quick Links
 
 ### 🚀 Getting Started
+- [دیپلوی Worker-hosted Mini-App](docs/CLOUDFLARE_PAGES_MINI_APP.md)
 - [شروع سریع Telegram-Only](docs/TELEGRAM_ONLY_WITHOUT_VPS.md)
 - [چک‌لیست اجرا](docs/TELEGRAM_BOT_EXECUTION_CHECKLIST.md)
 - [تحلیل پروژه](docs/PROJECT_DECISION_ANALYSIS.md)
 
 ### 📖 Documentation
 - [Index کامل مستندات](docs/README.md)
-- [راهنمای deployment](COMPLETE_DEPLOYMENT_GUIDE.md)
-- [وضعیت سرور](docs/SERVER_STATUS.md)
+- [راهنمای Worker](deploy/cloudflare-worker/README.md)
+- [وضعیت پیشرفت](docs/PROGRESS.md)
 
 ### 🔧 Development
-- [Cloudflare Worker Code](deploy/cloudflare-worker/telegram-relay.js)
+- [Cloudflare Worker Code](deploy/cloudflare-worker/src/index.js)
 - [Backend API](src/novax_price_alert/)
 - [Tests](tests/)
 
@@ -304,4 +292,4 @@ Proprietary - All rights reserved
 
 **Novax Price Alert** - بات هشدار قیمت برای بازار ایران 🇮🇷
 
-*آخرین بروزرسانی: 2026-06-14*
+*آخرین بروزرسانی: 2026-06-24*

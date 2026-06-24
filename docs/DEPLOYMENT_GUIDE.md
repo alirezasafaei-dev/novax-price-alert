@@ -39,7 +39,7 @@ cd /home/dev13/my-project/sites/secondary/novax-price-alert
 
 ```bash
 ssh ubuntu@<redacted-vps-host>
-# Password: ArAd@#!23662366
+# Password: <redacted-vps-password>
 ```
 
 ### مرحله 2: Navigate to app directory

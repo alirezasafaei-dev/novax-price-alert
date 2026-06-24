@@ -171,7 +171,7 @@ User → @novax_price_bot → Webhook → Cloudflare Worker → VPS
 ### اتصال به VPS:
 ```bash
 ssh ubuntu@<redacted-vps-host>
-# Password: ArAd@#!23662366
+# Password: <redacted-vps-password>
 ```
 
 ### PM2 Management:

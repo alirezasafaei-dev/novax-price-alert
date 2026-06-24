@@ -1,78 +1,52 @@
 # Novax Mini-App (داشبورد هوشمند)
 
-این یک داشبورد هوشمند (Smart Dashboard) برای Novax Price Alert است (React + Vite + Express server-side برای AI).
+این مینی‌اپ React + Vite برای اجرا داخل Telegram WebApp آماده شده است. مسیر production فعلی، سرو استاتیک از Cloudflare Worker روی `/mini-app/` و اتصال به همان Worker است تا تجربه Telegram از VPS ایرانی جدا شود.
 
-**وضعیت فعلی:** به بک‌اند واقعی پروژه متصل است (حالت LIVE):
-- قیمت‌های زنده از `/api/v1/prices/latest` (با پشتیبانی از X-Telegram-Init-Data).
-- ساخت/حذف/فعال‌سازی هشدارها در LIVE به API واقعی backend وصل است.
-- رویدادهای واقعی هشدار در LIVE از `/api/v1/alerts/events` خوانده می‌شوند.
-- اسلایدر دستی قیمت را از طریق `/api/v1/prices/test/override-price` به LatestPrice واقعی می‌نویسد → تریگر هشدارهای واقعی کاربر در کرون بعدی + نوتیفیکیشن‌های غنی اینلاین در تلگرام.
-- دستیار AI (Gemini) در Express (server-side، کلید امن).
+## وضعیت فعلی
 
-حالت SIM محلی برای تست سریع بدون بک‌اند هم کار می‌کند.
+- قیمت‌های زنده از `VITE_NOVAX_API_BASE/api/v1/prices/latest` خوانده می‌شوند.
+- هشدارها در LIVE با `X-Telegram-Init-Data` واقعی Telegram WebApp به Worker وصل می‌شوند.
+- رویدادهای هشدار از `GET /api/v1/alerts/events` می‌آیند.
+- SIM mode محلی برای تست سریع بدون بک‌اند باقی مانده است.
+- AI در Pages بدون endpoint امن خارجی safe-degrade می‌شود تا `GEMINI_API_KEY` وارد مرورگر نشود.
 
-## ارتباط با پروژه اصلی
-
-- پروژه اصلی: Python (FastAPI + workers + Alembic) + Cloudflare Worker relay + TWA تک‌فایلی تعبیه‌شده.
-- این مینی‌اپ: React 19 + Vite + Express (برای Gemini server-side).
-- نقشه راه ۳ ماهه قبلی روی Retention → Monetization تمرکز دارد. این دمو عمدتاً UX و ابزار تست (فاز ۱) و پیشنهاد هوشمند/AI (فاز ۳) را به شکل زیبا نشان می‌دهد.
-
-## اجرا محلی (برای تست و تجربه)
-
-**پیش‌نیاز:** Node.js 20+
+## اجرای محلی
 
 ```bash
 cd mini-app
 npm install
-# اختیاری: GEMINI_API_KEY را در .env تنظیم کنید (برای چت AI واقعی)
 npm run dev
 ```
 
-سپس در http://localhost:3012 باز کنید.
+سپس در `http://localhost:3012` باز کنید.
 
-- تب داشبورد: روی کارت‌ها کلیک کنید → چارت SVG بزرگ + اسلایدر شبیه‌ساز قیمت (قیمت را جابجا کنید تا هشدارها تریگر شوند).
-- تب دیده‌بان: هشدار UPPER/LOWER بسازید (اعداد فارسی هم پشتیبانی می‌شود)، فعال/غیرفعال کنید، لاگ‌های ارسال را ببینید.
-- تب دستیار AI: از پرامپت‌های آماده یا متن آزاد استفاده کنید (قیمت‌های زنده شبیه‌سازی در کانتکست تزریق می‌شود).
-- تب راهنما: مستندات استقرار + دکمه تست نوتیفیکیشن جعلی (پاپ‌آپ + صدای زنگوله سنتز شده).
+## بیلدها
 
-## بیلد برای پروداکشن
+برای حالت قدیمی Node/Express:
 
 ```bash
 npm run build
-npm start   # سرور Node از dist/server.cjs + استاتیک
+npm start
 ```
 
-بیلد کاملاً تمیز (tsc + vite + esbuild) پاس می‌شود.
+برای Cloudflare Pages یا Worker-hosted static:
 
-## نکات مهم برای تصمیم‌گیری ادغام
+```bash
+npm run build:pages
+```
 
-- این دمو عالی برای:
-  - تست سریع منطق هشدار بدون نیاز به بازار واقعی.
-  - نمایش قدرت نوتیفیکیشن و UI به کاربر/سرمایه‌گذار.
-  - الهام برای بهبود TWA فعلی یا جایگزینی آن.
+تنظیمات Pages:
 
-- حالت "Live Data" (دکمه SIM/LIVE در هدر) اکنون پیاده‌سازی شده:
-  - قیمت‌ها از بک‌اند واقعی (`/api/v1/prices/latest`) خوانده می‌شوند.
-  - هشدارها در LIVE با `POST/GET/PATCH/DELETE /api/v1/alerts` و `POST /confirm` به backend واقعی متصل‌اند.
-  - event log در LIVE از `GET /api/v1/alerts/events` می‌آید.
-  - اسلایدر، از طریق `/api/v1/prices/test/override-price`، قیمت را در LatestPrice واقعی تزریق می‌کند (تست واقعی تریگر هشدارها).
-  - برای flows احراز‌شده باید اپ از داخل بات تلگرام باز شود تا `initData` ارسال شود.
+- Root directory: `mini-app`
+- Build command: `npm ci && npm run build:pages`
+- Output directory: `dist`
+- Env: `VITE_NOVAX_API_BASE=https://<worker-domain>`
 
-### Gemini / AI Analyst
-- کلید `GEMINI_API_KEY` فقط server-side (در `mini-app/.env` یا env پروداکشن) استفاده می‌شود.
-- در production روی VPS ایرانی: به دلیل محدودیت جغرافیایی Google برای APIهای generative (حتی با کلید معتبر)، پاسخ 400 "User location is not supported" می‌دهد.
-- کد حالا gracefully هندل می‌کند: پیام فارسی واضح به کاربر می‌دهد ("تحلیل‌گر هوشمند فعلاً در این منطقه در دسترس نیست...") و جزئیات خام را لو نمی‌دهد.
-- مدل به `gemini-2.5-flash` به‌روز شد.
-- برای فعال‌سازی کامل AI در آینده: نیاز به اجرای بخش chat از یک لوکیشن پشتیبانی‌شده (مثل Render، یا یک worker کوچک در منطقه مجاز، یا پروکسی) یا سوئیچ به ارائه‌دهنده جایگزین.
+## AI Analyst
 
-در .env.example و راهنمای استقرار، مقداردهی کلید توضیح داده شده.
+- `GEMINI_API_KEY` فقط server-side مجاز است و نباید در bundle Pages قرار بگیرد.
+- برای فعال‌سازی AI، یک endpoint خارجی امن بسازید و `VITE_NOVAX_CHAT_API_BASE` را به base URL آن تنظیم کنید.
 
-برای جزئیات بیشتر به AGENTS.md، docs/PROGRESS.md و roadmap قبلی مراجعه کنید.
+## مرجع
 
-## لایسنس و منبع
-
-بخشی از ریپوی https://github.com/alirezasafaei-dev/novax-price-alert
-
-## تشکر
-
-این آرتیفکت به عنوان «دیتای بعدی» برای تصمیم‌گیری در مورد فازهای ارتقا (طبق چک‌لیست اولویت‌دار) تحویل داده شد.
+- راهنمای عملیاتی: `../docs/CLOUDFLARE_PAGES_MINI_APP.md`

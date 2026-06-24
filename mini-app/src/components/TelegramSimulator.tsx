@@ -16,12 +16,12 @@ export default function TelegramSimulator({ language, onSimulateFakeNotification
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const envText = `# Environment configurations for VPS deployment
-TELEGRAM_BOT_TOKEN="your_bot_token_here"
-BINANCE_API_URL="https://api.binance.com"
-TGJU_PROVIDER_URL="https://tgju.org"
-EVALUATION_CRON="*/10 * * * *"
-DB_PATH="./data/alerts.db"`;
+  const envText = `# Cloudflare Worker + Telegram Mini App
+CLOUDFLARE_ACCOUNT_ID="your_account_id"
+ALERTS_KV_ID="your_kv_namespace_id"
+TELEGRAM_BOT_TOKEN="<secret>"
+TELEGRAM_SECRET_TOKEN="<secret>"
+NOVAX_MINI_APP_URL="https://novax-telegram-relay.<subdomain>.workers.dev/mini-app/"`;
 
   return (
     <div id="vps-hub" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -115,12 +115,12 @@ DB_PATH="./data/alerts.db"`;
         </div>
       </div>
 
-      {/* CENTER & RIGHT: VPS Specs, Architecture details and Deployment sync */}
+      {/* CENTER & RIGHT: Worker architecture details and deployment sync */}
       <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 shadow-xl space-y-6">
         <div>
           <span className="text-xs font-mono text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
             <Cpu size={12} />
-            {isFa ? 'مستندات و همگام‌سازی هاست' : 'VPS HOSTING & BOT SYNC'}
+            {isFa ? 'مستندات و همگام‌سازی کلادفلر' : 'CLOUDFLARE HOSTING & BOT SYNC'}
           </span>
           <h3 className="text-lg font-bold text-white mt-1">
             🚀 {isFa ? 'راهنمای راه‌اندازی و اتصال بات به مینی اپ' : 'NovaX Connection & Hosting Manual'}
@@ -132,31 +132,31 @@ DB_PATH="./data/alerts.db"`;
           <p className="text-sm text-zinc-300 leading-relaxed">
             {isFa
               ? 'این مینی‌اپ فریم‌ورک ایده‌آلی برای نمایش زنده و ثبت هشدارها برای کاربران ربات شما فراهم می‌کند. کدهای ربات و ورکر تلگرامی شما به طور کامل در ریپازیتوری بالا قرار دارد. برای اتصال این مینی‌اپ به دیتابیس ربات خود، مراحل زیر را طی کنید:'
-              : 'This Telegram Mini App layout acts as a premier client for your price alerter. Your Python/TypeScript bot files live inside your VPS host. To bind your live production bot to this mini app web experience, synchronize using standard Web APIs:'}
+              : 'This Telegram Mini App is served from Cloudflare Worker + KV and talks to the same Worker API for prices and alerts. Use the deploy script to keep the bot, webhook, cron, and static mini-app in sync:'}
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-slate-950 p-4 border border-zinc-900 rounded-xl space-y-2">
               <span className="text-xs font-bold text-teal-400 flex items-center gap-1">
                 <CheckCircle2 size={12} />
-                {isFa ? '۱. راه‌اندازی ربات تلگرام (VPS)' : '1. Spin up Alerter Bot on VPS'}
+                {isFa ? '۱. دیپلوی Worker و KV' : '1. Deploy Worker + KV'}
               </span>
               <p className="text-xs text-zinc-400 leading-relaxed">
                 {isFa 
-                  ? 'کدها را روی سرور یا VPS خود کلون کنید. پوشه‌ی docs/DEPLOYMENT.md راهنمای جامع مستندات فارسی برای اجرای دائم با pm2 را ارائه می‌کند.'
-                  : 'Clone files to your secure Ubuntu host. Follow docs/DEPLOYMENT.md instructions in the repository to establish daemon workflows with pm2.'}
+                  ? 'اسکریپت deploy-miniapp-worker-kv.sh مینی‌اپ را build می‌کند، assetها را در KV می‌گذارد، Worker را deploy می‌کند و webhook تلگرام را تنظیم می‌کند.'
+                  : 'The deploy-miniapp-worker-kv.sh script builds the mini-app, uploads assets to KV, deploys the Worker, and configures the Telegram webhook.'}
               </p>
             </div>
 
             <div className="bg-slate-950 p-4 border border-zinc-900 rounded-xl space-y-2">
               <span className="text-xs font-bold text-teal-400 flex items-center gap-1">
                 <CheckCircle2 size={12} />
-                {isFa ? '۲. راه‌اندازی وب‌هوک (Webhook Sync)' : '2. Bind Mini App via Webhook API'}
+                {isFa ? '۲. اتصال امن Telegram WebApp' : '2. Bind Telegram WebApp securely'}
               </span>
               <p className="text-xs text-zinc-400 leading-relaxed">
                 {isFa 
-                  ? 'یک متغیر وب‌هوک تعریف کنید تا فیلترهای هشدار فورا ثبت شوند. وقتی کاربر کلید "ثبت هشدار جدید" را می‌زند، آدرس رله ربات تلگرامی را فراخوانی می‌کند.'
-                  : 'Enable an API endpoint on your server block. When users tap "Create Custom Alert", it publishes JSON payload directly to your bot scheduler.'}
+                  ? 'درخواست‌های هشدار با X-Telegram-Init-Data امضا شده ارسال می‌شوند و Worker قبل از ذخیره در KV hash رسمی Telegram را اعتبارسنجی می‌کند.'
+                  : 'Alert requests include signed X-Telegram-Init-Data; the Worker validates the official Telegram hash before storing alerts in KV.'}
               </p>
             </div>
           </div>

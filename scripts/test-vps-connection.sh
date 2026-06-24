@@ -10,7 +10,7 @@ echo ""
 
 VPS_IP="<redacted-vps-host>"
 VPS_USER="ubuntu"
-VPS_PASSWORD="ArAd@#!23662366"
+VPS_PASSWORD="${VPS_PASSWORD:?Set VPS_PASSWORD in your shell or .env; never commit it.}"
 VPS_PORT=22
 
 echo "Attempting connection..."

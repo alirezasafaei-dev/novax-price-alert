@@ -149,14 +149,14 @@ Enable
 
 ```bash
 # Bot Token از BotFather
-TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+TELEGRAM_BOT_TOKEN=<telegram-bot-token>
 
 # Relay URL (برای Cloudflare Worker)
 TELEGRAM_RELAY_URL=https://your-worker.workers.dev
 TELEGRAM_RELAY_SECRET=your-secret-key
 
 # Ops Bot Token (برای GitHub Actions monitoring)
-OPS_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+OPS_BOT_TOKEN=<telegram-bot-token>
 OPS_CHAT_ID=-1001234567890
 ```
 
@@ -321,7 +321,7 @@ Enable
 
 ```bash
 # در فایل .env پروژه Novax
-TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+TELEGRAM_BOT_TOKEN=<telegram-bot-token>
 TELEGRAM_RELAY_URL=https://novax-relay.workers.dev
 TELEGRAM_RELAY_SECRET=your-secret-key
 
@@ -337,7 +337,7 @@ API_PORT=8001
 APP_URL=https://novax.alirezasafeidev.ir
 
 # Ops (اختیاری)
-OPS_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+OPS_BOT_TOKEN=<telegram-bot-token>
 OPS_CHAT_ID=-1001234567890
 METRICS_ACCESS_TOKEN=your-metrics-token
 ```

@@ -160,7 +160,7 @@ sudo apt-get install sshpass rsync
 ### VPS Details:
 - **IP**: <redacted-vps-host>
 - **User**: ubuntu
-- **Password**: ArAd@#!23662366
+- **Password**: <redacted-vps-password>
 - **Port**: 22
 - **Domain**: novax.alirezasafeidev.ir
 
@@ -228,7 +228,7 @@ rsync -avz --delete \
 
 # SSH to VPS
 ssh ubuntu@<redacted-vps-host>
-# Password: ArAd@#!23662366
+# Password: <redacted-vps-password>
 
 # On VPS:
 cd /home/deploy/novax-price-alert

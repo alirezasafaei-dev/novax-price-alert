@@ -87,7 +87,7 @@ python3 /home/dev13/my-project/sites/secondary/novax-price-alert/scripts/deploy-
 ```bash
 # SSH به VPS
 ssh ubuntu@<redacted-vps-host>
-# Password: ArAd@#!23662366
+# Password: <redacted-vps-password>
 
 # روی VPS:
 cd /home/deploy/novax-price-alert

@@ -2,7 +2,7 @@
 
 # Novax Price Alert Deployment Script
 # Deploys to VPS at <redacted-vps-host>
-# Bot ID: 8858674032 (@novax_price_bot)
+# Bot: @novax_price_bot
 
 set -e
 
@@ -10,14 +10,14 @@ echo "🚀 Novax Price Alert Deployment Script"
 echo "======================================"
 echo ""
 echo "🤖 Bot Info:"
-echo "   ID: 8858674032"
+echo "   ID: ${TELEGRAM_BOT_ID:-<set TELEGRAM_BOT_ID>}"
 echo "   Username: @novax_price_bot"
 echo ""
 
 # VPS Configuration
 VPS_IP="<redacted-vps-host>"
 VPS_USER="ubuntu"
-VPS_PASSWORD="ArAd@#!23662366"
+VPS_PASSWORD="${VPS_PASSWORD:?Set VPS_PASSWORD in your shell or .env; never commit it.}"
 VPS_PORT=22
 APP_DIR="/home/deploy/novax-price-alert"
 DOMAIN="novax.alirezasafeidev.ir"
@@ -209,7 +209,7 @@ echo "   Health: https://$DOMAIN/health"
 echo "   Prices: https://$DOMAIN/api/v1/prices/latest"
 echo ""
 echo "🤖 Bot Info:"
-echo "   ID: 8858674032"
+echo "   ID: ${TELEGRAM_BOT_ID:-<set TELEGRAM_BOT_ID>}"
 echo "   Username: @novax_price_bot"
 echo ""
 echo "🔧 Management Commands:"

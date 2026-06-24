@@ -8,6 +8,16 @@ export const MAIN_KEYBOARD = {
   one_time_keyboard: false
 };
 
+export function miniAppKeyboard(env) {
+  const miniAppUrl = env.NOVAX_MINI_APP_URL || env.MINI_APP_URL || "";
+  if (!miniAppUrl) return MAIN_KEYBOARD;
+  return {
+    inline_keyboard: [
+      [{ text: "🌐 داشبورد هوشمند", web_app: { url: miniAppUrl } }],
+    ],
+  };
+}
+
 export const GROWTH_KEYBOARD = {
   inline_keyboard: [
     [

@@ -109,6 +109,9 @@ export default function App() {
     const runtimeOverride = (window as any).NOVAX_API_BASE;
     if (runtimeOverride) return String(runtimeOverride).replace(/\/$/, '');
 
+    const envOverride = import.meta.env.VITE_NOVAX_API_BASE;
+    if (envOverride) return String(envOverride).replace(/\/$/, '');
+
     const currentOrigin = window.location.origin;
     if (!isLocalHost()) return currentOrigin.replace(/\/$/, '');
 
@@ -123,7 +126,7 @@ export default function App() {
 
   /* ── Mappers ── */
   const mapLiveAlert = (item: any): Alert => {
-    const symbol = item.asset_code || item.symbol || item.asset_id;
+    const symbol = item.symbol || item.asset_code || item.asset_id;
     const isCrypto = String(item.target_price_display_unit || '').toUpperCase().includes('USDT') || String(symbol || '').includes('USDT');
     const state = String(item.lifecycle_state || '');
     return {
@@ -145,7 +148,7 @@ export default function App() {
   };
 
   const mapLiveEventToLog = (item: any): AlertLog => {
-    const symbol = item.asset_code || 'UNKNOWN';
+    const symbol = item.symbol || item.asset_code || 'UNKNOWN';
     const assetName = item.asset_name || symbol;
     const status = String(item.status || '').toLowerCase();
     const text = status === 'sent'
@@ -293,7 +296,7 @@ export default function App() {
     try {
       let alertId = '';
       if (useLiveData && tgInitData) {
-        // Live mode: create alert, then confirm it
+        // Live mode: Worker creates confirmed active alerts directly.
         const createRes = await fetch(`${backendBase}/api/v1/alerts`, {
           method: 'POST', headers: liveHeaders(),
           body: JSON.stringify({ asset_code: alertData.symbol, condition_type: alertData.triggerType === 'UPPER' ? 'above' : 'below', target_price: alertData.thresholdPrice, cooldown_minutes: 60 }),
@@ -305,12 +308,6 @@ export default function App() {
         }
         const created = await createRes.json();
         alertId = created.id;
-        // Confirm the alert to activate it
-        const confirmRes = await fetch(`${backendBase}/api/v1/alerts/${alertId}/confirm`, { method: 'POST', headers: liveHeaders() });
-        if (!confirmRes.ok) {
-          console.error('Confirm alert failed:', await confirmRes.text());
-          throw new Error('Confirm failed');
-        }
       } else {
         // Simulation mode
         const res = await fetch('/api/alerts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(alertData) });
@@ -469,7 +466,7 @@ export default function App() {
     { id: 'alerts' as const, icon: Bell, labelFa: 'مرکز هشدارها', labelEn: 'Alert Center' },
     { id: 'chart' as const, icon: Sparkles, labelFa: 'چارت پیشرفته', labelEn: 'Advanced Chart' },
     { id: 'ai' as const, icon: Sparkles, labelFa: 'تحلیل‌گر هوشمند', labelEn: 'AI Analyst' },
-    { id: 'vps' as const, icon: HelpCircle, labelFa: 'مستندات استقرار', labelEn: 'VPS Docs' },
+    { id: 'vps' as const, icon: HelpCircle, labelFa: 'مستندات استقرار', labelEn: 'Deploy Docs' },
   ];
 
   return (

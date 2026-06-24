@@ -1,20 +1,21 @@
 # فهرست مستندات Novax Price Alert
 
-**آخرین بروزرسانی**: 2026-06-14
+**آخرین بروزرسانی**: 2026-06-24
 
 ---
 
 ## 🎯 شروع سریع (توصیه می‌شود)
 
-### اجرای Telegram-Only (بدون VPS)
+### اجرای Cloudflare Worker + Mini-App (بدون VPS)
 
 | سند | شرح | زمان مطالعه |
 |-----|-----|-------------|
+| **[CLOUDFLARE_PAGES_MINI_APP.md](CLOUDFLARE_PAGES_MINI_APP.md)** ⭐ | مسیر فعلی production برای Worker-hosted mini-app | 10 دقیقه |
 | **[TELEGRAM_ONLY_WITHOUT_VPS.md](TELEGRAM_ONLY_WITHOUT_VPS.md)** ⭐ | راهنمای کامل اجرای serverless با Cloudflare Workers | 15 دقیقه |
 | **[TELEGRAM_BOT_EXECUTION_CHECKLIST.md](TELEGRAM_BOT_EXECUTION_CHECKLIST.md)** ✅ | چک‌لیست گام به گام (10 بخش) برای اجرای واقعی | 30 دقیقه |
 | **[PROJECT_DECISION_ANALYSIS.md](PROJECT_DECISION_ANALYSIS.md)** 📊 | تحلیل تصمیم‌گیری و مقایسه با Halo Secret | 10 دقیقه |
 
-**این سه سند جدید (2026-06-14) همه چیز برای اجرای بات بدون VPS را پوشش می‌دهند.**
+**مسیر فعلی production در 2026-06-24: Cloudflare Worker + KV + `/mini-app/`.**
 
 ---
 
@@ -30,6 +31,7 @@
 - [DEPLOYMENT_CHECKLIST.md](../DEPLOYMENT_CHECKLIST.md) - چک‌لیست deployment
 - [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - راهنمای deployment عمومی
 - [DEPLOYMENT_SUMMARY.md](DEPLOYMENT_SUMMARY.md) - خلاصه deployment
+- [CLOUDFLARE_PAGES_MINI_APP.md](CLOUDFLARE_PAGES_MINI_APP.md) - مسیر فعلی Worker-hosted mini-app
 - [IRANIAN_VPS_DEPLOYMENT.md](IRANIAN_VPS_DEPLOYMENT.md) - Deployment روی VPS ایران
 - [IRANIAN_VPS_QUICKSTART.md](IRANIAN_VPS_QUICKSTART.md) - شروع سریع VPS ایران
 - [CLOUDFLARE_RENDER_DEPLOYMENT.md](CLOUDFLARE_RENDER_DEPLOYMENT.md) - Deployment Cloudflare + Render
@@ -251,11 +253,11 @@
 
 1. **شروع با Telegram-Only**: توصیه می‌شود اول با حالت serverless شروع کنید
 2. **چک‌لیست را دنبال کنید**: همه مراحل documented هستند
-3. **مستندات به‌روز است**: آخرین بروزرسانی 2026-06-14
+3. **مستندات به‌روز است**: آخرین بروزرسانی 2026-06-24
 4. **آرشیو را نادیده بگیرید**: فقط برای مرجع تاریخی است
 
 ---
 
 **مستندات Novax Price Alert** - کامل، به‌روز، و آماده استفاده 🚀
 
-*آخرین بروزرسانی: 2026-06-14*
+*آخرین بروزرسانی: 2026-06-24*

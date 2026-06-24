@@ -31,7 +31,7 @@
 2. دستور /newbot را ارسال کنید
 3. نام بات را وارد کنید (مثال: Novax Price Alert)
 4. username بات را وارد کنید (باید به _bot ختم شود، مثال: novax_price_bot)
-5. Bot Token را یادداشت کنید (مثال: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz)
+5. Bot Token را یادداشت کنید (مثال: <telegram-bot-token>)
 ```
 
 **چک‌لیست:**
@@ -165,7 +165,7 @@ cat wrangler.toml
 npx wrangler secret put TELEGRAM_BOT_TOKEN
 
 # وقتی prompt آمد، Bot Token را paste کنید
-# فرمت: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+# فرمت: <telegram-bot-token>
 ```
 
 **چک‌لیست:**

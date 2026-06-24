@@ -110,7 +110,7 @@ sudo apt-get install sshpass rsync
 ### VPS Connection:
 ```bash
 ssh ubuntu@<redacted-vps-host>
-# Password: ArAd@#!23662366
+# Password: <redacted-vps-password>
 ```
 
 ### PM2 Management:

@@ -5,6 +5,9 @@ This Cloudflare Worker is the current production Telegram bot runtime for price 
 - `GET /health`
 - `GET /setup-webhook`
 - `POST /webhook`
+- `GET /api/v1/prices/latest`
+- `GET/POST/PATCH/DELETE /api/v1/alerts*` for the standalone mini-app
+- `GET /mini-app/` for the embedded Telegram WebApp build
 - scheduled cron evaluation of alerts stored in `ALERTS_KV`
 
 Required secrets/bindings:
@@ -14,6 +17,12 @@ Required secrets/bindings:
 - `ALERTS_KV`
 - `SESSIONS_KV`
 - `USERS_KV`
+
+Optional runtime variables:
+
+- `NOVAX_MINI_APP_URL` or `MINI_APP_URL`: enables the Telegram WebApp button in `/start`.
+- `TELEGRAM_AUTH_MAX_AGE_SECONDS`: max age for Telegram WebApp `initData` auth. Defaults to `86400`.
+- `MINI_APP_MANIFEST_CACHE_SECONDS`: static mini-app manifest cache TTL. Defaults to `60`; set `0` to disable during debugging.
 
 ## Current alert flow
 
@@ -70,6 +79,12 @@ Deploy from this directory:
 bash scripts/deploy.sh
 ```
 
+For the full Worker-hosted mini-app path (recommended production path when Pages upload is unstable), run from the repo root. The script builds the mini-app, syncs KV assets idempotently with `sha256` checksums, uploads Worker secrets, deploys, configures Telegram, and verifies production endpoints:
+
+```bash
+deploy/cloudflare-worker/scripts/deploy-miniapp-worker-kv.sh
+```
+
 If a temporary `.env` file was created only for this deploy, ask the script to remove it at exit:
 
 ```bash
@@ -101,4 +116,4 @@ Operational references:
 
 - `docs/OBSERVABILITY.md`
 - `docs/IMPLEMENTATION_ROADMAP_FA.md`
-- `docs/OBSERVABILITY.md`
+- `docs/CLOUDFLARE_PAGES_MINI_APP.md`

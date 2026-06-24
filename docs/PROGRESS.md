@@ -4,6 +4,19 @@
 
 **مرجع اصلی فازبندی و تسک‌ها:** گزارش کامل بهبود پروژه (مسائل ۹گانه، راهکارهای اجرایی، ۵ فاز دقیق، taskهای T-xxx با اولویت P0/P1/P2 + owner + acceptance criteria، sprint plan، KPI، risk register).
 
+## 2026-06-24: Cloudflare Worker-hosted mini-app deployed
+
+- مسیر حذف VPS ایرانی از تجربه مینی‌اپ پیاده‌سازی و روی Cloudflare Worker deploy شد: React mini-app به صورت static روی `/mini-app/` از Worker+KV سرو می‌شود.
+- Worker فعلی APIهای لازم مینی‌اپ را expose می‌کند: latest/history prices و CRUD سبک alerts با `X-Telegram-Init-Data`.
+- احراز Telegram WebApp در Worker با همان قرارداد hash موجود در Python پیاده شد؛ مقدارهای `.env` خوانده/چاپ/commit نشدند.
+- دکمه `web_app` در `/start` فقط وقتی فعال می‌شود که `NOVAX_MINI_APP_URL` یا `MINI_APP_URL` در runtime تنظیم شده باشد.
+- AI در Pages بدون endpoint امن خارجی به صورت safe degraded است تا `GEMINI_API_KEY` وارد مرورگر نشود.
+- به دلیل خطای شبکه در آپلود Pages (`ECONNRESET` روی `/pages/assets/upload`)، fallback عملیاتی اضافه شد: Worker خودش build مینی‌اپ را روی `/mini-app/` سرو می‌کند.
+- دیپلوی production تأیید شد: Worker Version ID `9b9dd5bd-e229-472f-82ae-d83e313bfc37`، `/health`، `/api/v1/prices/latest`، `/mini-app/`، asset مینی‌اپ، `/setup-bot` و Telegram webhook سالم هستند.
+- اسکریپت deploy مینی‌اپ idempotent شد: assetهای بدون تغییر با checksum/`sha256` skip می‌شوند و manifest مینی‌اپ شامل اندازه، content-type و checksum است.
+- سرو static مینی‌اپ از Worker حالا manifest را با TTL کوتاه cache می‌کند و با `MINI_APP_MANIFEST_CACHE_SECONDS=0` برای تست/دیباگ قابل غیرفعال‌سازی است.
+- راهنمای عملیاتی جدید: `docs/CLOUDFLARE_PAGES_MINI_APP.md`.
+
 ## 2026-06-14: Cloudflare bot stabilization; mini-app paused
 
 - تصمیم عملیاتی: مینی‌اپ روی VPS/دامنه ایرانی فعلاً pause شد تا بعد از تهیه VPS خارجی و دامنه خارجی دوباره فعال شود.

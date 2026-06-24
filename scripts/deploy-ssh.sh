@@ -2,7 +2,7 @@
 
 # Simple SSH-based deployment (requires SSH key or manual password)
 # VPS: <redacted-vps-host>
-# Bot ID: 8858674032 (@novax_price_bot)
+# Bot: @novax_price_bot
 
 echo "🚀 Novax Price Alert - SSH Deployment"
 echo "======================================"
@@ -21,7 +21,7 @@ NC='\033[0m'
 echo "📋 Configuration:"
 echo "   VPS: $VPS_USER@$VPS_IP"
 echo "   Domain: $DOMAIN"
-echo "   Bot ID: 8858674032 (@novax_price_bot)"
+echo "   Bot ID: ${TELEGRAM_BOT_ID:-<set TELEGRAM_BOT_ID>} (@novax_price_bot)"
 echo ""
 
 echo "📝 This script uses standard SSH (no sshpass needed)"
@@ -40,7 +40,7 @@ echo ""
 
 # Step 2: Sync files
 echo "📦 Step 2: Syncing files..."
-echo "   You'll be prompted for password (use: ArAd@#!23662366)"
+echo "   You'll be prompted for the VPS password. Do not paste it into docs or git."
 echo ""
 rsync -avz --delete \
     -e "ssh -o StrictHostKeyChecking=no" \

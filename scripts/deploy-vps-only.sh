@@ -2,7 +2,7 @@
 
 # Novax Price Alert - VPS Only Deployment (Simple)
 # Deploys to VPS at <redacted-vps-host> without Cloudflare Worker
-# Bot ID: 8858674032 (@novax_price_bot)
+# Bot: @novax_price_bot
 
 set -e
 
@@ -10,14 +10,14 @@ echo "🚀 Novax Price Alert - VPS Only Deployment"
 echo "============================================"
 echo ""
 echo "🤖 Bot Info:"
-echo "   ID: 8858674032"
+echo "   ID: ${TELEGRAM_BOT_ID:-<set TELEGRAM_BOT_ID>}"
 echo "   Username: @novax_price_bot"
 echo ""
 
 # VPS Configuration
 VPS_IP="<redacted-vps-host>"
 VPS_USER="ubuntu"
-VPS_PASSWORD="ArAd@#!23662366"
+VPS_PASSWORD="${VPS_PASSWORD:?Set VPS_PASSWORD in your shell or .env; never commit it.}"
 VPS_PORT=22
 APP_DIR="/home/deploy/novax-price-alert"
 DOMAIN="novax.alirezasafeidev.ir"
@@ -150,7 +150,7 @@ echo "   https://$DOMAIN"
 echo "   https://$DOMAIN/health"
 echo "   https://$DOMAIN/api/v1/prices/latest"
 echo ""
-echo "🤖 Bot: @novax_price_bot (ID: 8858674032)"
+echo "🤖 Bot: @novax_price_bot (ID: ${TELEGRAM_BOT_ID:-<set TELEGRAM_BOT_ID>})"
 echo ""
 echo "🔧 Commands:"
 echo "   ssh $VPS_USER@$VPS_IP pm2 logs novax-api"

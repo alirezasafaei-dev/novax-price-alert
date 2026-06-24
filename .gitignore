@@ -82,6 +82,7 @@ dist/
 
 # Deployment
 .deploy/
+telegram-bot-miniapp/
 
 # OS
 Thumbs.db
