@@ -89,30 +89,10 @@ export async function handleCallback(env, callbackQuery) {
     return;
   }
 
-  if (data === "menu:lead") {
-    await editMessageText(env, chatId, messageId, `📝 ثبت درخواست
-
-برای ثبت درخواست، این فرمت را بفرست:
-\`/lead برای هشدار قیمت و مشاوره پیام می‌دهم\``, { reply_markup: GROWTH_KEYBOARD, parse_mode: "Markdown" });
-    return;
-  }
-
-  if (data === "menu:contact") {
-    await editMessageText(env, chatId, messageId, `💬 تماس
-
-برای ارتباط سریع:
-\`/contact\`
-
-برای ثبت مستقیم درخواست:
-\`/lead متن درخواست\``, { reply_markup: GROWTH_KEYBOARD, parse_mode: "Markdown" });
-    return;
-  }
-
   if (data === "faq:pricing") {
     await editMessageText(env, chatId, messageId, `💸 درباره قیمت
 
-هزینه نهایی بسته به تعداد هشدارها، نوع بازار و نیاز عملیاتی شما مشخص می‌شود.
-برای استعلام، یک پیام با \`/lead\` بفرست.`, { reply_markup: FAQ_KEYBOARD, parse_mode: "Markdown" });
+در نسخه فعلی می‌توانی قیمت‌های لحظه‌ای را ببینی و هشدارهای قیمت را از داخل بات یا داشبورد هوشمند تنظیم کنی.`, { reply_markup: FAQ_KEYBOARD, parse_mode: "Markdown" });
     return;
   }
 

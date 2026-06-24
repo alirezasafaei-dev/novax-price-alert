@@ -17,6 +17,15 @@
 - سرو static مینی‌اپ از Worker حالا manifest را با TTL کوتاه cache می‌کند و با `MINI_APP_MANIFEST_CACHE_SECONDS=0` برای تست/دیباگ قابل غیرفعال‌سازی است.
 - راهنمای عملیاتی جدید: `docs/CLOUDFLARE_PAGES_MINI_APP.md`.
 
+## 2026-06-24: Telegram menu and mini-app loading polish
+
+- منوی reply بات ساده‌تر شد: `🌐 داشبورد هوشمند` به منوی اصلی اضافه شد و دکمه‌های `📝 ثبت درخواست` و `💬 تماس` از منوی کاربر حذف شدند.
+- دکمه داشبورد، وقتی `NOVAX_MINI_APP_URL` یا `MINI_APP_URL` تنظیم باشد، یک inline `web_app` button با آدرس مینی‌اپ ارسال می‌کند.
+- دستورهای BotFather در `/setup-bot` با منوی فعلی هم‌راستا شدند و `/contact` و `/lead` دیگر advertise نمی‌شوند.
+- متن راهنما و FAQ دیگر کاربر را به مسیر ثبت درخواست/تماس هدایت نمی‌کند و روی قیمت‌ها، هشدارها و داشبورد هوشمند متمرکز است.
+- loading مینی‌اپ اصلاح شد: overlay فقط برای بارگذاری اولیه/Retry دستی می‌آید، polling قیمت‌ها background است، history throttled شده و fetchهای همزمان جلوگیری می‌شوند.
+- تست Worker برای وجود دکمه داشبورد، حذف دکمه‌های ثبت درخواست/تماس و ساخت inline `web_app` button اضافه شد.
+
 ## 2026-06-14: Cloudflare bot stabilization; mini-app paused
 
 - تصمیم عملیاتی: مینی‌اپ روی VPS/دامنه ایرانی فعلاً pause شد تا بعد از تهیه VPS خارجی و دامنه خارجی دوباره فعال شود.

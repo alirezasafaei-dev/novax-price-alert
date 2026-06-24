@@ -1,8 +1,8 @@
 export const MAIN_KEYBOARD = {
   keyboard: [
     ["💰 قیمت‌ها", "🔔 تنظیم هشدار"],
-    ["📋 هشدارهای من", "📝 ثبت درخواست"],
-    ["❓ راهنما", "💬 تماس"]
+    ["📋 هشدارهای من", "🌐 داشبورد هوشمند"],
+    ["❓ راهنما"]
   ],
   resize_keyboard: true,
   one_time_keyboard: false
@@ -22,10 +22,6 @@ export const GROWTH_KEYBOARD = {
   inline_keyboard: [
     [
       { text: "❓ سوالات پرتکرار", callback_data: "menu:faq" },
-      { text: "📝 ثبت درخواست", callback_data: "menu:lead" }
-    ],
-    [
-      { text: "💬 تماس", callback_data: "menu:contact" },
       { text: "🔙 منوی اصلی", callback_data: "menu:main" }
     ]
   ]

@@ -93,9 +93,17 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [portfolioDraft, setPortfolioDraft] = useState<PortfolioDraft>({ symbol: '', amount: '' });
+  const assetsRef = useRef<Asset[]>([]);
+  const hasLoadedOnce = useRef(false);
+  const isFetchingRef = useRef(false);
+  const lastHistoryFetchRef = useRef(0);
   const prevLogLen = useRef(0);
 
   const isFa = language === 'fa';
+
+  useEffect(() => {
+    assetsRef.current = assets;
+  }, [assets]);
 
   /* ── Toast helper ── */
   const showToast = useCallback((text: string, type: Toast['type'] = 'info') => {
@@ -160,9 +168,14 @@ export default function App() {
   };
 
   /* ── Fetch all data ── */
-  const fetchAllData = async () => {
+  const fetchAllData = async (options: { showOverlay?: boolean; refreshHistory?: boolean } = {}) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    const showOverlay = options.showOverlay ?? !hasLoadedOnce.current;
+    const now = Date.now();
+    const shouldRefreshHistory = options.refreshHistory ?? (!hasLoadedOnce.current || now - lastHistoryFetchRef.current > 60_000);
     try {
-      setIsLoading(true);
+      if (showOverlay) setIsLoading(true);
       let priceData: any[] = [];
       if (useLiveData) {
         const pRes = await fetch(`${backendBase}/api/v1/prices/latest`);
@@ -184,23 +197,35 @@ export default function App() {
               history: [rawPrice],
             };
           });
-          const historyResponses = await Promise.all(
-            priceData.map(async (asset) => {
-              try {
-                const range = asset.type === 'crypto' ? '7d' : '30d';
-                const response = await fetch(`${backendBase}/api/v1/prices/history?asset_code=${encodeURIComponent(asset.symbol)}&limit=24&range=${range}`);
-                if (!response.ok) return [asset.symbol, null] as const;
-                const payload = await response.json();
-                const history = (payload.items || []).slice().sort((a: any, b: any) => new Date(a.observed_at).getTime() - new Date(b.observed_at).getTime());
-                return [asset.symbol, history] as const;
-              } catch {
-                return [asset.symbol, null] as const;
-              }
-            }),
-          );
-          const historyMap = new Map(historyResponses);
+          const existingHistoryMap = new Map(assetsRef.current.map((asset) => [asset.symbol, asset.history]));
+          const historyMap = new Map<string, any[] | null>();
+          if (shouldRefreshHistory) {
+            const historyResponses = await Promise.all(
+              priceData.map(async (asset) => {
+                try {
+                  const range = asset.type === 'crypto' ? '7d' : '30d';
+                  const response = await fetch(`${backendBase}/api/v1/prices/history?asset_code=${encodeURIComponent(asset.symbol)}&limit=24&range=${range}`);
+                  if (!response.ok) return [asset.symbol, null] as const;
+                  const payload = await response.json();
+                  const history = (payload.items || []).slice().sort((a: any, b: any) => new Date(a.observed_at).getTime() - new Date(b.observed_at).getTime());
+                  return [asset.symbol, history] as const;
+                } catch {
+                  return [asset.symbol, null] as const;
+                }
+              }),
+            );
+            for (const [symbol, history] of historyResponses) historyMap.set(symbol, history);
+            lastHistoryFetchRef.current = now;
+          }
           priceData = priceData.map((asset) => {
             const historyItems = historyMap.get(asset.symbol);
+            const existingHistory = existingHistoryMap.get(asset.symbol);
+            if (!historyItems && existingHistory?.length) {
+              return {
+                ...asset,
+                history: [...existingHistory.slice(-23), asset.price],
+              };
+            }
             if (!historyItems || historyItems.length === 0) {
               const base = asset.price;
               const variance = base * 0.008;
@@ -219,7 +244,10 @@ export default function App() {
         const pRes = await fetch('/api/prices');
         if (pRes.ok) priceData = await pRes.json();
       }
-      if (priceData.length > 0) setAssets(priceData);
+      if (priceData.length > 0) {
+        assetsRef.current = priceData;
+        setAssets(priceData);
+      }
 
       if (useLiveData && tgInitData) {
         const aRes = await fetch(`${backendBase}/api/v1/alerts`, { headers: liveHeaders() });
@@ -256,11 +284,13 @@ export default function App() {
         setAlertLogs([]);
       }
       setIsOnline(true);
+      hasLoadedOnce.current = true;
     } catch (e) {
       setIsOnline(false);
       console.warn('Network sync warning:', e);
     } finally {
-      setIsLoading(false);
+      if (showOverlay) setIsLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
@@ -275,9 +305,17 @@ export default function App() {
         tg.expand?.();
       }
     } catch { /* not in TG */ }
-    fetchAllData();
-    const timer = setInterval(fetchAllData, 4000);
-    return () => clearInterval(timer);
+    fetchAllData({ showOverlay: !hasLoadedOnce.current, refreshHistory: false });
+    const historyTimer = setTimeout(() => fetchAllData({ showOverlay: false, refreshHistory: true }), 1500);
+    const historyRetryTimer = setTimeout(() => {
+      if (!lastHistoryFetchRef.current) fetchAllData({ showOverlay: false, refreshHistory: true });
+    }, 5000);
+    const timer = setInterval(() => fetchAllData({ showOverlay: false }), 15000);
+    return () => {
+      clearTimeout(historyTimer);
+      clearTimeout(historyRetryTimer);
+      clearInterval(timer);
+    };
   }, [useLiveData, tgInitData]);
 
   useEffect(() => { setMobileMenuOpen(false); }, [activeTab]);
@@ -287,9 +325,9 @@ export default function App() {
       showToast(isFa ? 'برای هشدارهای واقعی، این مینی‌اپ را از داخل بات تلگرام باز کنید.' : 'Open this mini app from Telegram bot to use real alert APIs.', 'info');
     }
     setUseLiveData(p => !p);
-    setTimeout(() => fetchAllData(), 10);
+    setTimeout(() => fetchAllData({ showOverlay: true, refreshHistory: true }), 10);
   };
-  const handleRetryConnection = () => { fetchAllData(); };
+  const handleRetryConnection = () => { fetchAllData({ showOverlay: true, refreshHistory: true }); };
 
   /* ── Handlers ── */
   const handleAddAlert = async (alertData: { symbol: string; triggerType: 'UPPER' | 'LOWER'; thresholdPrice: number; label: string; telegramUsername: string }) => {
@@ -313,7 +351,7 @@ export default function App() {
         const res = await fetch('/api/alerts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(alertData) });
         if (!res.ok) throw new Error('Create failed');
       }
-      fetchAllData();
+      fetchAllData({ showOverlay: false, refreshHistory: true });
       setActiveTab('alerts');
       showToast(isFa ? 'هشدار جدید با موفقیت ایجاد شد ✓' : 'New alert created successfully ✓', 'success');
     } catch (e) {
@@ -337,7 +375,7 @@ export default function App() {
         ? await fetch(`${backendBase}/api/v1/alerts/${id}`, { method: 'DELETE', headers: liveHeaders() })
         : await fetch(`/api/alerts/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        fetchAllData();
+        fetchAllData({ showOverlay: false, refreshHistory: true });
         showToast(isFa ? 'هشدار با موفقیت حذف شد' : 'Alert deleted successfully', 'info');
       } else {
         throw new Error('Delete failed');
@@ -362,7 +400,7 @@ export default function App() {
         ? await fetch(`${backendBase}/api/v1/alerts/${id}`, { method: 'PATCH', headers: liveHeaders(), body: JSON.stringify({ is_active: !current.isActive }) })
         : await fetch(`/api/alerts/${id}/toggle`, { method: 'PUT' });
       if (res.ok) {
-        fetchAllData();
+        fetchAllData({ showOverlay: false });
         showToast(isFa ? 'وضعیت هشدار با موفقیت تغییر کرد' : 'Alert status updated successfully', 'info');
       } else {
         throw new Error('Toggle failed');
@@ -381,7 +419,7 @@ export default function App() {
       showToast(isFa ? 'خطا در ویرایش هشدار' : 'Failed to edit alert', 'error');
       throw new Error('Edit failed');
     }
-    fetchAllData();
+    fetchAllData({ showOverlay: false, refreshHistory: true });
     showToast(isFa ? 'هشدار ویرایش شد' : 'Alert updated', 'info');
   };
 
@@ -430,7 +468,7 @@ export default function App() {
   const persistPortfolio = (next: Record<string, number>) => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem('novax_portfolio', JSON.stringify(next));
-    fetchAllData();
+    fetchAllData({ showOverlay: false, refreshHistory: true });
   };
   const addPortfolioItem = () => {
     const symbol = portfolioDraft.symbol.trim().toUpperCase();

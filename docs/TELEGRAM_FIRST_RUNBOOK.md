@@ -3,7 +3,7 @@
 ## Goal
 
 - Keep `novax-price-alert` live through the Cloudflare Worker runtime.
-- Preserve the alert engine while adding lightweight growth and lead-capture flows inside Telegram.
+- Preserve the alert engine and keep the Telegram mini-app dashboard directly reachable from the bot menu.
 
 ## Live Endpoints
 
@@ -23,8 +23,6 @@ Current production worker:
 - `/help`
 - `/prices`
 - `/faq`
-- `/contact`
-- `/lead <message>`
 
 ## Alert Flow
 
@@ -35,11 +33,11 @@ Current production worker:
   - cron evaluation
   - Telegram delivery
 
-## Lead Handling
+## Dashboard Handling
 
-- User leads are accepted through `/lead <message>`.
-- If `OPS_CHAT_ID` is configured as a Worker secret, the lead is forwarded to the operator chat.
-- If `OPS_CHAT_ID` is missing, the user still gets a successful confirmation message.
+- The reply keyboard includes `🌐 داشبورد هوشمند`.
+- The dashboard button sends an inline Telegram `web_app` button when `NOVAX_MINI_APP_URL` or `MINI_APP_URL` is configured.
+- `📝 ثبت درخواست` and `💬 تماس` are intentionally not exposed in the user menu.
 
 ## Standard Rollout
 
@@ -54,4 +52,4 @@ curl -fsS https://novax-telegram-relay.asdevelooper.workers.dev/health
 
 - Keep both projects Cloudflare-first and Telegram-first.
 - Standardize CTA flow as:
-  `start -> help/status -> faq/contact -> lead`
+  `start -> help/status -> faq -> smart dashboard`

@@ -24,6 +24,7 @@ class MockKV extends Map {
 const mockEnv = {
   TELEGRAM_BOT_TOKEN: "test_token",
   TELEGRAM_SECRET_TOKEN: "test_secret",
+  NOVAX_MINI_APP_URL: "https://worker.example/mini-app/",
   ALERTS_KV: new MockKV(),
   SESSIONS_KV: new MockKV(),
   USERS_KV: new MockKV(),
@@ -166,9 +167,21 @@ function allText() {
 sent = [];
 let res = await sendMessageUpdate("/start");
 assert.equal(res.status, 200);
-assert.ok(lastText().includes("نواکس"), "/start should send the welcome text");
+assert.ok(allText().includes("نواکس"), "/start should send the welcome text");
 const startMsg = sent.find((s) => s.method === "sendMessage" && s.reply_markup);
 assert.ok(startMsg?.reply_markup?.keyboard, "/start should attach the main reply keyboard");
+const mainKeyboardButtons = startMsg.reply_markup.keyboard.flat();
+assert.ok(mainKeyboardButtons.includes("🌐 داشبورد هوشمند"), "main keyboard should include smart dashboard");
+assert.equal(mainKeyboardButtons.includes("📝 ثبت درخواست"), false, "main keyboard should not include lead request");
+assert.equal(mainKeyboardButtons.includes("💬 تماس"), false, "main keyboard should not include contact");
+
+// 1b) Smart dashboard reply-menu button opens the Telegram Web App inline button
+sent = [];
+await sendMessageUpdate("🌐 داشبورد هوشمند");
+const miniAppMsg = sent.find((s) => s.reply_markup?.inline_keyboard?.flat?.().some((b) => b.web_app?.url));
+const miniAppButton = miniAppMsg?.reply_markup.inline_keyboard.flat().find((b) => b.web_app?.url);
+assert.equal(miniAppButton?.text, "🌐 داشبورد هوشمند", "dashboard inline button should be labeled correctly");
+assert.equal(miniAppButton?.web_app?.url, mockEnv.NOVAX_MINI_APP_URL, "dashboard inline button should use configured mini app URL");
 
 // 2) Crypto prices come from Binance and show BTC/ETH/SOL/BNB in USDT
 sent = [];

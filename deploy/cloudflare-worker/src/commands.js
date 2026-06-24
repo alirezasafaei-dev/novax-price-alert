@@ -50,13 +50,22 @@ export async function handleHelp(env, chatId) {
 
 📋 هشدارهای من: مشاهده، ویرایش، توقف/ادامه، تکرار و حذف هشدارها با دکمه‌های داخل هر کارت
 
-💬 ارتباط: /contact
 ❓ سوالات پرتکرار: /faq
-📝 ثبت درخواست: /lead <متن>
+🌐 داشبورد هوشمند: باز کردن مینی‌اپ داخل تلگرام
 
 هشدارها هر ۱۰ دقیقه بررسی می‌شوند و هر هشدار فقط یک بار ارسال می‌شود.`;
   
   await sendMessage(env, chatId, text, { reply_markup: MAIN_KEYBOARD });
+}
+
+export async function handleMiniAppMenu(env, chatId) {
+  if (env.NOVAX_MINI_APP_URL || env.MINI_APP_URL) {
+    await sendMessage(env, chatId, "🌐 داشبورد هوشمند نواکس را از دکمه زیر باز کن:", {
+      reply_markup: miniAppKeyboard(env),
+    });
+    return;
+  }
+  await sendMessage(env, chatId, "فعلاً آدرس داشبورد هوشمند روی Worker تنظیم نشده است.", { reply_markup: MAIN_KEYBOARD });
 }
 
 export async function handleFaq(env, chatId) {
@@ -77,9 +86,9 @@ export async function handleContact(env, chatId) {
 }
 
 export async function handleGrowthMenu(env, chatId) {
-  const text = `🚀 خدمات و پیگیری
+  const text = `❓ راهنما و سوالات پرتکرار
 
-از این بخش می‌توانی سوالات پرتکرار را ببینی یا درخواستت را ثبت کنی.`;
+از این بخش می‌توانی سوالات پرتکرار را ببینی.`;
   await sendMessage(env, chatId, text, { reply_markup: GROWTH_KEYBOARD });
 }
 

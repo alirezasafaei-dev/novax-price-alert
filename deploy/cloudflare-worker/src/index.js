@@ -1,5 +1,5 @@
 import { FLOW_STATES } from "./alert-flow.js";
-import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage, handleFaq, handleContact, handleGrowthMenu } from "./commands.js";
+import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage, handleFaq, handleContact, handleGrowthMenu, handleMiniAppMenu } from "./commands.js";
 import { handleCallback, handleTextInSession } from "./callbacks.js";
 import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession } from "./sessions.js";
 import { runCronJob } from "./cron.js";
@@ -94,8 +94,6 @@ export default {
               { command: "help", description: "راهنما" },
               { command: "prices", description: "قیمت‌های لحظه‌ای" },
               { command: "faq", description: "سوالات پرتکرار" },
-              { command: "contact", description: "ارتباط و ثبت درخواست" },
-              { command: "lead", description: "ثبت درخواست" },
             ],
           }),
         }),
@@ -196,13 +194,8 @@ export default {
         return Response.json({ ok: true });
       }
 
-      if (text === "📝 ثبت درخواست") {
-        await handleGrowthMenu(env, chatId);
-        return Response.json({ ok: true });
-      }
-
-      if (text === "💬 تماس") {
-        await handleContact(env, chatId);
+      if (text === "🌐 داشبورد هوشمند") {
+        await handleMiniAppMenu(env, chatId);
         return Response.json({ ok: true });
       }
       
