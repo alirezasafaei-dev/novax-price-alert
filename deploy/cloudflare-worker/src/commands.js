@@ -75,16 +75,6 @@ export async function handleFaq(env, chatId) {
   await sendMessage(env, chatId, text, { reply_markup: FAQ_KEYBOARD });
 }
 
-export async function handleContact(env, chatId) {
-  const text = `💬 ارتباط و ثبت درخواست
-
-برای ثبت سریع درخواست، این دستور را بفرست:
-\`/lead می‌خواهم درباره هشدار قیمت مشاوره بگیرم\`
-
-اگر \`OPS_CHAT_ID\` تنظیم شده باشد، پیام تو برای ادمین هم ارسال می‌شود.`;
-  await sendMessage(env, chatId, text, { reply_markup: GROWTH_KEYBOARD, parse_mode: "Markdown" });
-}
-
 export async function handleGrowthMenu(env, chatId) {
   const text = `❓ راهنما و سوالات پرتکرار
 

@@ -1,5 +1,5 @@
 import { FLOW_STATES } from "./alert-flow.js";
-import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage, handleFaq, handleContact, handleGrowthMenu, handleMiniAppMenu } from "./commands.js";
+import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage, handleFaq, handleGrowthMenu, handleMiniAppMenu } from "./commands.js";
 import { handleCallback, handleTextInSession } from "./callbacks.js";
 import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession } from "./sessions.js";
 import { runCronJob } from "./cron.js";
@@ -154,29 +154,6 @@ export default {
         return Response.json({ ok: true });
       }
 
-      if (text.startsWith("/contact")) {
-        await handleContact(env, chatId);
-        return Response.json({ ok: true });
-      }
-
-      if (text.startsWith("/lead ")) {
-        const leadText = text.replace(/^\/lead\s+/u, "").trim();
-        await sendMessage(env, chatId, "✅ درخواستت ثبت شد. اگر مسیر ادمین تنظیم شده باشد، برای پیگیری هم ارسال می‌شود.", { reply_markup: MAIN_KEYBOARD });
-        if (env.OPS_CHAT_ID) {
-          const forwarded = [
-            "لید جدید از نواکس",
-            "",
-            `نام: ${message.from?.first_name || "-"} ${message.from?.last_name || ""}`.trim(),
-            `یوزرنیم: ${message.from?.username ? "@" + message.from.username : "-"}`,
-            `آیدی تلگرام: ${message.from?.id || "-"}`,
-            "",
-            `متن درخواست: ${leadText}`,
-          ].join("\n");
-          await sendMessage(env, env.OPS_CHAT_ID, forwarded);
-        }
-        return Response.json({ ok: true });
-      }
-      
       if (text === "💰 قیمت‌ها") {
         await clearSession(env, chatId);
         await handlePricesMenu(env, chatId);
