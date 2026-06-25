@@ -105,9 +105,9 @@ ADR `docs/adr/0002-cron-heartbeat-monitor-placement.md`.
   `cron:last_run` to KV (`{ts, checked, triggered}`), via
   `recordCronHeartbeat()` in `deploy/cloudflare-worker/src/heartbeat.js`.
 - **`GET /status`:** returns `status` (`ok` | `stale` | `unknown`),
-  `age_seconds`, `last_cron_run`, `expected_interval_seconds` (600), and
+  `age_seconds`, `last_cron_run`, `expected_interval_seconds` (60), and
   `stale_after_seconds`. Returns HTTP **`503`** when stale (default: > 3 missed
-  ticks = 30 min) so even a dumb HTTP checker can alert on status code alone.
+  ticks = 3 min) so even a dumb HTTP checker can alert on status code alone.
 
   ```bash
   curl -s https://novax-telegram-relay.asdevelooper.workers.dev/status
@@ -116,7 +116,7 @@ ADR `docs/adr/0002-cron-heartbeat-monitor-placement.md`.
 
 - **External monitor:** `deploy/monitoring/cron_heartbeat_monitor.sh` polls
   `/status` and alerts the Telegram ops group if the Worker is unreachable or the
-  heartbeat is stale. It runs on **GitHub Actions** every 15 minutes
+  heartbeat is stale. It runs on **GitHub Actions** every 5 minutes
   (`.github/workflows/cron-heartbeat-monitor.yml`). Required repo secrets:
   `OPS_BOT_TOKEN`, `OPS_CHAT_ID`.
 - **Healthy = silent.** The monitor only messages on failure; a green run with no

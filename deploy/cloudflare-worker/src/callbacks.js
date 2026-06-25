@@ -107,7 +107,8 @@ export async function handleCallback(env, callbackQuery) {
   if (data === "faq:how") {
     await editMessageText(env, chatId, messageId, `⚙️ نحوه کار
 
-نواکس روی Cloudflare Worker اجرا می‌شود، قیمت‌ها را از providerها می‌گیرد و هشدارها را هر ۱۰ دقیقه بررسی می‌کند.`, { reply_markup: FAQ_KEYBOARD });
+نواکس روی Cloudflare Worker اجرا می‌شود، قیمت‌ها را از providerها می‌گیرد و cron را هر دقیقه اجرا می‌کند.
+هشدارهای رایگان هر ۱۰ دقیقه و هشدارهای Pro هر ۱ دقیقه بررسی می‌شوند.`, { reply_markup: FAQ_KEYBOARD });
     return;
   }
 
@@ -293,7 +294,13 @@ export async function handleCallback(env, callbackQuery) {
       return;
     }
     const enabled = !alert.repeat_every_minutes;
-    const updated = await setAlertRepeat(env, chatId, alertId, enabled ? 60 : null);
+    let updated;
+    try {
+      updated = await setAlertRepeat(env, chatId, alertId, enabled ? 60 : null);
+    } catch (error) {
+      await editMessageText(env, chatId, messageId, String(error?.message || error));
+      return;
+    }
     await renderManagedAlertCard(env, chatId, messageId, updated, "❌ هشدار پیدا نشد.");
     return;
   }

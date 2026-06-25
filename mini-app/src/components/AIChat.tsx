@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChatMessage, Asset } from '../types';
 import { Send, Sparkles, Bot, User, Cpu } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 
 interface AIChatProps {
   assets: Asset[];

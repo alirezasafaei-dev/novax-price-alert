@@ -1,5 +1,7 @@
 import assert from "node:assert";
 import crypto from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { Miniflare } from "miniflare";
 import worker from "../src/index.js";
 
 class MockKV extends Map {
@@ -33,9 +35,21 @@ function signedInitData(botToken, payload) {
   return params.toString();
 }
 
+const mf = new Miniflare({
+  modules: true,
+  script: "export default { fetch() { return new Response('ok') } }",
+  d1Databases: ["DB"],
+});
+const DB = await mf.getD1Database("DB");
+const migration = await readFile(new URL("../migrations/0001_product_core.sql", import.meta.url), "utf8");
+for (const statement of migration.split(";").map((part) => part.trim()).filter(Boolean)) {
+  await DB.prepare(statement).run();
+}
+
 const env = {
   TELEGRAM_BOT_TOKEN: "123:test",
   TELEGRAM_SECRET_TOKEN: "test_secret",
+  DB,
   ALERTS_KV: new MockKV(),
   SESSIONS_KV: new MockKV(),
   USERS_KV: new MockKV(),
@@ -61,6 +75,7 @@ global.fetch = async (url) => {
       current: {
         price_dollar_rl: { p: "1,700,000" },
         price_eur: { p: "1,850,000" },
+        "crypto-tether-irr": { p: "1,710,000" },
         geram18: { p: "35,000,000" },
         sekee: { p: "400,000,000" },
       },
@@ -80,6 +95,18 @@ assert.equal(response.status, 200);
 let payload = await response.json();
 assert.ok(payload.items.find((item) => item.asset_code === "BTC_USDT"));
 assert.ok(payload.items.find((item) => item.asset_code === "USD_IRT"));
+assert.ok(payload.items.find((item) => item.asset_code === "USDT_IRT"));
+
+response = await worker.fetch(
+  new Request("https://worker.example/api/v1/subscription", {
+    headers: { "X-Telegram-Init-Data": initData },
+  }),
+  env,
+  ctx,
+);
+payload = await response.json();
+assert.equal(payload.plan, "free");
+assert.equal(payload.alert_limit, 3);
 
 response = await worker.fetch(new Request("https://worker.example/api/v1/alerts"), env, ctx);
 assert.equal(response.status, 401);
@@ -145,3 +172,16 @@ response = await worker.fetch(
 );
 assert.equal(response.status, 200);
 assert.deepEqual(await response.json(), { success: true });
+
+await worker.scheduled({}, env, ctx);
+response = await worker.fetch(
+  new Request("https://worker.example/api/v1/prices/history?asset_code=USDT_IRT&range=1d"),
+  env,
+  ctx,
+);
+payload = await response.json();
+assert.equal(payload.data_status, "real");
+assert.ok(payload.items.length >= 1);
+assert.ok(payload.items.every((item) => item.asset_code === "USDT_IRT"));
+
+await mf.dispose();

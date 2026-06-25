@@ -163,6 +163,32 @@ function allText() {
     .join("\n---\n");
 }
 
+// Security: setup endpoints are POST-only and require an explicit setup secret.
+let setupResponse = await worker.default.fetch(
+  new Request("https://bot.example/setup-bot"),
+  mockEnv,
+  ctx,
+);
+assert.equal(setupResponse.status, 404);
+setupResponse = await worker.default.fetch(
+  new Request("https://bot.example/setup-bot", { method: "POST" }),
+  mockEnv,
+  ctx,
+);
+assert.equal(setupResponse.status, 401);
+
+// Security: production webhook must not accept requests without a configured secret.
+const noSecretEnv = { ...mockEnv, TELEGRAM_SECRET_TOKEN: "" };
+const noSecretWebhook = await worker.default.fetch(
+  new Request("https://bot.example/webhook", {
+    method: "POST",
+    body: JSON.stringify({ update_id: 99999 }),
+  }),
+  noSecretEnv,
+  ctx,
+);
+assert.equal(noSecretWebhook.status, 503);
+
 // 1) /start registers user and shows the main keyboard
 sent = [];
 let res = await sendMessageUpdate("/start");

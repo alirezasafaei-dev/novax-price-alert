@@ -3,6 +3,21 @@ import { getAssetByCanonicalId, getAssetByMarketSymbol } from "./asset-catalog.j
 import { formatPrice, unitForMarket } from "./prices.js";
 import { logEvent } from "./log.js";
 import { recordMetric } from "./metrics.js";
+import {
+  advanceAlertCheckDb,
+  claimAlertDb,
+  deleteAlertDb,
+  getAlertDb,
+  hasProductDb,
+  insertAlert,
+  listDueAlertsDb,
+  listUserAlertsDb,
+  markDeliveredDb,
+  markDeliveryFailedDb,
+  setAlertRepeatDb,
+  setAlertStateDb,
+  updateAlertTargetDb,
+} from "./product-db.js";
 
 // Bounded retry policy for notification delivery (mirrors the backend retry
 // contract in docs/ALERT_HARDENING_CONTRACTS.md: 3 attempts with backoff).
@@ -11,6 +26,7 @@ export const RETRY_BACKOFF_MS = 60 * 1000;
 export const MAX_ALERTS_PER_USER = 10;
 
 export async function getUserAlerts(env, chatId) {
+  if (hasProductDb(env)) return listUserAlertsDb(env, chatId);
   const key = `alerts:user:${chatId}`;
   const data = await env.ALERTS_KV.get(key, "json");
   return data || [];
@@ -22,6 +38,22 @@ export async function saveUserAlerts(env, chatId, alerts) {
 }
 
 export async function createAlert(env, chatId, alertData) {
+  if (hasProductDb(env)) {
+    const alertId = alertData.id || crypto.randomUUID().split("-")[0];
+    const created = await insertAlert(env, chatId, alertData, alertId);
+    logEvent("alert_activated", {
+      alert_id: created.id,
+      user_id: String(chatId),
+      canonical_asset_id: created.canonical_asset_id,
+      plan: created.plan_snapshot,
+    });
+    recordMetric(env, "alert_created", {
+      market: created.market,
+      asset: created.canonical_asset_id,
+      plan: created.plan_snapshot,
+    });
+    return created;
+  }
   const alerts = await getUserAlerts(env, chatId);
   const manageableStates = new Set([
     ALERT_LIFECYCLE.ACTIVE,
@@ -83,6 +115,11 @@ export async function createAlert(env, chatId, alertData) {
 }
 
 export async function deleteAlert(env, chatId, alertId) {
+  if (hasProductDb(env)) {
+    const deleted = await deleteAlertDb(env, chatId, alertId);
+    if (deleted) logEvent("alert_cancelled", { alert_id: alertId, user_id: String(chatId) });
+    return deleted;
+  }
   const alerts = await getUserAlerts(env, chatId);
   const filtered = alerts.filter((a) => a.id !== alertId);
   await saveUserAlerts(env, chatId, filtered);
@@ -93,6 +130,7 @@ export async function deleteAlert(env, chatId, alertId) {
 }
 
 export async function getAllActiveAlerts(env) {
+  if (hasProductDb(env)) return listDueAlertsDb(env);
   const list = await env.ALERTS_KV.list({ prefix: "alerts:user:" });
   const allAlerts = [];
   const now = Date.now();
@@ -120,10 +158,19 @@ export async function getAllActiveAlerts(env) {
 // notification_sent guard could double-send. Each one-shot alert has a single
 // logical trigger over its lifetime, keyed by its condition.
 export function buildTriggerEventId(alert) {
+  if (alert.repeat_every_minutes) {
+    const cycle = alert.next_trigger_at || alert.created_at || "initial";
+    return `alert:${alert.id}:repeat:${cycle}`;
+  }
   return `alert:${alert.id}:${alert.operator}:${alert.target}`;
 }
 
-export async function claimAlertForDelivery(env, chatId, alertId, eventId) {
+export async function claimAlertForDelivery(env, chatId, alertId, eventId, currentPrice = null) {
+  if (hasProductDb(env)) {
+    const alert = await getAlertDb(env, chatId, alertId);
+    if (!alert) return null;
+    return claimAlertDb(env, alert, eventId, currentPrice);
+  }
   const alerts = await getUserAlerts(env, chatId);
   const alert = alerts.find((a) => a.id === alertId);
   if (!alert || !alert.enabled || alert.triggered_at) return null;
@@ -142,7 +189,12 @@ export async function claimAlertForDelivery(env, chatId, alertId, eventId) {
   return alert;
 }
 
-export async function markAlertDelivered(env, chatId, alertId, eventId) {
+export async function markAlertDelivered(env, chatId, alertId, eventId, telegramMessageId = null) {
+  if (hasProductDb(env)) {
+    const alert = await getAlertDb(env, chatId, alertId);
+    if (alert) await markDeliveredDb(env, alert, eventId, telegramMessageId);
+    return;
+  }
   const alerts = await getUserAlerts(env, chatId);
   const alert = alerts.find((a) => a.id === alertId);
   if (alert && alert.trigger_event_id === eventId) {
@@ -163,6 +215,11 @@ export async function markAlertDelivered(env, chatId, alertId, eventId) {
 }
 
 export async function markAlertDeliveryFailed(env, chatId, alertId, eventId, error) {
+  if (hasProductDb(env)) {
+    const alert = await getAlertDb(env, chatId, alertId);
+    if (!alert) return { retryable: false };
+    return markDeliveryFailedDb(env, alert, eventId, error?.message || error);
+  }
   const alerts = await getUserAlerts(env, chatId);
   const alert = alerts.find((a) => a.id === alertId);
   if (!alert || alert.trigger_event_id !== eventId) return { retryable: false };
@@ -191,6 +248,7 @@ export async function markAlertDeliveryFailed(env, chatId, alertId, eventId, err
 }
 
 export async function pauseAlert(env, chatId, alertId) {
+  if (hasProductDb(env)) return setAlertStateDb(env, chatId, alertId, ALERT_LIFECYCLE.ACTIVE, ALERT_LIFECYCLE.PAUSED);
   const alerts = await getUserAlerts(env, chatId);
   const alert = alerts.find((a) => a.id === alertId);
   if (!alert || alert.lifecycle_state !== ALERT_LIFECYCLE.ACTIVE) return null;
@@ -202,6 +260,7 @@ export async function pauseAlert(env, chatId, alertId) {
 }
 
 export async function resumeAlert(env, chatId, alertId) {
+  if (hasProductDb(env)) return setAlertStateDb(env, chatId, alertId, ALERT_LIFECYCLE.PAUSED, ALERT_LIFECYCLE.ACTIVE);
   const alerts = await getUserAlerts(env, chatId);
   const alert = alerts.find((a) => a.id === alertId);
   if (!alert || alert.lifecycle_state !== ALERT_LIFECYCLE.PAUSED) return null;
@@ -213,6 +272,7 @@ export async function resumeAlert(env, chatId, alertId) {
 }
 
 export async function updateAlertTarget(env, chatId, alertId, target, unit) {
+  if (hasProductDb(env)) return updateAlertTargetDb(env, chatId, alertId, target, unit);
   const alerts = await getUserAlerts(env, chatId);
   const alert = alerts.find((a) => a.id === alertId);
   if (!alert) return null;
@@ -227,6 +287,7 @@ export async function updateAlertTarget(env, chatId, alertId, target, unit) {
 }
 
 export async function setAlertRepeat(env, chatId, alertId, repeatEveryMinutes) {
+  if (hasProductDb(env)) return setAlertRepeatDb(env, chatId, alertId, repeatEveryMinutes);
   const alerts = await getUserAlerts(env, chatId);
   const alert = alerts.find((a) => a.id === alertId);
   if (!alert) return null;
@@ -239,6 +300,10 @@ export async function markAlertTriggered(env, chatId, alertId) {
   const eventId = `legacy:${alertId}:${new Date().toISOString()}`;
   await claimAlertForDelivery(env, chatId, alertId, eventId);
   await markAlertDelivered(env, chatId, alertId, eventId);
+}
+
+export async function advanceAlertCheck(env, alert) {
+  if (hasProductDb(env)) await advanceAlertCheckDb(env, alert);
 }
 
 function targetText(alert) {

@@ -163,6 +163,7 @@ async def admin_cancel_alert(
     ):
         return {"status": "noop", "message": "already terminal"}
 
+    previous_state = str(alert.lifecycle_state)
     alert.lifecycle_state = AlertLifecycleState.CANCELLED
     alert.is_active = False
     await db.commit()
@@ -171,7 +172,7 @@ async def admin_cancel_alert(
         "cancel_alert",
         target_type="alert",
         target_id=alert_id,
-        details={"previous_state": str(alert.lifecycle_state)},
+        details={"previous_state": previous_state},
     )
 
     return {"status": "cancelled", "alert_id": alert_id}

@@ -42,7 +42,10 @@ def create_app() -> FastAPI:
 
     # Security headers middleware
     @app.middleware("http")
-    async def add_security_headers(request: Request, call_next: Callable) -> Response:
+    async def add_security_headers(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         if request.url.path.startswith("/mini-app"):
@@ -62,10 +65,9 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[
             "https://novax.alirezasafeidev.ir",
-            "https://*.alirezasafeidev.ir",
+            "https://novax-telegram-relay.asdevelooper.workers.dev",
             "https://t.me",
             "https://web.telegram.org",
-            "*",  # safe for public price API; tighten if needed
         ],
         allow_credentials=True,
         allow_methods=["*"],

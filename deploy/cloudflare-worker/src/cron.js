@@ -1,5 +1,6 @@
 import {
   buildTriggerEventId,
+  advanceAlertCheck,
   claimAlertForDelivery,
   formatAlertNotification,
   getAllActiveAlerts,
@@ -7,6 +8,8 @@ import {
   markAlertDeliveryFailed,
 } from "./alerts.js";
 import { getCryptoPrices, getIranMarketPrices, formatPrice } from "./prices.js";
+import { ASSETS } from "./asset-catalog.js";
+import { hasProductDb, recordPriceSnapshots } from "./product-db.js";
 import { sendMessage } from "./telegram.js";
 import { logEvent, logWarn, logError } from "./log.js";
 import { recordMetric } from "./metrics.js";
@@ -23,10 +26,12 @@ function classifyPriceBatch(prices, providerId) {
 }
 
 async function alreadySent(env, eventId) {
+  if (hasProductDb(env)) return false;
   return (await env.ALERTS_KV.get(`notification_sent:${eventId}`)) !== null;
 }
 
 async function markSent(env, eventId) {
+  if (hasProductDb(env)) return;
   await env.ALERTS_KV.put(`notification_sent:${eventId}`, "1", { expirationTtl: 60 * 60 * 24 * 30 });
 }
 
@@ -34,15 +39,33 @@ export async function runCronJob(env) {
   const workerRunId = crypto.randomUUID();
   const alerts = await getAllActiveAlerts(env);
 
-  if (alerts.length === 0) {
-    logEvent("alert_evaluation_job_completed", { worker_run_id: workerRunId, checked: 0, triggered: 0 });
-    return { checked: 0, triggered: 0 };
-  }
-
   const cryptoPrices = await getCryptoPrices();
   const iranPrices = await getIranMarketPrices();
   const cryptoFreshness = classifyPriceBatch(cryptoPrices, "crypto");
   const iranFreshness = classifyPriceBatch(iranPrices, "iran_market");
+  const observedAt = new Date().toISOString();
+  await recordPriceSnapshots(
+    env,
+    Object.values(ASSETS).flatMap((asset) => {
+      const batch = asset.market === "crypto" ? cryptoPrices : iranPrices;
+      const price = batch?.[asset.symbol];
+      if (!Number.isFinite(price)) return [];
+      return [{
+        canonical_asset_id: asset.canonical_asset_id,
+        price,
+        display_unit: asset.unit,
+        provider: asset.market === "crypto"
+          ? (cryptoPrices?._fallback ? "coingecko_fallback" : "binance")
+          : "tgju",
+        observed_at: observedAt,
+      }];
+    }),
+  );
+
+  if (alerts.length === 0) {
+    logEvent("alert_evaluation_job_completed", { worker_run_id: workerRunId, checked: 0, triggered: 0 });
+    return { checked: 0, triggered: 0 };
+  }
 
   // قطعی provider: متریک + هشدار عملیاتی (با cooldown تا اسپم نشود).
   for (const [market, fresh] of [["crypto", cryptoFreshness], ["iran_market", iranFreshness]]) {
@@ -74,6 +97,7 @@ export async function runCronJob(env) {
         reason: freshness.reason,
       });
       recordMetric(env, "stale_data", { market: alert.market });
+      await advanceAlertCheck(env, alert);
       continue;
     }
 
@@ -89,12 +113,13 @@ export async function runCronJob(env) {
         reason: "asset_price_missing",
       });
       recordMetric(env, "stale_data", { market: alert.market });
+      await advanceAlertCheck(env, alert);
       continue;
     }
 
     const conditionMatched =
-      (alert.operator === "above" && currentPrice > alert.target) ||
-      (alert.operator === "below" && currentPrice < alert.target);
+      (alert.operator === "above" && currentPrice >= alert.target) ||
+      (alert.operator === "below" && currentPrice <= alert.target);
 
     logEvent("alert_evaluated", {
       alert_id: alert.id,
@@ -110,7 +135,10 @@ export async function runCronJob(env) {
       asset: alert.canonical_asset_id || `${alert.market}:${alert.symbol}`,
     });
 
-    if (!conditionMatched) continue;
+    if (!conditionMatched) {
+      await advanceAlertCheck(env, alert);
+      continue;
+    }
 
     const eventId = buildTriggerEventId(alert);
     if (await alreadySent(env, eventId)) {
@@ -122,7 +150,7 @@ export async function runCronJob(env) {
       continue;
     }
 
-    const claimed = await claimAlertForDelivery(env, alert.chat_id, alert.id, eventId);
+    const claimed = await claimAlertForDelivery(env, alert.chat_id, alert.id, eventId, currentPrice);
     if (!claimed) {
       logEvent("duplicate_trigger_detected", {
         alert_id: alert.id,
@@ -148,7 +176,13 @@ export async function runCronJob(env) {
         throw new Error(`telegram_send_failed: ${description}`);
       }
       await markSent(env, eventId);
-      await markAlertDelivered(env, alert.chat_id, alert.id, eventId);
+      await markAlertDelivered(
+        env,
+        alert.chat_id,
+        alert.id,
+        eventId,
+        result?.result?.message_id ? String(result.result.message_id) : null,
+      );
       triggered++;
       logEvent("notification_send_succeeded", {
         alert_id: alert.id,

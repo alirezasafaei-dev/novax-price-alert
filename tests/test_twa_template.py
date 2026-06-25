@@ -38,6 +38,10 @@ def test_twa_template_supports_alert_target_edit() -> None:
 
 def test_twa_template_uses_toman_display_helpers_in_chart_and_history() -> None:
     assert "function displayNumericPrice(value, unit)" in TWA_SHELL_HTML
-    assert "const values = items.map(x => displayNumericPrice(x.price_value, x.display_unit || x.currency_code)).reverse();" in TWA_SHELL_HTML
+    expected_values_mapping = (
+        "const values = items.map(x => displayNumericPrice("
+        "x.price_value, x.display_unit || x.currency_code)).reverse();"
+    )
+    assert expected_values_mapping in TWA_SHELL_HTML
     assert "label: `${dataset.label} (${displayUnitLabel(dataset.unit)})`" in TWA_SHELL_HTML
     assert "friendlyLifecycleLabel" in TWA_SHELL_HTML

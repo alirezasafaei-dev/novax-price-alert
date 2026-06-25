@@ -79,6 +79,11 @@ if [[ "${missing}" -ne 0 ]]; then
   exit 2
 fi
 
+if grep -q "REPLACE_WITH_D1_DATABASE_ID" "${WORKER_DIR}/wrangler.toml"; then
+  echo "D1 is not configured. Run scripts/setup-d1.sh with a token that has D1 Edit permission."
+  exit 2
+fi
+
 redact_json() {
   python3 -c '''
 import json
@@ -113,8 +118,16 @@ print(json.dumps(
 echo "Uploading Worker secrets..."
 printf '%s' "${TELEGRAM_BOT_TOKEN}" | npx wrangler secret put TELEGRAM_BOT_TOKEN
 printf '%s' "${TELEGRAM_SECRET_TOKEN}" | npx wrangler secret put TELEGRAM_SECRET_TOKEN
+printf '%s' "${TELEGRAM_SECRET_TOKEN}" | npx wrangler secret put SETUP_SECRET
+if [[ -n "${ADMIN_TELEGRAM_USER_IDS:-}" ]]; then
+  printf '%s' "${ADMIN_TELEGRAM_USER_IDS}" | npx wrangler secret put ADMIN_TELEGRAM_USER_IDS
+fi
+if [[ -n "${PAYMENT_INSTRUCTIONS:-}" ]]; then
+  printf '%s' "${PAYMENT_INSTRUCTIONS}" | npx wrangler secret put PAYMENT_INSTRUCTIONS
+fi
 
 echo "Deploying Worker..."
+npx wrangler d1 migrations apply novax-product --remote
 npx wrangler deploy
 
 echo "Setting Telegram webhook..."

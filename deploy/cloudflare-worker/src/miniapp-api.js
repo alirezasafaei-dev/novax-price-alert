@@ -9,6 +9,16 @@ import {
   updateAlertTarget,
 } from "./alerts.js";
 import { getCryptoPrices, getIranMarketPrices, unitForMarket } from "./prices.js";
+import {
+  createPaymentRequest,
+  getEntitlement,
+  getPriceHistoryDb,
+  getUserAlertCount,
+  hasProductDb,
+  listAlertEventsDb,
+  PRO_PRICE_TOMAN,
+  upsertUser,
+} from "./product-db.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -102,6 +112,7 @@ async function currentUser(request, env) {
   const initData = request.headers.get("X-Telegram-Init-Data");
   const user = await verifyTelegramInitData(initData, env);
   await env.USERS_KV?.put?.(`user:${user.telegram_user_id}`, JSON.stringify(user));
+  await upsertUser(env, user);
   return user;
 }
 
@@ -111,6 +122,7 @@ function assetCodeForWorker(symbol, market) {
 
 function publicPriceItem(asset, price, provider) {
   return {
+    canonical_asset_id: asset.canonical_asset_id,
     asset_code: assetCodeForWorker(asset.symbol, asset.market),
     symbol: asset.symbol,
     asset_name: asset.display_name,
@@ -146,7 +158,7 @@ function normalizeAssetCode(assetCode) {
     ETH_USDT: ["crypto", "ETH"],
     SOL_USDT: ["crypto", "SOL"],
     BNB_USDT: ["crypto", "BNB"],
-    USDT_IRT: ["fiat", "USD"],
+    USDT_IRT: ["fiat", "USDT"],
     USD_IRT: ["fiat", "USD"],
     EUR_IRT: ["fiat", "EUR"],
     GOLD18: ["gold", "GOLD_18K"],
@@ -189,6 +201,22 @@ function alertOut(alert, chatId) {
 }
 
 async function listAlertEvents(env, chatId) {
+  if (hasProductDb(env)) {
+    const rows = await listAlertEventsDb(env, chatId);
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        alert_id: row.alert_id,
+        asset_code: row.asset_code,
+        asset_name: row.asset_name,
+        status: row.status,
+        triggered_price: row.triggered_price,
+        triggered_at: row.triggered_at,
+        sent_at: row.sent_at,
+        error_message: row.error_message,
+      })),
+    };
+  }
   const alerts = await getUserAlerts(env, chatId);
   const items = alerts
     .filter((alert) => alert.triggered_at || alert.delivered_at || alert.error_message)
@@ -219,25 +247,32 @@ async function createUserAlert(request, env, chatId) {
   const operator = String(payload.condition_type || "").toLowerCase();
   if (!["above", "below"].includes(operator)) return error("condition_type must be above or below", 422);
 
-  const alert = await createAlert(env, chatId, {
-    market,
-    symbol,
-    canonical_asset_id: asset.canonical_asset_id,
-    display_asset_name_at_creation: asset.display_name,
-    operator,
-    target,
-    target_price_display_unit: asset.unit,
-    cooldown_minutes: Number(payload.cooldown_minutes || 60),
-  });
-  return json(alertOut(alert, chatId), { status: 201 });
+  try {
+    const alert = await createAlert(env, chatId, {
+      market,
+      symbol,
+      canonical_asset_id: asset.canonical_asset_id,
+      display_asset_name_at_creation: asset.display_name,
+      operator,
+      target,
+      target_price_display_unit: asset.unit,
+      cooldown_minutes: Math.max(1, Math.min(Number(payload.cooldown_minutes || 60), 10080)),
+    });
+    return json(alertOut(alert, chatId), { status: 201 });
+  } catch (createError) {
+    const status = createError?.code === "MAX_ALERTS_REACHED" ? 409 : 422;
+    return error(String(createError?.message || createError), status);
+  }
 }
 
 async function patchUserAlert(request, env, chatId, alertId) {
   const payload = await request.json();
   if (payload.target_price != null) {
+    const target = Number(payload.target_price);
+    if (!Number.isFinite(target) || target <= 0) return error("target_price must be positive", 422);
     const alerts = await getUserAlerts(env, chatId);
     const current = alerts.find((alert) => alert.id === alertId);
-    const updated = await updateAlertTarget(env, chatId, alertId, Number(payload.target_price), current?.target_price_display_unit);
+    const updated = await updateAlertTarget(env, chatId, alertId, target, current?.target_price_display_unit);
     return updated ? json(alertOut(updated, chatId)) : error("Alert not found", 404);
   }
   if (payload.is_active != null) {
@@ -260,20 +295,34 @@ export async function handleMiniAppApi(request, env) {
   }
 
   if (path === "/api/v1/prices/history" && request.method === "GET") {
-    const { items } = await latestPrices();
     const requested = url.searchParams.get("asset_code");
-    const base = items.find((item) => item.asset_code === requested) || items[0];
-    const now = Date.now();
-    const history = base
-      ? Array.from({ length: 12 }, (_, index) => ({
-          ...base,
-          observed_at: new Date(now - (11 - index) * 60 * 60 * 1000).toISOString(),
-        }))
-      : [];
-    return json({ items: history });
+    const [market, symbol] = normalizeAssetCode(requested);
+    const asset = market && symbol ? getAssetByMarketSymbol(market, symbol) : null;
+    if (!asset) return error("Asset not found", 404);
+    if (!hasProductDb(env)) {
+      return json({ items: [], data_status: "history_unavailable_without_d1" });
+    }
+    const rangeDays = { "1d": 1, "7d": 7, "30d": 30, "90d": 30 };
+    const days = rangeDays[String(url.searchParams.get("range") || "1d").toLowerCase()] || 1;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const rows = await getPriceHistoryDb(env, asset.canonical_asset_id, since);
+    return json({
+      items: rows.map((row) => ({
+        asset_code: assetCodeForWorker(asset.symbol, asset.market),
+        asset_name: asset.display_name,
+        price_value: row.price,
+        currency_code: asset.market === "crypto" ? "USDT" : "IRT",
+        display_unit: row.display_unit,
+        provider: row.provider,
+        observed_at: row.observed_at,
+      })),
+      data_status: "real",
+    });
   }
 
-  if (!path.startsWith("/api/v1/alerts")) return null;
+  const isAuthenticatedPath =
+    path.startsWith("/api/v1/alerts") || path.startsWith("/api/v1/subscription");
+  if (!isAuthenticatedPath) return null;
 
   let user;
   try {
@@ -282,6 +331,32 @@ export async function handleMiniAppApi(request, env) {
     return error(String(authError?.message || authError), 401);
   }
   const chatId = user.telegram_user_id;
+
+  if (path === "/api/v1/subscription" && request.method === "GET") {
+    const entitlement = await getEntitlement(env, chatId);
+    const activeAlertCount = hasProductDb(env) ? await getUserAlertCount(env, chatId) : 0;
+    return json({
+      ...entitlement,
+      active_alert_count: activeAlertCount,
+      pro_price_toman: PRO_PRICE_TOMAN,
+      payment_instructions: env.PAYMENT_INSTRUCTIONS || null,
+    });
+  }
+
+  if (path === "/api/v1/subscription/payment-requests" && request.method === "POST") {
+    if (!hasProductDb(env)) return error("Subscription storage is unavailable", 503);
+    const payload = await request.json();
+    try {
+      const payment = await createPaymentRequest(env, chatId, payload.reference);
+      return json({
+        ...payment,
+        status: "pending",
+        amount_toman: PRO_PRICE_TOMAN,
+      }, { status: payment.already_pending ? 200 : 201 });
+    } catch (paymentError) {
+      return error(String(paymentError?.message || paymentError), 422);
+    }
+  }
 
   if (path === "/api/v1/alerts" && request.method === "GET") {
     const alerts = await getUserAlerts(env, chatId);

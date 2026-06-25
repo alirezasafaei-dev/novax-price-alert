@@ -1,7 +1,7 @@
 import { FLOW_STATES } from "./alert-flow.js";
 import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage, handleFaq, handleGrowthMenu, handleMiniAppMenu } from "./commands.js";
 import { handleCallback, handleTextInSession } from "./callbacks.js";
-import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession } from "./sessions.js";
+import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession, getSession } from "./sessions.js";
 import { runCronJob } from "./cron.js";
 import { recordCronHeartbeat, getCronStatus } from "./heartbeat.js";
 import { sendMessage } from "./telegram.js";
@@ -9,13 +9,28 @@ import { logEvent, logError } from "./log.js";
 import { MAIN_KEYBOARD } from "./keyboards.js";
 import { handleMiniAppApi } from "./miniapp-api.js";
 import { handleMiniAppStatic } from "./miniapp-static.js";
+import { hasProductDb } from "./product-db.js";
+import {
+  handleAdminCommand,
+  handlePaymentReference,
+  showSubscription,
+} from "./subscriptions.js";
 
 function requireSecret(request, env) {
   const secret = env.TELEGRAM_SECRET_TOKEN;
-  if (!secret) return null;
+  if (!secret) return new Response("Webhook secret is not configured", { status: 503 });
   
   const received = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
   if (received !== secret) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  return null;
+}
+
+function requireSetupSecret(request, env) {
+  const expected = env.SETUP_SECRET || env.TELEGRAM_SECRET_TOKEN;
+  const received = request.headers.get("X-Setup-Secret");
+  if (!expected || !received || received !== expected) {
     return new Response("Unauthorized", { status: 401 });
   }
   return null;
@@ -34,7 +49,25 @@ export default {
     }
     
     if (url.pathname === "/health") {
-      return Response.json({ status: "ok", service: "telegram-bot" });
+      const d1Configured = hasProductDb(env);
+      const d1Required = String(env.REQUIRE_D1 || "false").toLowerCase() === "true";
+      let d1Healthy = d1Configured;
+      if (d1Configured) {
+        try {
+          await env.DB.prepare("SELECT 1 AS ok").first();
+        } catch {
+          d1Healthy = false;
+        }
+      }
+      const degraded = d1Required && !d1Healthy;
+      return Response.json(
+        {
+          status: degraded ? "degraded" : "ok",
+          service: "telegram-bot",
+          alert_storage: d1Healthy ? "d1" : "legacy_kv",
+        },
+        { status: degraded ? 503 : 200 },
+      );
     }
 
     // وضعیت ضربان cron برای مانیتور بیرونی. وقتی ضربان کهنه باشد ۵۰۳ برمی‌گرداند
@@ -44,7 +77,9 @@ export default {
       return Response.json(status, { status: status.stale ? 503 : 200 });
     }
     
-    if (url.pathname === "/setup-webhook" && request.method === "GET") {
+    if (url.pathname === "/setup-webhook" && request.method === "POST") {
+      const unauthorized = requireSetupSecret(request, env);
+      if (unauthorized) return unauthorized;
       const botToken = env.TELEGRAM_BOT_TOKEN;
       const webhookUrl = `${url.origin}/webhook`;
       const secretToken = env.TELEGRAM_SECRET_TOKEN;
@@ -70,7 +105,9 @@ export default {
       }
     }
 
-    if (url.pathname === "/setup-bot" && request.method === "GET") {
+    if (url.pathname === "/setup-bot" && request.method === "POST") {
+      const unauthorized = requireSetupSecret(request, env);
+      if (unauthorized) return unauthorized;
       const botToken = env.TELEGRAM_BOT_TOKEN;
       const webhookUrl = `${url.origin}/webhook`;
       const secretToken = env.TELEGRAM_SECRET_TOKEN;
@@ -93,6 +130,7 @@ export default {
               { command: "start", description: "شروع ربات" },
               { command: "help", description: "راهنما" },
               { command: "prices", description: "قیمت‌های لحظه‌ای" },
+              { command: "pro", description: "خرید یا مشاهده پلن Pro" },
               { command: "faq", description: "سوالات پرتکرار" },
             ],
           }),
@@ -138,6 +176,10 @@ export default {
       
       const chatId = message.chat.id;
       const text = message.text?.trim() || "";
+
+      if (await handleAdminCommand(env, chatId, text)) {
+        return Response.json({ ok: true });
+      }
       
       if (text.startsWith("/start")) {
         await handleStart(env, chatId, message.from);
@@ -175,12 +217,23 @@ export default {
         await handleMiniAppMenu(env, chatId);
         return Response.json({ ok: true });
       }
+
+      if (text === "💎 خرید Pro" || text.startsWith("/pro")) {
+        await showSubscription(env, chatId);
+        return Response.json({ ok: true });
+      }
       
       if (text === "❓ راهنما") {
         await handleHelp(env, chatId);
         return Response.json({ ok: true });
       }
       
+      const session = await getSession(env, chatId);
+      if (session?.flow === "manual_payment") {
+        await handlePaymentReference(env, chatId, text);
+        return Response.json({ ok: true });
+      }
+
       const handledInSession = await handleTextInSession(env, chatId, text);
       if (handledInSession) {
         return Response.json({ ok: true });

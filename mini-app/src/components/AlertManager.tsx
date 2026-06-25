@@ -2,7 +2,6 @@ import { useState, FormEvent } from 'react';
 import { Alert, Asset } from '../types';
 import { formatPrice } from '../utils';
 import { BellRing, Trash2, ToggleLeft, ToggleRight, CircleAlert, Clock, ArrowUpRight, ArrowDownRight, Plus, Terminal } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 
 interface AlertManagerProps {
   alerts: Alert[];
@@ -140,7 +139,7 @@ export default function AlertManager({
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (error) {
+    } catch {
       setErrorText(isFa ? 'خطا در ثبت هشدار. لطفاً دوباره تلاش کنید.' : 'Error creating alert. Please try again.');
     } finally {
       setIsSubmitting(false);

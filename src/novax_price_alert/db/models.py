@@ -4,6 +4,7 @@ from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from novax_price_alert.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from novax_price_alert.domain.admin_audit import AdminAuditLog
 from novax_price_alert.domain.alert_event import AlertEvent
 from novax_price_alert.domain.alert_rule import AlertRule
 from novax_price_alert.domain.asset import Asset
@@ -20,6 +21,7 @@ __all__ = [
     "Provider",
     "PriceSnapshot",
     "LatestPrice",
+    "AdminAuditLog",
 ]
 
 

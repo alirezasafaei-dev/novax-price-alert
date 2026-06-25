@@ -7,8 +7,10 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from novax_price_alert.application.services.alert_crud_service import AlertCRUDService
-from novax_price_alert.application.services.alert_crud_service import AlertLimitReachedError
+from novax_price_alert.application.services.alert_crud_service import (
+    AlertCRUDService,
+    AlertLimitReachedError,
+)
 from novax_price_alert.domain.alert_rule import AlertRule
 from novax_price_alert.domain.asset import Asset
 from novax_price_alert.domain.enums import AlertCondition, AlertLifecycleState

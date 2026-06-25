@@ -17,13 +17,18 @@ def normalize_database_url(value: str) -> str:
 
     if value.startswith("postgres://"):
         value = value.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif value.startswith("postgresql://"):
+        value = value.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-    # Strip sslmode from URL for asyncpg compatibility
-    # asyncpg uses connect_args={"ssl": True} instead of sslmode=query-param
+    # asyncpg does not accept libpq's sslmode keyword. Preserve the requested
+    # mode under asyncpg's supported ssl keyword; db/session.py moves it into
+    # connect_args before engine creation.
     if "sslmode=" in value:
         parsed = urlparse(value)
         qs = parse_qs(parsed.query, keep_blank_values=True)
-        qs.pop("sslmode", None)
+        sslmode = qs.pop("sslmode", [None])[0]
+        if sslmode:
+            qs["ssl"] = [sslmode]
         new_qs = urlencode(qs, doseq=True)
         value = urlunparse(parsed._replace(query=new_qs))
 

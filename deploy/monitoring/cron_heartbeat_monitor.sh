@@ -7,7 +7,7 @@
 # در دسترس نباشد یا ضربان cron کهنه شده باشد، یک هشدار به گروه ops تلگرام می‌فرستد.
 #
 # اجرا با cron (مثلاً هر ۱۵ دقیقه) روی یک ماشین مستقل (مثل VPS):
-#   */15 * * * * BOT_TOKEN=xxx OPS_CHAT_ID=-100xxx /path/to/cron_heartbeat_monitor.sh >> /var/log/novax_monitor.log 2>&1
+#   */5 * * * * BOT_TOKEN=xxx OPS_CHAT_ID=-100xxx /path/to/cron_heartbeat_monitor.sh >> /var/log/novax_monitor.log 2>&1
 #
 # متغیرهای محیطی:
 #   BOT_TOKEN     (الزامی)  توکن همان بات تلگرام

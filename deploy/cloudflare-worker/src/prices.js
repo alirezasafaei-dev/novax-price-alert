@@ -177,6 +177,8 @@ export async function getIranMarketPrices() {
 
   assign("price_dollar_rl", "USD");
   assign("price_eur", "EUR");
+  assign("crypto-tether-irr", "USDT");
+  if (prices.USDT === undefined) assign("crypto_tether_irr", "USDT");
   assign("geram18", "GOLD_18K");
   assign("sekee", "SEKKEH_EMAMI");
 
@@ -198,6 +200,7 @@ export const ASSET_NAMES = {
   BNB: "بایننس کوین (BNB)",
   USD: "دلار",
   EUR: "یورو",
+  USDT: "تتر",
   GOLD_18K: "طلای ۱۸ عیار",
   SEKKEH_EMAMI: "سکه امامی",
 };
@@ -250,12 +253,13 @@ export function formatCryptoPricesMessage(prices) {
 }
 
 export function formatFiatPricesMessage(prices) {
-  if (!prices || (!prices.USD && !prices.EUR)) {
+  if (!prices || (!prices.USD && !prices.EUR && !prices.USDT)) {
     return "خطا در دریافت قیمت‌ها. لطفاً دوباره تلاش کن.";
   }
   const lines = ["💵 قیمت ارز\n"];
   if (prices.USD) lines.push(`دلار (USD): ${formatPrice(prices.USD)} تومان`);
   if (prices.EUR) lines.push(`یورو (EUR): ${formatPrice(prices.EUR)} تومان`);
+  if (prices.USDT) lines.push(`تتر (USDT): ${formatPrice(prices.USDT)} تومان`);
   lines.push(updatedAtLine());
   return lines.join("\n");
 }

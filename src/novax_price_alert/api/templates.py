@@ -743,8 +743,8 @@ ADMIN_HTML = """
     <div class="flex flex-wrap gap-2">
       <button onclick="doAction('refresh-metrics')" class="btn bg-slate-800">رفرش متریک‌ها</button>
       <button onclick="if(confirm('لغو همه هشدارهای فعال؟')) {}" class="btn bg-rose-900/70">لغو همه هشدارهای فعال (با احتیاط)</button>
-      <a href="/metrics/summary" target="_blank" class="btn bg-slate-800">خلاصه عملیاتی</a>
-      <a href="/metrics/prometheus" target="_blank" class="btn bg-slate-800">Prometheus</a>
+      <button onclick="alert('متریک‌ها فقط با هدر امنیتی از API قابل دریافت‌اند.')" class="btn bg-slate-800">خلاصه عملیاتی</button>
+      <button onclick="alert('Prometheus فقط با هدر X-Metrics-Token قابل دریافت است.')" class="btn bg-slate-800">Prometheus</button>
       <button onclick="showBroadcastForm()" class="btn bg-amber-800">ارسال پیام همگانی (نمونه)</button>
     </div>
     <div id="action-feedback" class="mt-2 text-emerald-400 text-xs h-4"></div>
@@ -756,17 +756,14 @@ let allAlerts = [];
 let stateChartInstance = null;
 
 function getToken() {
-  const url = new URLSearchParams(location.search).get('token');
   const input = document.getElementById('token-input');
-  return url || (input && input.value.trim()) || '';
+  return (input && input.value.trim()) || sessionStorage.getItem('novax_admin_token') || '';
 }
 
 function saveAndLoad() {
   const t = document.getElementById('token-input').value.trim();
   if (t) {
-    const u = new URL(location.href);
-    u.searchParams.set('token', t);
-    history.replaceState({}, '', u);
+    sessionStorage.setItem('novax_admin_token', t);
   }
   loadAllData();
 }
@@ -774,9 +771,7 @@ function saveAndLoad() {
 async function api(path, method='GET') {
   const token = getToken();
   const headers = token ? {'X-Admin-Token': token} : {};
-  const sep = path.includes('?') ? '&' : '?';
-  const url = token ? `${path}${sep}token=${encodeURIComponent(token)}` : path;
-  const res = await fetch(url, {method, headers});
+  const res = await fetch(path, {method, headers});
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
@@ -893,8 +888,8 @@ async function loadAllData() {
 }
 
 function initAdmin() {
-  const urlToken = new URLSearchParams(location.search).get('token');
-  if (urlToken) document.getElementById('token-input').value = urlToken;
+  const storedToken = sessionStorage.getItem('novax_admin_token');
+  if (storedToken) document.getElementById('token-input').value = storedToken;
   if (getToken()) loadAllData();
 }
 window.onload = initAdmin;
@@ -902,7 +897,7 @@ window.onload = initAdmin;
 function showBroadcastForm() {
   const msg = prompt('متن پیام همگانی (stub - ارسال واقعی بعداً وصل می‌شود):', 'پیام تست از ادمین Novax');
   if (!msg) return;
-  fetch('/admin/actions/broadcast?token=' + encodeURIComponent(getToken()), {
+  fetch('/admin/actions/broadcast', {
     method: 'POST',
     headers: {'Content-Type':'application/json', 'X-Admin-Token': getToken()},
     body: JSON.stringify({message: msg, target:'all'})

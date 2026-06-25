@@ -16,14 +16,14 @@
     "last_cron_run": "2026-06-03T23:40:20.400Z",
     "age_seconds": 42,
     "stale": false,
-    "expected_interval_seconds": 600,
-    "stale_after_seconds": 1800,
+    "expected_interval_seconds": 60,
+    "stale_after_seconds": 180,
     "checked": 5,
     "triggered": 1
   }
   ```
 
-- وقتی ضربان کهنه باشد (پیش‌فرض: بیش از ۳ تیکِ ازدست‌رفته = ۳۰ دقیقه)،
+- وقتی ضربان کهنه باشد (پیش‌فرض: بیش از ۳ تیکِ ازدست‌رفته = ۳ دقیقه)،
   `/status` کد **503** برمی‌گرداند تا چک‌کننده‌های ساده فقط با کد HTTP هم بتوانند
   هشدار بدهند.
 
@@ -40,7 +40,7 @@
 ### روش توصیه‌شده: GitHub Actions (بدون سرور)
 
 فایل `.github/workflows/cron-heartbeat-monitor.yml` همین اسکریپت را روی رانرهای
-GitHub (خارج از ایران) هر ۱۵ دقیقه اجرا می‌کند — مستقل از Cloudflare cron و رایگان.
+GitHub (خارج از ایران) هر ۵ دقیقه اجرا می‌کند — مستقل از Cloudflare cron و رایگان.
 
 راه‌اندازی فقط دو Secret لازم دارد
 (`Settings → Secrets and variables → Actions → New repository secret`):
@@ -63,15 +63,15 @@ chmod +x deploy/monitoring/cron_heartbeat_monitor.sh
 BOT_TOKEN='<bot-token>' OPS_CHAT_ID='-1003773212865' \
   deploy/monitoring/cron_heartbeat_monitor.sh
 
-# افزودن به crontab (هر ۱۵ دقیقه)
+# افزودن به crontab (هر ۵ دقیقه)
 crontab -e
 # سپس این خط را اضافه کن:
-*/15 * * * * BOT_TOKEN='<bot-token>' OPS_CHAT_ID='-1003773212865' /opt/novax/cron_heartbeat_monitor.sh >> /var/log/novax_monitor.log 2>&1
+*/5 * * * * BOT_TOKEN='<bot-token>' OPS_CHAT_ID='-1003773212865' /opt/novax/cron_heartbeat_monitor.sh >> /var/log/novax_monitor.log 2>&1
 ```
 
 > توکن بات را در crontab به‌صورت ساده نگذار اگر ماشین چندکاربره است؛
 > به‌جایش از یک فایل env با دسترسی محدود استفاده کن:
-> `*/15 * * * * . /opt/novax/monitor.env && /opt/novax/cron_heartbeat_monitor.sh ...`
+> `*/5 * * * * . /opt/novax/monitor.env && /opt/novax/cron_heartbeat_monitor.sh ...`
 
 ### متغیرهای محیطی
 

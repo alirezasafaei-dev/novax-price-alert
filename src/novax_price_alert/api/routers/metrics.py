@@ -48,8 +48,11 @@ async def get_operational_summary(
 
 
 @router.get("/prometheus")
-async def prometheus_metrics() -> str:
+async def prometheus_metrics(
+    x_metrics_token: Annotated[str | None, Header()] = None,
+) -> str:
     """Basic Prometheus text format for key metrics."""
+    _verify_metrics_token(x_metrics_token)
     snap = get_metrics_snapshot()
     lines = []
     for k, v in snap.items():

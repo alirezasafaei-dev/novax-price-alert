@@ -83,6 +83,11 @@ run_wrangler_deploy() {
 load_dotenv
 require_vars CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID TELEGRAM_BOT_TOKEN TELEGRAM_SECRET_TOKEN
 
+if grep -q "REPLACE_WITH_D1_DATABASE_ID" "${WORKER_DIR}/wrangler.toml"; then
+  echo "Error: D1 is not configured. Run deploy/cloudflare-worker/scripts/setup-d1.sh first." >&2
+  exit 2
+fi
+
 if [[ -n "${ALERTS_KV_ID:-}" ]]; then
   KV_NAMESPACE_ID="${ALERTS_KV_ID}"
 fi
@@ -255,6 +260,13 @@ echo "Uploading Worker secrets..."
   printf '%s' "${TELEGRAM_BOT_TOKEN}" | npx wrangler secret put TELEGRAM_BOT_TOKEN
   printf '%s' "${TELEGRAM_SECRET_TOKEN}" | npx wrangler secret put TELEGRAM_SECRET_TOKEN
   printf '%s' "${MINI_APP_URL}" | npx wrangler secret put NOVAX_MINI_APP_URL
+  printf '%s' "${TELEGRAM_SECRET_TOKEN}" | npx wrangler secret put SETUP_SECRET
+  if [[ -n "${ADMIN_TELEGRAM_USER_IDS:-}" ]]; then
+    printf '%s' "${ADMIN_TELEGRAM_USER_IDS}" | npx wrangler secret put ADMIN_TELEGRAM_USER_IDS
+  fi
+  if [[ -n "${PAYMENT_INSTRUCTIONS:-}" ]]; then
+    printf '%s' "${PAYMENT_INSTRUCTIONS}" | npx wrangler secret put PAYMENT_INSTRUCTIONS
+  fi
 )
 
 echo "Running Worker tests..."
@@ -264,10 +276,14 @@ echo "Running Worker tests..."
 )
 
 echo "Deploying Worker..."
+(
+  cd "${WORKER_DIR}"
+  npx wrangler d1 migrations apply novax-product --remote
+)
 run_wrangler_deploy
 
 echo "Setting Telegram webhook and commands..."
-setup_response="$(curl -fsS "${WORKER_URL%/}/setup-bot")"
+setup_response="$(curl -fsS -X POST -H "X-Setup-Secret: ${TELEGRAM_SECRET_TOKEN}" "${WORKER_URL%/}/setup-bot")"
 printf '%s' "${setup_response}" | python3 -c '
 import json, sys
 p = json.load(sys.stdin)

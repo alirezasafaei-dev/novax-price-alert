@@ -2,7 +2,7 @@ export const MAIN_KEYBOARD = {
   keyboard: [
     ["💰 قیمت‌ها", "🔔 تنظیم هشدار"],
     ["📋 هشدارهای من", "🌐 داشبورد هوشمند"],
-    ["❓ راهنما"]
+    ["💎 خرید Pro", "❓ راهنما"]
   ],
   resize_keyboard: true,
   one_time_keyboard: false
@@ -76,6 +76,9 @@ export const FIAT_ASSETS = {
     [
       { text: "USD", callback_data: "asset:USD" },
       { text: "EUR", callback_data: "asset:EUR" }
+    ],
+    [
+      { text: "تتر (USDT)", callback_data: "asset:USDT" }
     ],
     [
       { text: "❌ لغو", callback_data: "cancel:alert" },

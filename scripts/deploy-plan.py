@@ -127,7 +127,7 @@ def main():
     print("-" * 60)
     print("Step 1: Connect to VPS")
     print(f"  ssh {VPS_USER}@{VPS_IP}")
-    print(f"  Password: {VPS_PASSWORD}")
+    print("  Authentication: configured SSH key")
     print()
     print("Step 2: Navigate to app directory")
     print(f"  cd {APP_DIR}")

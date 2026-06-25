@@ -56,20 +56,16 @@ def get_metrics_snapshot() -> dict[str, int]:
     r = _get_redis()
     if r is not None:
         try:
-            # flush in-memory to redis for persistence
-            for k, v in metrics.items():
-                try:
-                    r.incr(f"metrics:counter:{k}", v)
-                except Exception:
-                    pass
-            keys = r.keys("metrics:counter:*")
-            for key in keys:
+            redis_snapshot: dict[str, int] = {}
+            for key in r.scan_iter("metrics:counter:*"):
                 try:
                     k = str(key).replace("metrics:counter:", "")
                     v = int(r.get(key) or 0)
-                    snap[k] = snap.get(k, 0) + v
+                    redis_snapshot[k] = v
                 except Exception:
                     pass
+            if redis_snapshot:
+                snap = dict(sorted(redis_snapshot.items()))
         except RedisError:
             pass
     return snap

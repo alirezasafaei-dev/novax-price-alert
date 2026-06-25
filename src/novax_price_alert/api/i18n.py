@@ -49,7 +49,9 @@ GENERIC_SERVICE_UNAVAILABLE = "سرویس موقتاً در دسترس نیست.
 
 # ── Asset ────────────────────────────────────────────────────────
 ASSET_NOT_FOUND = "دارایی مورد نظر یافت نشد."
-ASSET_NOT_FOUND_FOR_SYMBOL = "دارایی با نماد «{symbol}» یافت نشد. لطفاً از لیست دارایی‌ها انتخاب کنید."
+ASSET_NOT_FOUND_FOR_SYMBOL = (
+    "دارایی با نماد «{symbol}» یافت نشد. لطفاً از لیست دارایی‌ها انتخاب کنید."
+)
 ASSET_CODE_MISSING = "نماد دارایی (asset_code) ارسال نشده است."
 ASSET_NOT_IN_DB = "دارایی در پایگاه داده ثبت نشده است."
 ASSET_PRICE_UNAVAILABLE = (

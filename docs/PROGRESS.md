@@ -4,6 +4,37 @@
 
 **مرجع اصلی فازبندی و تسک‌ها:** گزارش کامل بهبود پروژه (مسائل ۹گانه، راهکارهای اجرایی، ۵ فاز دقیق، taskهای T-xxx با اولویت P0/P1/P2 + owner + acceptance criteria، sprint plan، KPI، risk register).
 
+## 2026-06-25: D1 product core and monetization implementation
+
+- مسیر اصلی محصول روی `Cloudflare Worker + D1` یکپارچه شد؛ KV دیگر source of truth
+  هشدار نیست و فقط برای session، cache و asset مینی‌اپ استفاده می‌شود.
+- schema نسخه درآمدی اضافه شد: users، alerts، alert events، subscriptions،
+  payment requests، price snapshots و admin audit.
+- claim هشدار اتمیک، lease پنج‌دقیقه‌ای، retry محدود و idempotency رخداد ارسال پیاده شد.
+- پلن‌ها enforce می‌شوند:
+  - Free: سه هشدار و بررسی ده‌دقیقه‌ای
+  - Pro: سی هشدار و بررسی یک‌دقیقه‌ای
+- پرداخت دستی نسخه اعتبارسنجی فروش اضافه شد: ثبت کد پیگیری، `/payments`،
+  `/approve` و `/reject` فقط برای Telegram IDهای allowlist‌شده.
+- `USDT_IRT` از USD جدا شد و قیمت واقعی تتر از TGJU می‌گیرد.
+- history مصنوعی حذف شد؛ D1 snapshot واقعی را تا ۳۰ روز نگه می‌دارد.
+- endpointهای setup به POST + secret محدود شدند و نبود webhook secret باعث 503 می‌شود.
+- FastAPI legacy دیگر هنگام قطع PostgreSQL به SQLite محلی fallback نمی‌کند.
+- کیفیت محلی:
+  - Python unit: 153 passed
+  - Python integration: 27 passed
+  - Alembic fresh migration: passed
+  - Ruff و mypy: passed
+  - Worker D1 repository tests: passed
+  - Mini-app type-check/build/tests: passed
+- production در 2026-06-25 deploy و مستقل راستی‌آزمایی شد:
+  - D1 `novax-product` provision و migration آن روی remote اعمال شد.
+  - Worker Version ID: `3b457620-1ee0-4f8b-ab87-2c4ed80e7d4e`
+  - `/health` با storage نوع `d1`، cron یک‌دقیقه‌ای و Telegram webhook سالم هستند.
+  - D1 پس از اولین cron تعداد ۱۸ price snapshot واقعی ثبت کرد.
+  - `USDT_IRT` با provider مستقل TGJU و واحد تومان در API production تأیید شد.
+  - `/setup-bot` برای GET برابر 404 و برای POST بدون secret برابر 401 است.
+
 ## 2026-06-24: Cloudflare Worker-hosted mini-app deployed
 
 - مسیر حذف VPS ایرانی از تجربه مینی‌اپ پیاده‌سازی و روی Cloudflare Worker deploy شد: React mini-app به صورت static روی `/mini-app/` از Worker+KV سرو می‌شود.
@@ -131,7 +162,8 @@
 - مینی‌اپ React از نظر UX عملیاتی‌تر شد:
   - تب `Advanced Chart` دیگر صرفاً تکرار `PriceBoard` نیست و به یک نمای مقایسه‌ای واقعی چنددارایی تبدیل شد.
   - تب `My Portfolio` حالا علاوه بر نمایش، افزودن و حذف دارایی را هم به‌صورت واقعی با `localStorage` انجام می‌دهد.
-  - برای مسیر LIVE که history کامل ندارد، history مصنوعی خطی و پایدار تولید می‌شود تا چارت شکسته یا بی‌معنا نباشد.
+  - در آن نسخه برای مسیر LIVE فاقد history، داده نمایشی تولید می‌شد؛ این رفتار در
+    پیاده‌سازی D1 تاریخ 2026-06-25 حذف و با snapshot واقعی جایگزین شد.
 - متن راهنمای Worker هم با قابلیت واقعی edit/delete هم‌راستا شد.
 - **بدون دیپلوی:** فقط منطق، UI و docs لوکال تکمیل شد.
 
@@ -204,7 +236,7 @@
   - کریپتو: Binance (USDT)
   - فیات/طلا: TGJU (تومان) + fallback
 - ساخت هشدار: مرحله‌ای (۶ گام استاندارد از گزارش: انتخاب دارایی → قیمت فعلی → شرط → قیمت هدف → خلاصه → تایید صریح)؛ فقط بعد از تایید فعال می‌شود (pending_confirmation → active).
-- cron/worker هر ۱۰ دقیقه قیمت را refresh و alertها را evaluate می‌کند.
+- cron Worker هر دقیقه اجرا می‌شود؛ eligibility پلن باعث بررسی Free هر ۱۰ دقیقه و Pro هر ۱ دقیقه است.
 - TWA (مینی‌اپ تک‌فایل در `/`): تب‌دار کامل (💰 قیمت‌ها | 📁 دارایی‌های من | 🔔 هشدارها | 📈 چارت پیشرفته | ➕ ایجاد)، responsive Tailwind + Chart.js، SEO/meta کامل.
 - My Assets: دارایی‌های کاربر را گروه‌بندی می‌کند + تعداد هشدار + آخرین قیمت + دکمه اقدام سریع.
 - Suggestions: دارایی‌های unwatched را پیشنهاد می‌دهد + prefill wizard با یک ضربه.

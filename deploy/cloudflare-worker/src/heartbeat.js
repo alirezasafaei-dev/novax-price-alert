@@ -5,7 +5,7 @@
 // می‌شود و یک مانیتور بیرونی با خواندن endpoint `/status` می‌تواند کهنه‌شدن این
 // ضربان را تشخیص دهد و هشدار بدهد.
 const HEARTBEAT_KEY = "cron:last_run";
-export const EXPECTED_INTERVAL_SECONDS = 600; // cron هر ۱۰ دقیقه اجرا می‌شود.
+export const EXPECTED_INTERVAL_SECONDS = 60; // cron هر دقیقه اجرا می‌شود.
 
 // ثبت ضربان در پایان اجرای cron. اگر KV نباشد به‌صورت بی‌خطر no-op است.
 export async function recordCronHeartbeat(env, result = {}) {

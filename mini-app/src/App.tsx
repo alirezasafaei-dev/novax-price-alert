@@ -18,6 +18,15 @@ interface TelegramWebAppUser {
   first_name?: string;
   last_name?: string;
 }
+interface SubscriptionStatus {
+  plan: 'free' | 'pro';
+  alert_limit: number;
+  active_alert_count: number;
+  check_interval_seconds: number;
+  subscription_expires_at: string | null;
+  pro_price_toman: number;
+  payment_instructions: string | null;
+}
 
 function isLocalHost() {
   if (typeof window === 'undefined') return false;
@@ -93,6 +102,7 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [portfolioDraft, setPortfolioDraft] = useState<PortfolioDraft>({ symbol: '', amount: '' });
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const assetsRef = useRef<Asset[]>([]);
   const hasLoadedOnce = useRef(false);
   const isFetchingRef = useRef(false);
@@ -185,7 +195,6 @@ export default function App() {
           priceData = (items || []).map((it: any) => {
             const rawPrice = Number(it.price_value || it.price);
             const unit = it.display_unit || it.currency_code || '';
-            const normalizedUnit = unit.toUpperCase();
             return {
               symbol: it.asset_code || it.symbol,
               name: it.asset_name || it.name || it.asset_code,
@@ -227,11 +236,11 @@ export default function App() {
               };
             }
             if (!historyItems || historyItems.length === 0) {
-              const base = asset.price;
-              const variance = base * 0.008;
               return {
                 ...asset,
-                history: Array.from({ length: 12 }, (_, index) => Math.max(0, base - variance + ((variance * 2) / 11) * index)),
+                history: existingHistory?.length
+                  ? [...existingHistory.slice(-23), asset.price]
+                  : [asset.price],
               };
             }
             return {
@@ -250,6 +259,8 @@ export default function App() {
       }
 
       if (useLiveData && tgInitData) {
+        const sRes = await fetch(`${backendBase}/api/v1/subscription`, { headers: liveHeaders() });
+        if (sRes.ok) setSubscription(await sRes.json());
         const aRes = await fetch(`${backendBase}/api/v1/alerts`, { headers: liveHeaders() });
         if (aRes.ok) { const d = await aRes.json(); setAlerts((d.items || []).map(mapLiveAlert)); }
         const lRes = await fetch(`${backendBase}/api/v1/alerts/events`, { headers: liveHeaders() });
@@ -332,7 +343,6 @@ export default function App() {
   /* ── Handlers ── */
   const handleAddAlert = async (alertData: { symbol: string; triggerType: 'UPPER' | 'LOWER'; thresholdPrice: number; label: string; telegramUsername: string }) => {
     try {
-      let alertId = '';
       if (useLiveData && tgInitData) {
         // Live mode: Worker creates confirmed active alerts directly.
         const createRes = await fetch(`${backendBase}/api/v1/alerts`, {
@@ -340,12 +350,13 @@ export default function App() {
           body: JSON.stringify({ asset_code: alertData.symbol, condition_type: alertData.triggerType === 'UPPER' ? 'above' : 'below', target_price: alertData.thresholdPrice, cooldown_minutes: 60 }),
         });
         if (!createRes.ok) {
-          const errorText = await createRes.text();
+          const errorPayload = await createRes.json().catch(() => null);
+          const errorText = errorPayload?.detail || errorPayload?.error || 'Create failed';
           console.error('Create alert failed:', errorText);
-          throw new Error(errorText || 'Create failed');
+          throw new Error(errorText);
         }
         const created = await createRes.json();
-        alertId = created.id;
+        if (!created.id) throw new Error('Create failed');
       } else {
         // Simulation mode
         const res = await fetch('/api/alerts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(alertData) });
@@ -360,14 +371,14 @@ export default function App() {
       showToast(
         message.includes('Unauthorized') || message.includes('initData')
           ? (isFa ? 'برای ساخت هشدار واقعی باید مینی‌اپ را از داخل تلگرام باز کنید.' : 'Open the mini app inside Telegram to create real alerts.')
+          : message.includes('سقف') || message.includes('Pro')
+            ? message
           : (isFa ? 'خطا در ایجاد هشدار. لطفاً دوباره تلاش کنید.' : 'Failed to create alert. Please try again.'),
         'error',
       );
       throw e; // Re-throw to let AlertManager handle the error state
     }
   };
-
-  const handleDeleteAlert = (id: string) => { setShowConfirmDelete({ open: true, alertId: id }); };
 
   const handleDeleteAlertDirect = async (id: string) => {
     try {
@@ -439,6 +450,34 @@ export default function App() {
   };
 
   const handleSelectAssetForAlert = (symbol: string) => { setSelectedAssetForAlert(symbol); setActiveTab('alerts'); };
+  const handleBuyPro = async () => {
+    if (!tgInitData) {
+      showToast(isFa ? 'برای خرید Pro، مینی‌اپ را از داخل تلگرام باز کنید.' : 'Open the mini app in Telegram to buy Pro.', 'info');
+      return;
+    }
+    const reference = window.prompt(
+      isFa
+        ? `${subscription?.payment_instructions || 'اطلاعات پرداخت را از بات دریافت کنید.'}\n\nپس از پرداخت ۹۹٬۰۰۰ تومان، کد پیگیری یا توضیح رسید را وارد کنید:`
+        : `${subscription?.payment_instructions || 'Get payment instructions from the bot.'}\n\nAfter paying 99,000 Toman, enter the payment reference:`,
+    );
+    if (!reference) return;
+    const response = await fetch(`${backendBase}/api/v1/subscription/payment-requests`, {
+      method: 'POST',
+      headers: liveHeaders(),
+      body: JSON.stringify({ reference }),
+    });
+    if (!response.ok) {
+      showToast(isFa ? 'ثبت درخواست پرداخت ناموفق بود.' : 'Payment request failed.', 'error');
+      return;
+    }
+    const payload = await response.json();
+    showToast(
+      isFa
+        ? `درخواست ${payload.id} ثبت شد و در انتظار بررسی است.`
+        : `Request ${payload.id} is pending review.`,
+      'success',
+    );
+  };
   const handleSimulateFakePush = () => {
     setPushNotification({ id: `sim-${Math.random()}`, text: isFa ? '🔔 هشدار قیمت تستی: دارایی تتر به تومان (USDT_IRT) به مرز حمایتی ۵۹,۵۰۰ تومان رسید!' : '🔔 Mock Bot Alert: Tether / Toman (USDT_IRT) has violated lower boundary 59,500 Tomans!' });
     playChime();
@@ -610,6 +649,20 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap justify-end">
+            {subscription && (
+              <button
+                onClick={subscription.plan === 'free' ? handleBuyPro : undefined}
+                className={`text-[10px] px-3 py-2 rounded-xl border font-bold ${
+                  subscription.plan === 'pro'
+                    ? 'bg-violet-500/15 border-violet-400/30 text-violet-300'
+                    : 'bg-amber-500/10 border-amber-400/30 text-amber-300 cursor-pointer'
+                }`}
+              >
+                {subscription.plan === 'pro'
+                  ? `PRO • ${subscription.active_alert_count}/${subscription.alert_limit}`
+                  : `${isFa ? 'ارتقا به Pro' : 'Upgrade to Pro'} • ${subscription.active_alert_count}/${subscription.alert_limit}`}
+              </button>
+            )}
             {useLiveData && !tgInitData && (
               <span className="text-[10px] text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full">
                 {isFa ? 'LIVE بدون احراز تلگرام: فقط مشاهده قیمت' : 'LIVE without Telegram auth: prices only'}

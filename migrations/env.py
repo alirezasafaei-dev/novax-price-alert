@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 from logging.config import fileConfig
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from alembic import context
 from sqlalchemy import pool
@@ -24,7 +25,17 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", settings.database_url)
+database_url = settings.database_url
+connect_args: dict[str, str] = {}
+if database_url.startswith("postgresql") and ("ssl=" in database_url or "sslmode=" in database_url):
+    parsed = urlparse(database_url)
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    ssl_mode = query.pop("ssl", query.pop("sslmode", [None]))[0]
+    if ssl_mode:
+        connect_args["ssl"] = ssl_mode
+    database_url = urlunparse(parsed._replace(query=urlencode(query, doseq=True)))
+
+config.set_main_option("sqlalchemy.url", database_url)
 
 target_metadata = Base.metadata
 
@@ -41,6 +52,7 @@ async def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
 
     async with connectable.connect() as connection:

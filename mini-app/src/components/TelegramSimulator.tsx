@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Smartphone, CheckCircle2, HardDrive, Terminal, ExternalLink, Cpu, Layers, Wifi, Bell, ShieldCheck } from 'lucide-react';
+import { Smartphone, CheckCircle2, HardDrive, ExternalLink, Cpu, Layers, Wifi, Bell, ShieldCheck } from 'lucide-react';
 
 interface TelegramSimulatorProps {
   language: 'fa' | 'en';

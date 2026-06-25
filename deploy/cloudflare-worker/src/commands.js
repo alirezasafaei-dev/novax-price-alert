@@ -9,6 +9,7 @@ import {
 } from "./prices.js";
 import { getUserAlerts, formatAlertLine } from "./alerts.js";
 import { logError } from "./log.js";
+import { upsertUser } from "./product-db.js";
 
 export async function handleStart(env, chatId, from) {
   if (from) {
@@ -17,6 +18,13 @@ export async function handleStart(env, chatId, from) {
       username: from.username || null,
       first_name: from.first_name || null,
       created_at: new Date().toISOString(),
+    });
+    await upsertUser(env, {
+      telegram_user_id: chatId,
+      username: from.username,
+      first_name: from.first_name,
+      last_name: from.last_name,
+      language_code: from.language_code,
     });
   }
   
@@ -53,7 +61,8 @@ export async function handleHelp(env, chatId) {
 ❓ سوالات پرتکرار: /faq
 🌐 داشبورد هوشمند: باز کردن مینی‌اپ داخل تلگرام
 
-هشدارها هر ۱۰ دقیقه بررسی می‌شوند و هر هشدار فقط یک بار ارسال می‌شود.`;
+نسخه رایگان تا ۳ هشدار را هر ۱۰ دقیقه بررسی می‌کند.
+پلن Pro تا ۳۰ هشدار را هر ۱ دقیقه بررسی می‌کند.`;
   
   await sendMessage(env, chatId, text, { reply_markup: MAIN_KEYBOARD });
 }

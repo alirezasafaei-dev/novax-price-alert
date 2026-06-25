@@ -3,17 +3,19 @@
 **🟢 Live**: https://novax-telegram-relay.asdevelooper.workers.dev
 **🌐 Mini-App**: https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/
 **🤖 Bot**: @novax_price_bot
-**📊 Status**: Production Ready
+**📊 Status**: D1 monetization release deployed to production on 2026-06-25
 
 ---
 
 ## 🚀 Quick Start
 
-### Option 1: Cloudflare Worker + Mini-App (Serverless - بدون VPS) ⭐ فعلی
+### Cloudflare Worker + D1 + Mini-App ⭐ مسیر اصلی
 
-برای اجرای بات تلگرام و مینی‌اپ به صورت serverless با Cloudflare Workers + KV:
+هشدارها، رخدادها و اشتراک‌ها در D1 نگه‌داری می‌شوند. KV فقط برای session،
+static asset و cache است.
 
 ```bash
+deploy/cloudflare-worker/scripts/setup-d1.sh
 deploy/cloudflare-worker/scripts/deploy-miniapp-worker-kv.sh
 curl -fsS "https://novax-telegram-relay.asdevelooper.workers.dev/health"
 curl -fsS "https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/"
@@ -21,9 +23,10 @@ curl -fsS "https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/"
 
 **مزایا:**
 - ✅ بدون نیاز به VPS ایرانی برای تجربه Telegram
-- ✅ هزینه صفر (Free Tier Cloudflare)
-- ✅ مقیاس‌پذیری خودکار
-- ✅ Worker، webhook، cron و mini-app در یک مسیر خارجی
+- ✅ claim اتمیک و lease recovery برای هشدارها
+- ✅ تاریخچه قیمت واقعی و audit رخدادها
+- ✅ پلن Free و Pro و درخواست پرداخت دستی
+- ✅ Worker، webhook، cron و mini-app در یک مسیر
 
 **مستندات:**
 ```bash
@@ -32,17 +35,12 @@ curl -fsS "https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/"
 📊 وضعیت: docs/PROGRESS.md
 ```
 
-### Option 2: Legacy VPS Deployment
+### Legacy VPS Deployment
 
 برای مسیر قدیمی backend/database روی VPS:
 
 ```bash
-# بررسی وضعیت legacy
-curl https://novax.alirezasafeidev.ir/health
-curl https://novax.alirezasafeidev.ir/api/v1/prices/latest
-
-# Sync و deploy
-bash scripts/ONE-COMMAND-SYNC.sh
+# فقط برای نگهداری یا migration داده؛ مسیر درآمدی جدید روی Worker + D1 است.
 ```
 
 **VPS**: legacy; جزئیات اتصال نباید در git یا docs نوشته شود.
@@ -93,6 +91,7 @@ bash scripts/ONE-COMMAND-SYNC.sh
 - `/start` - شروع و معرفی بات
 - `/help` - راهنمای استفاده
 - `/prices` - نمایش قیمت‌های لحظه‌ای
+- `/pro` - مشاهده یا خرید پلن Pro
 
 ### مدیریت هشدار
 ```bash
@@ -122,17 +121,17 @@ bash scripts/ONE-COMMAND-SYNC.sh
 
 ```
 User → Telegram → Cloudflare Worker
-                       ↓
-                  TGJU API (قیمت‌ها)
-                       ↓
-                  KV Storage (هشدارها)
+                 ↙              ↘
+       Binance / TGJU       Cloudflare D1
+                         users/alerts/events/
+                       subscriptions/payments
 ```
 
 **ویژگی‌ها:**
 - Serverless execution
-- Global edge deployment
-- Auto-scaling
-- Free tier: 100k requests/day
+- D1 transactional persistence
+- KV for sessions and static mini-app assets
+- Cron every minute; per-plan eligibility controls actual alert cadence
 
 ### Full Stack Mode (VPS)
 
@@ -181,8 +180,16 @@ uv run mypy src
 ### Server Details
 - **Worker**: `https://novax-telegram-relay.asdevelooper.workers.dev`
 - **Mini-App**: `https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/`
-- **Storage**: Cloudflare KV (`ALERTS_KV`, `SESSIONS_KV`, `USERS_KV`)
-- **Cron**: Cloudflare Worker schedule every 10 minutes
+- **Primary storage**: Cloudflare D1 (`DB`)
+- **KV**: session، user cache و static assets
+- **Cron**: هر دقیقه؛ Free هر ۱۰ دقیقه و Pro هر ۱ دقیقه
+
+### پلن‌ها
+
+- **Free**: سه هشدار، بررسی هر ۱۰ دقیقه
+- **Pro**: سی هشدار، بررسی هر دقیقه، تکرار و تاریخچه ۳۰ روزه
+- **قیمت آزمایشی Pro**: ماهانه ۹۹ هزار تومان
+- **پرداخت فعلی**: ثبت کد پیگیری و تأیید توسط ادمین allowlist‌شده
 
 ### Deploy
 ```bash

@@ -47,6 +47,14 @@ export const ASSETS = {
     aliases: ["eur", "euro", "یورو"],
     unit: "تومان",
   },
+  "fiat:USDT": {
+    canonical_asset_id: "fiat:USDT",
+    market: "fiat",
+    symbol: "USDT",
+    display_name: "تتر (USDT)",
+    aliases: ["usdt", "tether", "تتر"],
+    unit: "تومان",
+  },
   "gold:GOLD_18K": {
     canonical_asset_id: "gold:GOLD_18K",
     market: "gold",
