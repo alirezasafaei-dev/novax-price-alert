@@ -1,12 +1,31 @@
 #!/bin/bash
-TOKEN=*** "^TELEGRAM_BOT_TOKEN=*** /home/dev13/my-project/sites/secondary/novax-price-alert/.env | head -1 | sed 's/.*=//'
+set -euo pipefail
+
+ENV_FILE="${ENV_FILE:-.env}"
+
+if [[ -f "${ENV_FILE}" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${ENV_FILE}"
+  set +a
+fi
+
+TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+
+if [[ -z "${TOKEN}" ]]; then
+  echo "TELEGRAM_BOT_TOKEN is not set; skipping Telegram checks"
+fi
 
 echo "=== 1. Telegram Bot Info ==="
-curl -s "https://api.telegram.org/bot${TOKEN}/getMe"
+if [[ -n "${TOKEN}" ]]; then
+  curl -s "https://api.telegram.org/bot${TOKEN}/getMe"
+fi
 echo ""
 
 echo "=== 2. Webhook Info ==="
-curl -s "https://api.telegram.org/bot${TOKEN}/getWebhookInfo"
+if [[ -n "${TOKEN}" ]]; then
+  curl -s "https://api.telegram.org/bot${TOKEN}/getWebhookInfo"
+fi
 echo ""
 
 echo "=== 3. Backend Health ==="

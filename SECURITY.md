@@ -13,6 +13,22 @@ Older snapshots and archived docs are kept for reference only and are not treate
 - Review webhook, relay, and cron changes carefully before production rollout.
 - Prefer least-privilege access for Cloudflare and deployment credentials.
 
+## Secret Exposure Response
+
+If a secret reaches git history, removing it from the latest file is not enough.
+
+Required response:
+
+1. Revoke or rotate the exposed credential at the provider.
+2. Update runtime secret stores such as Cloudflare Worker secrets and GitHub Actions secrets.
+3. Redeploy or restart the affected runtime.
+4. Rewrite and force-push git history only after the credential has been rotated.
+5. Tell collaborators to re-clone or hard-resync because old clones can retain the secret.
+
+2026-06-26 incident note: historical documentation contained a Telegram bot token pattern.
+The repository history was rewritten and force-pushed, but the provider-side token must still
+be rotated from BotFather before the incident is fully closed.
+
 ## Reporting a Vulnerability
 
 If you find a security issue in the project, report it to the maintainer through the same private channel you already use for operational coordination.
