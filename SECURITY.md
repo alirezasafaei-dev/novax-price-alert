@@ -26,8 +26,9 @@ Required response:
 5. Tell collaborators to re-clone or hard-resync because old clones can retain the secret.
 
 2026-06-26 incident note: historical documentation contained a Telegram bot token pattern.
-The repository history was rewritten and force-pushed, but the provider-side token must still
-be rotated from BotFather before the incident is fully closed.
+The repository history was rewritten and force-pushed. The Telegram bot token was then rotated
+by the owner, Cloudflare Worker secrets were updated, the webhook secret was reset, and the
+Worker was redeployed.
 
 ## Reporting a Vulnerability
 
