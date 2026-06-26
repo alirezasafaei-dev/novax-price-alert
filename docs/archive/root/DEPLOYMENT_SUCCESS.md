@@ -20,7 +20,7 @@
 ### Bot
 - **Username:** @novax_price_bot
 - **Status:** ✅ Live
-- **Token:** <redacted-telegram-bot-token>...
+- **Token:** `<redacted>`
 
 ### Cron Job
 - **Schedule:** */10 * * * * (هر 10 دقیقه)

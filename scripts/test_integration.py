@@ -15,7 +15,7 @@ result = subprocess.run(
 )
 line = result.stdout.strip()
 # Token is after the first = sign, but may contain = itself
-# Format: TELEGRAM_BOT_TOKEN=<redacted-telegram-bot-token>...
+# Format: TELEGRAM_BOT_TOKEN=<telegram-bot-id>:<telegram-bot-token>
 if "=" in line:
     token = line.split("=", 1)[1]
 else:

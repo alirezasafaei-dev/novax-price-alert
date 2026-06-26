@@ -1,437 +1,82 @@
 # وضعیت پیشرفت
 
-این سند باید با کد واقعی، گزارش‌های بهبود (`<redacted-local-reference>/` 01-06) و `docs/IMPLEMENTATION_ROADMAP_FA.md` هم‌راستا بماند.
+آخرین بازبینی: 2026-06-26
 
-**مرجع اصلی فازبندی و تسک‌ها:** گزارش کامل بهبود پروژه (مسائل ۹گانه، راهکارهای اجرایی، ۵ فاز دقیق، taskهای T-xxx با اولویت P0/P1/P2 + owner + acceptance criteria، sprint plan، KPI، risk register).
+این سند وضعیت فعلی پروژه را خلاصه می‌کند. گزارش‌ها، چک‌لیست‌ها و راهنماهای مرحله‌ای قدیمی در
+`docs/archive/` نگهداری می‌شوند و نباید بدون بررسی کد واقعی به عنوان منبع اجرا استفاده شوند.
 
-## 2026-06-25: D1 product core and monetization implementation
+## وضعیت فعلی محصول
 
-- مسیر اصلی محصول روی `Cloudflare Worker + D1` یکپارچه شد؛ KV دیگر source of truth
-  هشدار نیست و فقط برای session، cache و asset مینی‌اپ استفاده می‌شود.
-- schema نسخه درآمدی اضافه شد: users، alerts، alert events، subscriptions،
-  payment requests، price snapshots و admin audit.
-- claim هشدار اتمیک، lease پنج‌دقیقه‌ای، retry محدود و idempotency رخداد ارسال پیاده شد.
-- پلن‌ها enforce می‌شوند:
-  - Free: سه هشدار و بررسی ده‌دقیقه‌ای
-  - Pro: سی هشدار و بررسی یک‌دقیقه‌ای
-- پرداخت دستی نسخه اعتبارسنجی فروش اضافه شد: ثبت کد پیگیری، `/payments`،
-  `/approve` و `/reject` فقط برای Telegram IDهای allowlist‌شده.
-- `USDT_IRT` از USD جدا شد و قیمت واقعی تتر از TGJU می‌گیرد.
-- history مصنوعی حذف شد؛ D1 snapshot واقعی را تا ۳۰ روز نگه می‌دارد.
+- مسیر production روی Cloudflare Worker + D1 متمرکز است.
+- Cloudflare D1 منبع اصلی هشدارها، کاربران، رخدادها، پرداخت‌ها، subscriptionها و snapshotهای قیمت است.
+- KV فقط برای session، cache و assetهای مینی‌اپ استفاده می‌شود.
+- بات تلگرام menu-driven است و قیمت‌ها، ساخت هشدار، مدیریت هشدار و پرداخت دستی را پوشش می‌دهد.
+- cron Worker هر دقیقه اجرا می‌شود؛ پلن Free هر ۱۰ دقیقه و پلن Pro هر ۱ دقیقه واجد بررسی است.
+- قیمت کریپتو از Binance با واحد `USDT` و قیمت تتر/فیات/طلا از TGJU با واحد تومان خوانده می‌شود.
+- history نمایشی از snapshot واقعی D1 ساخته می‌شود؛ داده مصنوعی history نباید دوباره وارد محصول شود.
+
+## آخرین تغییرات مهم
+
+### 2026-06-26: پاکسازی و ساماندهی مستندات
+
+- `README.md` به entrypoint کوتاه و فعلی تبدیل شد.
+- `docs/README.md` به index مستندات زنده تبدیل شد.
+- `docs/PROGRESS.md` از لاگ طولانی و قدیمی به خلاصه وضعیت قابل اعتماد تبدیل شد.
+- راهنماهای deployment قدیمی، گزارش‌ها، quick referenceها و چک‌لیست‌های تکراری به `docs/archive/` منتقل شدند.
+- نشانه‌های حساس در مستندات فعلی بررسی و redaction اولیه انجام شد.
+
+### 2026-06-25: D1 product core and monetization
+
+- schema درآمدی برای users، alerts، alert events، subscriptions، payment requests، price snapshots و admin audit اضافه شد.
+- claim اتمیک هشدار، lease پنج‌دقیقه‌ای، retry محدود و idempotency رخداد ارسال پیاده شد.
 - endpointهای setup به POST + secret محدود شدند و نبود webhook secret باعث 503 می‌شود.
-- FastAPI legacy دیگر هنگام قطع PostgreSQL به SQLite محلی fallback نمی‌کند.
-- کیفیت محلی:
-  - Python unit: 153 passed
-  - Python integration: 27 passed
-  - Alembic fresh migration: passed
-  - Ruff و mypy: passed
-  - Worker D1 repository tests: passed
-  - Mini-app type-check/build/tests: passed
-- production در 2026-06-25 deploy و مستقل راستی‌آزمایی شد:
-  - D1 `novax-product` provision و migration آن روی remote اعمال شد.
-  - Worker Version ID: `3b457620-1ee0-4f8b-ab87-2c4ed80e7d4e`
-  - `/health` با storage نوع `d1`، cron یک‌دقیقه‌ای و Telegram webhook سالم هستند.
-  - D1 پس از اولین cron تعداد ۱۸ price snapshot واقعی ثبت کرد.
-  - `USDT_IRT` با provider مستقل TGJU و واحد تومان در API production تأیید شد.
-  - `/setup-bot` برای GET برابر 404 و برای POST بدون secret برابر 401 است.
+- FastAPI legacy هنگام قطع PostgreSQL دیگر به SQLite محلی fallback نمی‌کند.
+- production deploy شد و D1، cron، webhook و snapshotهای واقعی قیمت بررسی شدند.
 
-## 2026-06-24: Cloudflare Worker-hosted mini-app deployed
+### 2026-06-24: مینی‌اپ روی Worker
 
-- مسیر حذف VPS ایرانی از تجربه مینی‌اپ پیاده‌سازی و روی Cloudflare Worker deploy شد: React mini-app به صورت static روی `/mini-app/` از Worker+KV سرو می‌شود.
-- Worker فعلی APIهای لازم مینی‌اپ را expose می‌کند: latest/history prices و CRUD سبک alerts با `X-Telegram-Init-Data`.
-- احراز Telegram WebApp در Worker با همان قرارداد hash موجود در Python پیاده شد؛ مقدارهای `.env` خوانده/چاپ/commit نشدند.
-- دکمه `web_app` در `/start` فقط وقتی فعال می‌شود که `NOVAX_MINI_APP_URL` یا `MINI_APP_URL` در runtime تنظیم شده باشد.
-- AI در Pages بدون endpoint امن خارجی به صورت safe degraded است تا `GEMINI_API_KEY` وارد مرورگر نشود.
-- به دلیل خطای شبکه در آپلود Pages (`ECONNRESET` روی `/pages/assets/upload`)، fallback عملیاتی اضافه شد: Worker خودش build مینی‌اپ را روی `/mini-app/` سرو می‌کند.
-- دیپلوی production تأیید شد: Worker Version ID `9b9dd5bd-e229-472f-82ae-d83e313bfc37`، `/health`، `/api/v1/prices/latest`، `/mini-app/`، asset مینی‌اپ، `/setup-bot` و Telegram webhook سالم هستند.
-- اسکریپت deploy مینی‌اپ idempotent شد: assetهای بدون تغییر با checksum/`sha256` skip می‌شوند و manifest مینی‌اپ شامل اندازه، content-type و checksum است.
-- سرو static مینی‌اپ از Worker حالا manifest را با TTL کوتاه cache می‌کند و با `MINI_APP_MANIFEST_CACHE_SECONDS=0` برای تست/دیباگ قابل غیرفعال‌سازی است.
-- راهنمای عملیاتی جدید: `docs/CLOUDFLARE_PAGES_MINI_APP.md`.
+- React mini-app از Worker/KV روی `/mini-app/` سرو می‌شود.
+- Worker APIهای لازم برای latest/history prices و alertهای سبک را expose می‌کند.
+- داده حساس AI یا کلید provider نباید وارد browser bundle شود.
 
-## 2026-06-24: Telegram menu and mini-app loading polish
+## اعتبارسنجی ثبت‌شده
 
-- منوی reply بات ساده‌تر شد: `🌐 داشبورد هوشمند` به منوی اصلی اضافه شد و دکمه‌های `📝 ثبت درخواست` و `💬 تماس` از منوی کاربر حذف شدند.
-- دکمه داشبورد، وقتی `NOVAX_MINI_APP_URL` یا `MINI_APP_URL` تنظیم باشد، یک inline `web_app` button با آدرس مینی‌اپ ارسال می‌کند.
-- دستورهای BotFather در `/setup-bot` با منوی فعلی هم‌راستا شدند و `/contact` و `/lead` دیگر advertise نمی‌شوند.
-- متن راهنما و FAQ دیگر کاربر را به مسیر ثبت درخواست/تماس هدایت نمی‌کند و روی قیمت‌ها، هشدارها و داشبورد هوشمند متمرکز است.
-- loading مینی‌اپ اصلاح شد: overlay فقط برای بارگذاری اولیه/Retry دستی می‌آید، polling قیمت‌ها background است، history throttled شده و fetchهای همزمان جلوگیری می‌شوند.
-- تست Worker برای وجود دکمه داشبورد، حذف دکمه‌های ثبت درخواست/تماس و ساخت inline `web_app` button اضافه شد.
+در آخرین فاز محصولی، این چک‌ها سبز گزارش شده‌اند:
 
-## 2026-06-14: Cloudflare bot stabilization; mini-app paused
+- Python unit: 153 passed
+- Python integration: 27 passed
+- Alembic fresh migration: passed
+- Ruff و mypy: passed
+- Worker D1 repository tests: passed
+- Mini-app type-check/build/tests: passed
 
-- تصمیم عملیاتی: مینی‌اپ روی VPS/دامنه ایرانی فعلاً pause شد تا بعد از تهیه VPS خارجی و دامنه خارجی دوباره فعال شود.
-- Cloudflare Worker به عنوان مسیر پایدار بات حفظ شد و هیچ وابستگی جدیدی به VPS برای کارکرد اصلی بات اضافه نشد.
-- دکمه `web_app` و ارجاع‌های داخل چت به مینی‌اپ از کیبورد/پیام‌های Worker حذف شد تا کاربر به مسیر خراب هدایت نشود.
-- بات فعلاً فقط از مسیر chat-first کار می‌کند: قیمت‌ها، ساخت هشدار، مدیریت هشدارها و cron ده‌دقیقه‌ای Cloudflare.
-- دیپلوی Worker انجام شد:
-  - Worker URL: `https://novax-telegram-relay.asdevelooper.workers.dev`
-  - Version ID: `3feefd12-b6bf-4af3-b0f6-13b4cb0c44f8`
-  - `/health` = 200
-  - `/status` سالم و cron غیر stale
-  - `/setup-webhook` موفق؛ `pending_update_count=0`
-  - تست webhook شبیه‌سازی‌شده `/start` = 200
-- اعتبارسنجی لوکال:
-  - `cd deploy/cloudflare-worker && npm test`
+برای هر تغییر جدید، وضعیت واقعی باید دوباره با تست‌های مرتبط و inspection کد تأیید شود.
 
-## 2026-06-14: Telegram mini-app live connection fix on `novax.alirezasafeidev.ir`
+## وضعیت امنیت مستندات
 
-- مشکل connection مینی‌اپ با تست واقعی روی VPS بررسی شد؛ دامنه درست production همان `novax.alirezasafeidev.ir` و VPS فعال `<redacted-vps-host>` است.
-- React mini-app دیگر در production مقدار build-time `VITE_NOVAX_API_BASE` را داخل bundle bake نمی‌کند و API را same-origin از `https://novax.alirezasafeidev.ir/api/v1/...` صدا می‌زند.
-- حالت live data در production به صورت پیش‌فرض فعال شد؛ localhost همچنان برای تست local/sim امن باقی می‌ماند.
-- مسیر AI chat با nginx فعلی هم‌راستا شد: client در production از `/studio/api/chat` استفاده می‌کند، چون `/api/*` روی دامنه اصلی به FastAPI وصل است.
-- دیپلوی production روی VPS انجام و تأیید شد:
-  - `/mini-app/` = 200
-  - JS asset جدید زیر `/mini-app/assets/...` = 200
-  - bundle بدون `alirezasafaeisystems`، `localhost:8001` و `VITE_NOVAX_API_BASE`
-  - `/api/v1/prices/latest` = 200 با 8 آیتم قیمت
-  - `/studio/api/chat` = 200
-- اعتبارسنجی لوکال:
-  - `cd mini-app && npm run type-check`
-  - `cd mini-app && npm run build`
-  - `cd mini-app && npm test -- --runInBand`
+- در فایل‌های فعلی نباید token واقعی، password، secret، مسیر local شخصی یا host/IP عملیاتی بدون نیاز وجود داشته باشد.
+- یک Telegram bot token واقعی با الگوی `<telegram-bot-id>:<redacted-token>` در تاریخچه git مستندات دیده شده است.
+- تا وقتی token rotate نشده و تاریخچه remote پاکسازی نشده، این مورد incident باز محسوب می‌شود.
+- حذف از فایل‌های فعلی کافی نیست؛ GitHub history، cloneها، forkها، cacheها و logها ممکن است مقدار قدیمی را نگه داشته باشند.
 
-## 2026-06-14: Telegram mini-app blank-screen production fix
+اقدام لازم برای بستن incident:
 
-- ریشه‌یابی بدون حدس انجام شد: HTML مینی‌اپ در `/mini-app/` با 200 برمی‌گشت، اما build React assetها را از `/assets/...` می‌خواست و production همان فایل‌ها را 404 می‌داد.
-- علت دوم Telegram WebApp هم پیدا و رفع شد: nginx/FastAPI برای صفحه مینی‌اپ `X-Frame-Options` ناسازگار می‌فرستادند؛ مسیر `/mini-app` حالا با CSP مناسب Telegram کنترل می‌شود.
-- اصلاحات انجام‌شده:
-  - Vite base روی `/mini-app/` تنظیم شد تا JS/CSS در مسیر درست ساخته شوند.
-  - FastAPI خروجی `mini-app/dist`، assetها، manifest و robots را زیر `/mini-app` سرو می‌کند.
-  - `ErrorBoundary` اضافه شد تا خطاهای React دیگر صفحه سفید خام نسازند.
-  - نمونه‌های nginx repo با production هم‌راستا شدند و `X-Frame-Options` global حذف شد.
-  - loader امن dotenv برای اسکریپت‌های PM2 اضافه شد تا کلید malformed در `.env` باعث شکست start نشود.
-- دیپلوی production انجام و تأیید شد:
-  - `https://novax.alirezasafeidev.ir/mini-app/` = 200
-  - JS/CSS زیر `/mini-app/assets/...` = 200
-  - `/mini-app/manifest.json`، `/health` و `/api/v1/prices/latest` = 200
-- اعتبارسنجی لوکال:
-  - `uv run ruff check src/novax_price_alert/api/main.py tests/integration/test_api_e2e.py`
-  - `uv run pytest tests/integration/test_api_e2e.py::test_mini_app_shell_references_served_assets tests/test_twa_template.py`
-  - `cd mini-app && npm run type-check && npm run build && npm test -- --runInBand`
+1. token بات را از BotFather revoke/rotate کنید.
+2. secret جدید را فقط در secret managerهای runtime مثل Cloudflare/GitHub Actions تنظیم کنید.
+3. webhook و deploy production را با secret جدید refresh کنید.
+4. بعد از rotation، تاریخچه git با ابزارهایی مثل `git filter-repo` یا BFG پاکسازی و force-push هماهنگ انجام شود.
+5. همه cloneهای تیمی باید بعد از rewrite دوباره sync/re-clone شوند.
 
-## 2026-06-09: Iranian VPS stabilization for `novax.alirezasafeidev.ir`
+## منابع زنده
 
-- دیپلوی روی VPS جدید تکمیل و دامنه عملیاتی روی `novax.alirezasafeidev.ir` تثبیت شد.
-- `health` و `api/v1/prices/latest` روی دامنه جدید پاسخ سالم می‌دهند.
-- API، worker، nginx، PostgreSQL و Redis روی VPS جدید active هستند.
-- مرجع قیمت بازار ایران روی خود VPS نگه داشته شد تا منطق اصلی پروژه تغییر نکند.
-- فچِر خارجی GitHub Actions برای جلوگیری از آلودگی داده، دیگر placeholder اشتباه TGJU را به production ingest نمی‌کند.
-- ingest خارجی کریپتو با fallback ایمن حفظ شد تا در شرایط محدودیت IP/451 همچنان قیمت کریپتو قابل دریافت باشد.
-- نتیجه عملیاتی فعلی:
-  - `USD_IRT`، `EUR_IRT`، `GOLD_18K_IRT`، `SEKKEH_EMAMI_IRT`، `USDT_IRT` از `tgju_scrape`
-  - `BTC_USDT`، `ETH_USDT`، `BNB_USDT` از `coingecko_fallback`
-- نکته برای ادامه فردا: لاگ‌های `price provider failed` در worker باید جداگانه ریشه‌یابی و تمیز شوند، هرچند فعلاً سرویس و قیمت‌ها fresh و usable هستند.
+- `README.md`
+- `docs/README.md`
+- `docs/ARCHITECTURE.md`
+- `docs/API.md`
+- `docs/OPERATIONS.md`
+- `docs/OBSERVABILITY.md`
+- `docs/SECURITY.md`
+- `docs/CONTRACTS_AND_POLICIES.md`
+- `docs/USER_GUIDE_FA.md`
 
-## 2026-06-12: VPS re-sync, sslmode fix, Cloudflare Worker re-deploy
-
-- **مشکل:** کد روی VPS با repo هم‌راستا نبود — git بدون commit بود و فایل‌ها مستقیم کپی شده بودند.
-- **rsync:** کد از repo محلی به VPS sync شد (`.env`, `.venv`, `node_modules` محروم).
-- **رفع مشکل `sslmode`:** `normalize_database_url` در `core/settings.py` پچ شد تا `sslmode=require` را از URL قبل از رسیدن به asyncpg strip کند. باعث شد `alembic current/upgrade` روی VPS کار کند.
-- **Cloudflare Worker:** `wrangler` با node20 نصب و Worker دوباره deploy شد (Version ID: `8a17a55f`). دکمه‌ها و متن‌های منو آپدیت شدند.
-- **Mini-app:** تغییری نداشت — هم‌راستا بود.
-- **نتیجه:** health=200, prices fresh, worker cron active, SSL 86 روز اعتبار.
-- **commit:** `744ee37` — fix: strip sslmode from database_url
-
-## 2026-06-13: Alert management completion in bot + TWA hardening + mini-app local hardening
-
-- مدیریت هشدار در بات Telegram تکمیل شد: در لیست هشدارها، اکشن‌های واقعی برای مشاهده/ویرایش/حذف هر هشدار از خود چت رندر می‌شود.
-- سقف هشدار هر کاربر در این نسخه از محصول به صورت runtime-enforced روی `10` تنظیم شد تا مسیر نسخه تجاری برای افزایش ظرفیت باز بماند.
-- TWA اصلی FastAPI بر اساس رفتار واقعی UI اصلاح شد:
-  - نمایش قیمت‌های `IRT/IRR` در رابط کاربر به **تومان** نرمال شد.
-  - تب‌های `دارایی‌های من`، `هشدارهای من` و `پورتفولیو من` از حالت ظاهری/نیمه‌غیرفعال به رفتار واقعی و قابل استفاده رسیدند.
-  - ساخت هشدار بعد از تأیید نهایی حالا به صورت مطمئن ثبت می‌شود و کاربر به لیست هشدارهای خودش برمی‌گردد.
-  - پیشنهادهای هوشمند و CTAهای ساخت هشدار از خود لیست قیمت‌ها و دارایی‌ها عملیاتی‌تر شدند.
-- Cloudflare Worker هم‌راستا شد تا limit کاربر را در مسیر bot-side نیز enforce کند و در صورت رسیدن به سقف، پیام واضح کاربرپسند برگرداند.
-- React `mini-app/` محلی نیز harden شد:
-  - نمایش تومان برای بازار ایران اصلاح شد.
-  - تب‌های `My Assets` و `My Portfolio` و مسیر ویرایش هشدار از حالت نمایشی به رفتار واقعی نزدیک‌تر شدند.
-  - build config از وابستگی optional به `terser` آزاد شد و از minify پیش‌فرض `esbuild` استفاده می‌کند.
-- اعتبارسنجی انجام‌شده در لوکال:
-  - pytest مسیرهای alert/TWA سبز
-  - تست Worker سبز
-  - build مینی‌اپ پس از اصلاح config بررسی شد
-- **بدون دیپلوی:** هیچ sync/restart/deploy روی VPS در این مرحله انجام نشد.
-
-## 2026-06-13: Advanced chart and portfolio completion pass
-
-- چارت پیشرفته در TWA از حالت خام/ناهماهنگ خارج شد:
-  - سری‌های چنددارایی حالا بر اساس timeline واقعی align می‌شوند.
-  - نمایش محور و tooltip برای دارایی‌های ایرانی با **تومان** یکدست شد.
-  - انتخاب‌گر چارت به‌صورت پیش‌فرض با چند دارایی meaningful preselect می‌شود.
-- تاریخچه قیمت در TWA هم برای بازار ایران با داده‌ی display-normalized روی خود chart render می‌شود تا کاربر عدد خام ریالی نبیند.
-- مینی‌اپ React از نظر UX عملیاتی‌تر شد:
-  - تب `Advanced Chart` دیگر صرفاً تکرار `PriceBoard` نیست و به یک نمای مقایسه‌ای واقعی چنددارایی تبدیل شد.
-  - تب `My Portfolio` حالا علاوه بر نمایش، افزودن و حذف دارایی را هم به‌صورت واقعی با `localStorage` انجام می‌دهد.
-  - در آن نسخه برای مسیر LIVE فاقد history، داده نمایشی تولید می‌شد؛ این رفتار در
-    پیاده‌سازی D1 تاریخ 2026-06-25 حذف و با snapshot واقعی جایگزین شد.
-- متن راهنمای Worker هم با قابلیت واقعی edit/delete هم‌راستا شد.
-- **بدون دیپلوی:** فقط منطق، UI و docs لوکال تکمیل شد.
-
-## 2026-06-13: Telegram mini-app end-to-end hardening pass
-
-- مسیر واقعی React mini-app برای استفاده از داخل Telegram WebApp هم‌راستا شد:
-  - دکمه `🌐 داشبورد هوشمند` در بات حالا به `mini-app` مستقل اشاره می‌کند.
-  - خود FastAPI در صورت موجود بودن build، خروجی `mini-app/dist` را روی `/mini-app/` سرو می‌کند.
-- `mini-app` دیگر به‌صورت پیش‌فرض به `localhost` تکیه نمی‌کند و در production از `window.location.origin` به عنوان backend base استفاده می‌کند.
-- وقتی کاربر mini-app را از داخل تلگرام باز کند:
-  - `initData` واقعی خوانده می‌شود.
-  - LIVE mode به‌صورت خودکار فعال می‌شود.
-  - user context در UI از داده‌ی واقعی Telegram WebApp می‌آید.
-- وقتی کاربر خارج از تلگرام باشد:
-  - قیمت‌های LIVE هنوز قابل مشاهده هستند.
-  - مسیرهای احراز‌شده‌ی alerts با پیام واضح degrade می‌شوند، نه با رفتار مبهم.
-- قابلیت override دستی قیمت در LIVE برای کاربر عادی خاموش شد تا mini-app رفتار production-safe داشته باشد و فقط SIM mode برای playground باقی بماند.
-
-## 2026-06-10: Worker price-ingestion hardening on Iranian VPS
-
-- ریشه خطای مکرر worker مشخص شد: در ingest داخلی، fail شدن بعضی providerها یا بعضی symbolها باعث می‌شد کل batch بازار ایران fail تلقی شود.
-- تست مستقیم روی VPS نشان داد:
-  - `tgju_scrape` عملیاتی است.
-  - `nerkh`، `alanchand` و `api_ir` به علت نداشتن credential فعال نیستند.
-  - `bonbast` از VPS timeout می‌دهد.
-- hardening حداقلی و ایمن انجام شد: `TgjuScrapeProvider.get_prices()` دیگر با fail شدن یک symbol، کل batch را از بین نمی‌برد؛ تا وقتی حداقل یک قیمت معتبر برگردد، ingest ادامه پیدا می‌کند.
-- تست رگرسیون برای partial success اضافه شد.
-- بعد از اعمال patch روی VPS:
-  - اجرای مستقیم `price_fetch_job` دیگر با `RuntimeError: all Iran-market price providers failed` نمی‌خوابد.
-  - `health` و `api/v1/prices/latest` همچنان سالم و fresh هستند.
-- وضعیت فعلی: لاگ `price provider failed` هنوز برای providerهای غیرفعال/timeout دیده می‌شود، اما دیگر باعث افتادن job و خراب شدن سرویس نمی‌شود.
-
-## 2026-06-10: Runtime provider-noise reduction
-
-- مسیر runtime registry تمیزتر شد تا providerهای بدون credential اصلاً وارد execution path نشوند.
-- نتیجه:
-  - `nerkh` بدون API key دیگر بی‌دلیل وارد worker loop نمی‌شود.
-  - `alanchand` بدون token دیگر بی‌دلیل وارد worker loop نمی‌شود.
-  - `api_ir` بدون config کامل دیگر بی‌دلیل وارد worker loop نمی‌شود.
-- `tgju_scrape` به عنوان منبع اصلی بازار ایران باقی ماند.
-- `bonbast` هنوز به عنوان failover سبک در registry می‌ماند چون credential نمی‌خواهد، اما فقط در صورت نیاز به مسیر failover می‌رسد.
-- پس از sync و restart روی VPS، اجرای مستقیم `price_fetch_job` موفق ماند و قیمت‌های `latest` همچنان fresh هستند.
-
-## 2026-06-10: Bonbast failover made opt-in
-
-- برای کاهش noise روی VPS ایرانی، `bonbast` دیگر به صورت پیش‌فرض وارد runtime path نمی‌شود.
-- یک فلگ صریح تنظیم شد تا failover بن‌بست فقط در صورت تصمیم عملیاتی آگاهانه فعال شود.
-- نتیجه:
-  - timeoutهای تکراری `bonbast` دیگر به صورت پیش‌فرض لاگ worker را آلوده نمی‌کنند.
-  - منبع اصلی بازار ایران همچنان `tgju_scrape` باقی مانده است.
-  - سلامت `health` و `latest` بعد از restart و اجرای مستقیم job تایید شد.
-
-## 2026-06-10: React mini-app live integration hardening
-
-- بررسی فنی نشان داد React `mini-app/` کاملِ production نبود: قیمت‌ها در LIVE واقعی بودند، اما alertها و logها هنوز روی مسیر شبیه‌سازی Express محلی می‌ماندند.
-- اصلاح انجام شد بدون دست‌زدن به TWA اصلی:
-  - در LIVE، ساخت/تایید/لیست/حذف/فعال‌سازی هشدارها به backend واقعی FastAPI وصل شد.
-  - endpoint جدید `GET /api/v1/alerts/events` برای خواندن eventهای واقعی هشدار اضافه شد.
-  - در LIVE، event stream فرانت از داده واقعی backend تغذیه می‌شود.
-  - مسیر override برای mini-app با endpoint واقعی `POST /api/v1/prices/test/override-price` هم‌راستا شد.
-- نتیجه:
-  - TWA اصلی FastAPI همچنان source-of-truth و بدون تغییر باقی ماند.
-  - React mini-app در حالت `LIVE` حالا برای prices + alerts + alert events اتصال واقعی‌تری به backend دارد.
-  - AI هنوز به علت محدودیت جغرافیایی provider روی VPS ایرانی degraded است و production-complete محسوب نمی‌شود.
-
-## وضعیت فعلی محصول (Production)
-
-- بات تلگرام menu-driven + Cloudflare Worker relay (webhook، کیبورد غنی، web_app button به TWA).
-- قیمت زنده:
-  - کریپتو: Binance (USDT)
-  - فیات/طلا: TGJU (تومان) + fallback
-- ساخت هشدار: مرحله‌ای (۶ گام استاندارد از گزارش: انتخاب دارایی → قیمت فعلی → شرط → قیمت هدف → خلاصه → تایید صریح)؛ فقط بعد از تایید فعال می‌شود (pending_confirmation → active).
-- cron Worker هر دقیقه اجرا می‌شود؛ eligibility پلن باعث بررسی Free هر ۱۰ دقیقه و Pro هر ۱ دقیقه است.
-- TWA (مینی‌اپ تک‌فایل در `/`): تب‌دار کامل (💰 قیمت‌ها | 📁 دارایی‌های من | 🔔 هشدارها | 📈 چارت پیشرفته | ➕ ایجاد)، responsive Tailwind + Chart.js، SEO/meta کامل.
-- My Assets: دارایی‌های کاربر را گروه‌بندی می‌کند + تعداد هشدار + آخرین قیمت + دکمه اقدام سریع.
-- Suggestions: دارایی‌های unwatched را پیشنهاد می‌دهد + prefill wizard با یک ضربه.
-- چارت پیشرفته: انتخاب چند دارایی + بازه‌های زمانی (1d/7d/30d/90d) + لاین‌های چندرنگ + تم دارک.
-- ingest واقعی (POST /api/v1/prices/ingest با توکن) + GitHub Action (price-fetcher) که از runner خارجی قیمت‌ها را به canonical code می‌فرستد.
-- DB: Postgres (جداگانه)، Alembic migrations کامل، Redis کش/صف، health + backup.
-- دیپلوی فعلی: systemd (`novax-price-alert-api` روی 8001، `novax-price-alert-worker`، `novax-mini-app`) + nginx روی `novax.alirezasafeidev.ir` + SSL + `.env` امن + healthcheck.
-
-## چیزهای تثبیت‌شده (هم‌راستا با گزارش)
-
-- جریان هشدار با gating تایید صریح و snapshot نام/واحد در زمان ایجاد (explicit).
-- برخی guards اولیه برای جلوگیری از trigger روی داده stale.
-- retry/backoff در مسیرهای fetch/send.
-- observability پایه برای eventهای کلیدی (evaluate، send، fetch) + endpointهای health/ingest/latest.
-- canonical asset در بخش‌هایی از مدل (mapping provider → asset).
-- TWA غنی و یکپارچه با بات (تب، My Assets، Suggestions، چارت، CTAها) + recent efficiency: server-side range filtering on /prices/history for advanced multi-asset charts (less data, faster), explicit freshness classification surfaced in /latest + TWA "تازه/قدیمی" labels. These are production-grade UX + performance improvements (best possible, no artificial limits).
-
-## وضعیت فازبندی (مطابق دقیق گزارش 04 + taskهای 05)
-
-- [x] فاز صفر: تثبیت قراردادها و شفاف‌سازی مبنا (T-001 تا T-005) — **DONE**: official short policies in docs/CONTRACTS_AND_POLICIES.md + codified in src/novax_price_alert/domain/policies.py (units, thresholds, format helpers). Implementation in code (canonical, snapshots, gating, freshness, defaults in models).
-- [x] فاز یک: اصلاح UX و Alert Flow (T-101 تا T-104 اصلی + کارهای غنی) — flow مرحله‌ای + تایید استاندارد + متن‌های بهتر پیاده شده. **علاوه بر آن:** TWA تب‌دار کامل، My Assets اولویتی، Suggestions هوشمند با prefill، چارت پیشرفته، بهبود عمیق بات chat (asset-grouped + لینک TWA) — همه به عنوان بهترین تجربه تولید برای کاربر ایرانی.
-- [x] فاز دو: سخت‌سازی منطق هشدار و جلوگیری از تکرار (T-201 تا T-205 P0 اصلی) — **largely implemented + strengthened**: full VALID_TRANSITIONS + transition_to() ... ; atomic claim UPDATE on rule before trigger decision in evaluator (rowcount check + refresh + transition, with Integrity/Invalid catch) for better concurrent safety (T-205). Dispatch claim already solid. Tests cover. 
-- [x] فاز سه: Observability، Data Freshness و آمادگی عملیاتی (T-301/T-303 + T-401 تا T-404 P0) — **substantial + auto-exec**: ... + Redis intent in observability (counters via PriceCache for persistence direction). /suggestions for smart data-driven (volatility % from snapshots). Full runbooks. 
-- [x] فاز چهار: هم‌ترازی مستندات، تثبیت نهایی و آماده‌سازی برای توسعه بعدی (T-501 تا T-504) — **DONE**: docs/roadmap + PROGRESS + new CONTRACTS_AND_POLICIES.md + RELEASE_CHECKLIST.md fully aligned to report 01-06. Tests/lint green, matrix + walkthrough executed, deploy stable. All P0/P1/P2 per list done in auto mode. 
-
-**اولویت فعلی (موج اول گزارش):** ALL DONE (P0 policies+locking+metrics, P1 display+tests+ops+UX, P2 audit+retry+checklist). See CONTRACTS_AND_POLICIES.md, RELEASE_CHECKLIST.md, auto execution commits. Roadmap complete per report.
-
-## چیزهایی که از گزارش‌های بهبود مبنا هستند (01-06)
-
-- محصول برای کاربر واقعی ایرانی: تومان واحد اصلی، قیمت قابل فهم + هماهنگ عرف بازار، explicit در همه نقاط حساس.
-- ۹ مسئله اصلی: ابهام دارایی، ابهام Alert Flow، تکرار هشدار، stale data، ضعف observability، عدم هم‌ترازی docs، ضعف متن‌ها/تاییدها، نبود policy قیمت، ریسک بیش‌توسعه قبل از تثبیت.
-- اصل: Explicit > Implicit؛ یکدست‌سازی؛ اول hardening بعد expansion؛ متن بخشی از reliability؛ docs = runtime.
-- فازبندی دقیق ۵ فاز + task breakdown با کد T-xxx + P0/P1/P2 + owner + AC + sprint ۵ هفته‌ای + KPI (duplicate rate → 0، completion rate، stale rate، MTTR و ...) + Risk Register.
-- هیچ MVP مصنوعی؛ محصول کامل از روز اول، اما با ترتیب درست (قرارداد → UX → backend hardening → observability → audit/release).
-
-## جهت‌گیری تولید و کارهای غنی انجام‌شده
-
-- تمام تمرکز روی **شفافیت رفتاری، کنترل‌پذیری فنی، قابلیت اعتماد عملیاتی** + **بهترین UX/UI و کارایی ممکن** برای کاربران واقعی.
-- TWA به عنوان تجربه اصلی غنی (تب‌دار، asset-centric My Assets، smart suggestions، interactive multi-asset charts) + بات متنی یکپارچه.
-- کارایی: ingest خودکار، history endpoint + چارت، پیش‌بارگذاری/کش در TWA، اقدام سریع از My Assets/Suggestions.
-- گسترش دارایی‌ها: با کیفیت (mapping کامل Binance/TGJU) و تست‌شده؛ گسترش هوشمند بر اساس تقاضا.
-- آماده رشد: بعد از تکمیل فازهای ۲-۴، backlog بعدی (alert پیشرفته‌تر، portfolio view، personalization و غیره) روی هسته قابل اعتماد ساخته شود.
-
-## Auto-exec continuation log (user: "ادامه بده")
-- Smart suggestions backend: new /api/v1/prices/suggestions (unwatched + % change from last 2 PriceSnapshots for "recent move" signals / volatility). TWA renderSuggestions now prefers server data (graceful fallback). Directly addresses report UX overhaul + "smart recs" + user desire for پیشنهاد.
-- Claim strengthening in evaluator (atomic UPDATE claim on rule + rowcount + refresh before event/transition) for better T-205 eval-side dup prevention.
-- Metrics: Redis direction in observability (cache for counters).
-- Lint clean (ruff), 37 tests green, final deploy verified (health 200, 3 live sites untouched).
-- Observability: basic Redis-backed intent in record_metric / get_metrics_snapshot via PriceCache (for persistence across restarts; lightweight, can be INCR later).
-- User flow (T-202): TWA wizard is explicit staged client steps (asset -> condition -> target -> confirm) + server PENDING_CONFIRMATION + transition guards + emits. Matches report 6-step contract in practice. Intermediate states in model for future.
-- Tests: 37 passed post-changes.
-- Judgment: these are high-ROI for "بهترین UX و کارایی" + reliability/observability without heavy risk. Next could be more persistent counters, full walkthrough script, or T-105/106 text polish.
-
-## Auto-exec log (during user rest)
-- 2026-06-xx: Full analysis of T- tasks vs runtime (much of فاز ۲/۳ P0 already solid: state machine, claim/dup prevention in dispatcher+evaluator, freshness policy+gate, structured logging+metrics).
-- Implemented: server range for /history (chart perf/UX), freshness classification surfaced in API + TWA labels, practical runbooks in OBSERVABILITY.md.
-- Tests: 37 passed (fixed 2 pre-existing for full-product reality).
-- Safe deploy executed: rsync (only novax), recreated missing wrappers/ecosystem on remote (they were absent from tree), pm2 start, verified 200 health + "ok" db, 3 live sites completely untouched and online.
-- Judgment calls: focused high-value low-risk changes; current dup guards sufficient for now; prioritized efficiency+visibility per "best possible" + report.
-- Next (when user back or continue): T-105/106 UX text polish, more smart suggestions (volatility), full walkthrough, explicit policy short docs if wanted, stronger eval claim if needed.
-
-## مرجع‌های زنده
-
-- [Implementation Roadmap](IMPLEMENTATION_ROADMAP_FA.md) (مستقیماً از گزارش فیکس‌شده)
-- [User Guide](USER_GUIDE_FA.md)
-- [Architecture](ARCHITECTURE.md)
-- [API](API.md)
-- [Deployment](DEPLOYMENT.md)
-- [Operations](OPERATIONS.md)
-- [Observability](OBSERVABILITY.md)
-
-**گزارش کامل بهبود:** `<redacted-local-reference>/` (01-06) — همیشه اول این را بخوانید.
-
-## Final Deploy (2026-06-05)
-- rsync to /home/deploy/novax-price-alert (safe, no impact on 3 live sites)
-- pm2 restart novax-api + novax-worker --update-env
-- Verified: PM2 online, http://127.0.0.1:8001/health = 200 {"status":"ok","db":"connected"}
-- Subdomain: https://novax.alirezasafaeisystems.ir/health = 200, TWA HTML served, /metrics protected (401)
-- All phases complete per user checklist. Production ready.
-
-## Phase 5 Growth Features Implemented (auto)
-- PWA manifest + install prompt + basic offline note
-- Portfolio tab (local demo with prices calc)
-- Enhanced suggestions (volatility std + score)
-- Client tracking for tab/suggestion/abandon -> /metrics/track
-- Prometheus /metrics/prometheus
-- Metrics persistence improved (Redis HINCRBY no double count)
-- UX errors more actionable
-- Tests expanded, docs updated with Phase 5
-- Full lint/tests/deploy verified.
-
-## فاز چهار: Test Matrix & Walkthrough Summary (for release readiness) - EXECUTED
-Core scenarios covered + executed via pytest (38 tests) + code review + runbooks (T-501/T-502):
-- Happy path: create (PENDING) -> confirm (ACTIVE) -> eval match -> trigger -> dispatch claim -> DELIVERED. (test_alert_hardening, evaluator) [RUN]
-- Stale/unavailable: freshness gate blocks eval, emits stale_data_detected, no trigger. (evaluator + freshness tests) [RUN]
-- Duplicate prevention: claim fails or Integrity/rowcount on rule/event -> duplicate_* metric/event, no double send. (hardening tests + new claim in eval + lock) [RUN]
-- Invalid transition: caught, metric + event, rollback. [COVERED]
-- Error paths: notification fail -> retry with backoff, after max -> FAILED state. [COVERED]
-- Suggestions: unwatched + change% computed from snapshots. [RUN in test_price_service]
-- Observability: events have correlation ids, metrics in /metrics/summary. [ENHANCED]
-- Lock: eval per asset skipped if locked. [ADDED + TESTED]
-
-Walkthrough executed (logic + tests 2026):
-1. Ingest fresh prices -> success, emit.
-2. Create via staged (TWA suggestions prefill) -> PENDING.
-3. Confirm -> ACTIVE, emit.
-4. Eval (with lock) -> if match, claim, trigger, dispatch claim -> DELIVERED.
-All per matrix, no dups, freshness respected. Full pytest passed.
-
-Manual on VPS: health ok, metrics visible, TWA shows fresh labels.
-3. Confirm.
-4. Trigger eval (run worker job or wait cron).
-5. Check /metrics for counts, logs for events, DB for states.
-6. Verify no dups, freshness respected, user notified.
-
-All phases per report now baseline complete. Future: add durable metrics, more assets, AI recs etc. as growth (post fاز4).
-## همگام سازی و قرارگیری در نمونه کارهای واقعی (post-completion) - EXECUTED
-- Workspace sync (/home/dev13/my-project):
-  - ops/workspace/PROJECTS.tsv: added novax entry with live URL + "keep as live example and portfolio case"
-  - README.md: listed under Secondary Projects with link + note
-- Portfolio site placement (/home/dev13/my-project/sites/live/alirezasafaeisystems):
-  - Created full case study: src/app/case-studies/novax-price-alert/page.tsx (bilingual, structured sections per report, JsonLd project/article/breadcrumb, live link)
-  - Added to case-studies listing (EN/FA)
-  - Featured on homepage via FeaturedCaseStudies component (prominent card + grid, with summary highlighting rich TWA features: My Assets, suggestions, portfolio, advanced charts, hardening, safe co-deploy)
-  - Added to "Live Product Network" cross-site links
-  - Updated site README + sitemap manifest + regenerated json
-- Committed + pushed in both the live sub-repo and outer workspace repo.
-- Source canonical: sites/secondary/novax-price-alert (already inside my-project tree)
-- Result: Novax is now discoverable as a real production delivery in alirezasafaeisystems.ir "نمونه کارهای واقعی" (case studies + featured on home), while source + registry updated in control workspace.
-All per user request after full phases + production deploy.
-
-## 2026-06-xx: NovaX Mini-App (داشبورد هوشمند) deliverable received
-
-User delivered `/home/dev13/Downloads/novax-mini-app.zip` (extracted to `mini-app/` in repo).
-
-**خلاصه:** یک پروتوتایپ full-stack مدرن (React 19 + Vite + Express server.ts با @google/genai) با تمرکز روی تجربه تعاملی غنی:
-- داشبورد قیمت با چارت‌های SVG area/line زنده + high/low + اسپارک‌لاین‌های کوچک.
-- پلی‌گراند اسلایدر دستی قیمت (trigger-manual) برای تست فوری هشدارها بدون بازار واقعی (هر ۱۰ ثانیه drift + چک تریگر در بک‌اند شبیه‌سازی).
-- Alert Center با فرم گام‌به‌گام، تبدیل خودکار ارقام فارسی، یادداشت شخصی، فعال/غیرفعال، لیست + استریم لاگ وقایع تریگر.
-- شبیه‌ساز نوتیفیکیشن تلگرام (پاپ‌آپ انیمیشنی branded @novax_price_bot + سنتز صدا با Web Audio API chime).
-- دستیار AI جمینای 3.5-flash سرور‌ساید با context قیمت‌های زنده + دانش پروژه (هشدارها، کرون ۱۰ دقیقه، وب‌هوک، ریپو).
-- تب راهنمای استقرار VPS + .env + دموهای تستی.
-
-**وضعیت فنی:** 
-- `npm install + tsc --noEmit + npm run build` کاملاً سبز و بدون خطا.
-- کاملاً self-contained با in-memory store (assets + alerts + logs). هیچ اتصالی به بک‌اند واقعی پایتون (alert_rules, LatestPrice, evaluator) ندارد.
-- asset symbols کمی متفاوت از seed اصلی (TON اضافه، نام‌گذاری GOLD18/COIN_EMAMI).
-
-**رابطه با چک‌لیست اولویت‌دار ۳ ماهه (فاز ۱-۴):**
-- قوی روی UX polish، نوتیفیکیشن غنی (شبیه‌سازی)، ابزار تست، و پیشنهاد/تحلیل هوشمند (فاز ۱ + فاز ۳).
-- هنوز هیچ‌کدام از اولویت‌های اصلی فاز ۱ (سیستم بازخورد واقعی + جدول Feedback + آمار per-user + لاگ‌های رشد) یا فاز ۲ (Subscription + زرین‌پال) را پوشش نمی‌دهد.
-- عالی به عنوان ابزار development/demo برای validation قبل از monetization.
-
-**تصمیم (2026-06-11):** نگه‌داری به عنوان companion/demo جدا (گزینه 1).
-- دلیل: کم‌ریسک، مفید برای تست و نمایش، تداخلی با TWA اصلی ندارد.
-- Gemini AI روی VPS ایرانی به دلیل geo-restriction کار نمی‌کند (محدودیت provider).
-- در صورت نیاز آینده، پورت الگوهای کلیدی به TWA قابل انجام است.
-
-فایل‌های کلیدی جدید: `mini-app/server.ts` (هسته شبیه‌سازی + Gemini)، کامپوننت‌های React، README به‌روزشده داخل mini-app.
-
-## 2026-06-05: GEMINI_API_KEY placed with proper format + activation + testing (user request)
-- User: "الان کلید و با فرمت مناسب در /home/dev13/my-project/sitessecondary/novax-price-alert/.env قرار دادم" (note: typo in path "sitessecondary"; actual at sites/secondary/.../.env).
-- Re-examined: local .env had only a curl example snippet with "AQ.Ab8RN6..." (non-standard for Gemini, previously caused 403). No clean `GEMINI_API_KEY=AIza...` line. Mistyped path had no file.
-- Actions taken:
-  - Cleaned local .env (removed curl junk block, added proper `GEMINI_API_KEY=...` line in KEY= format; backed up first). Created `mini-app/.env` locally too (for dev).
-  - Propagated to VPS: updated both `/home/deploy/novax-price-alert/.env` and `mini-app/.env` (via ssh heredoc; scp subsystem unavailable on target). Ensured VITE_NOVAX_API_BASE also.
-  - Rebuilt (`npm run build` in mini-app on VPS: vite + esbuild to dist/server.cjs), `pm2 restart novax-mini-app --update-env`.
-  - Verified: dotenv injection logs show env loaded; process using new key.
-- Test results (curl to https://novax.alirezasafaeisystems.ir/api/chat ):
-  - With prior key: 403 "project has been denied access".
-  - After format clean + proper placement (same value): auth passed, but 400 "User location is not supported for the API use." (FAILED_PRECONDITION). Geo-restriction on Iranian VPS for Google generative APIs.
-  - Error handling improved (server.ts): model updated to "gemini-2.5-flash"; catch detects geo/denied and returns friendly Persian message without leaking raw details or stack.
-  - Client (AIChat.tsx): now prefers server-provided error text (so users see the geo notice); badge updated GEMINI 3.5 → 2.5.
-  - Final curl: returns `{"error":"تحلیل‌گر هوشمند فعلاً در این منطقه در دسترس نیست (محدودیت ارائه‌دهنده). از ابزارهای دستی و هشدارهای ربات استفاده کنید."}` (no details).
-- Also: synced source edits (server.ts, AIChat.tsx, mini-app/README.md) to VPS + rebuilt.
-- Outcome: key is now in clean usable format, loaded in prod, endpoint functional (graceful degradation). Full AI responses blocked by provider geo policy on the VPS (common for .ir infra). 
-- Docs: mini-app/README.md updated with integration reality + Gemini limitations section. PROGRESS updated.
-- Next for real AI (if desired): proxy chat calls via supported-region service, or switch provider, or note as known limitation.
-- All other Studio features (LIVE prices/override, rich TG notifs from prior, playground) remain fully operational with real DB/alerts.
-
-## 2026-06-11: Full mypy strict mode hardening (31 errors fixed)
-
-- Fixed 31 pre-existing mypy errors across 9 source files to achieve `mypy --strict` clean state.
-- `core/observability.py`: Fixed bytes/str type mismatch on Redis key iteration (r.keys() returns bytes).
-- `domain/admin_audit.py`: Added type args to Mapped[dict] → Mapped[dict[str, object]].
-- `application/services/admin_audit_service.py`: Added return types to _ensure_table(), log_action(), list_recent(); typed details param.
-- `application/services/price_query_service.py`: Typed list[dict] → list[dict[str, Any]].
-- `infra/notifications/telegram.py`: Typed dict params, fixed line length (E501).
-- `api/routers/prices.py`: Added return type to ingest_prices(), fixed float→Decimal for PricePoint, removed unused List import.
-- `api/routers/metrics.py`: Added return types to prometheus_metrics() and track_event().
-- `api/routers/admin.py`: Added return types to 8 endpoint functions; fixed User attribute names (last_activity_at→created_at, telegram_id→telegram_user_id).
-- `api/main.py`: Added return type to twa_manifest().
-- Validation: ruff check clean, ruff format clean, 44 tests passed, mypy strict clean (82 files).
-
-## 2026-06-05: Mini-app port alignment after interrupted deploy
-- Root cause: previous wrapper defaulted `novax-mini-app` to `3002`, but that port belongs to `my-portfolio`; `3000` belongs to `persian-tools`.
-- Current production convention: `novax-api` stays on `8001`; `novax-mini-app` uses dedicated `3012`; nginx `novax_mini` proxies root `/` to `127.0.0.1:3012`.
-- Repo defaults updated in `scripts/pm2-start-mini.sh` and `mini-app/.env.example` to prevent drift on restart/deploy.
+هر سندی خارج از این لیست، مخصوصاً داخل `docs/archive/`، فقط مرجع تاریخی است.
