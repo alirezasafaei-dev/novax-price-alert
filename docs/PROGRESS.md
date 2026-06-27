@@ -1,6 +1,6 @@
 # وضعیت پیشرفت
 
-آخرین بازبینی: 2026-06-26
+آخرین بازبینی: 2026-06-27
 
 این سند وضعیت فعلی پروژه را خلاصه می‌کند. گزارش‌ها، چک‌لیست‌ها و راهنماهای مرحله‌ای قدیمی در
 `docs/archive/` نگهداری می‌شوند و نباید بدون بررسی کد واقعی به عنوان منبع اجرا استفاده شوند.
@@ -10,12 +10,23 @@
 - مسیر production روی Cloudflare Worker + D1 متمرکز است.
 - Cloudflare D1 منبع اصلی هشدارها، کاربران، رخدادها، پرداخت‌ها، subscriptionها و snapshotهای قیمت است.
 - KV فقط برای session، cache و assetهای مینی‌اپ استفاده می‌شود.
+- مینی‌اپ از Worker روی `/mini-app/` و assetهای KV سرو می‌شود؛ برای WebViewهای حساس تلگرام یک fallback کلاسیک `legacy-app.js` هم در HTML قرار دارد.
 - بات تلگرام menu-driven است و قیمت‌ها، ساخت هشدار، مدیریت هشدار و پرداخت دستی را پوشش می‌دهد.
 - cron Worker هر دقیقه اجرا می‌شود؛ پلن Free هر ۱۰ دقیقه و پلن Pro هر ۱ دقیقه واجد بررسی است.
 - قیمت کریپتو از Binance با واحد `USDT` و قیمت تتر/فیات/طلا از TGJU با واحد تومان خوانده می‌شود.
 - history نمایشی از snapshot واقعی D1 ساخته می‌شود؛ داده مصنوعی history نباید دوباره وارد محصول شود.
 
 ## آخرین تغییرات مهم
+
+### 2026-06-27: احیای بات و رفع صفحه سفید مینی‌اپ تلگرام
+
+- webhook تلگرام دوباره تنظیم شد. چون Telegram برای `workers.dev` خطای DNS موقت داشت، webhook با `ip_address` resolved شده Cloudflare ثبت شد.
+- Worker secrets مربوط به مینی‌اپ (`NOVAX_MINI_APP_URL` و `MINI_APP_URL`) تنظیم شدند تا دکمه `🌐 داشبورد هوشمند` در بات فعال شود.
+- مشکل صفحه سفید مینی‌اپ با دو اصلاح بسته شد:
+  - حذف اولویت embedded assets قدیمی در Worker و برگشت به source of truth فعلی یعنی KV.
+  - افزودن fallback کلاسیک `assets/legacy-app.js` کنار bundle ماژولی Vite. اگر Telegram WebView نتواند module/chunk اصلی را mount کند، fallback بعد از تأخیر کوتاه React app را mount می‌کند.
+- برای جلوگیری از SyntaxError در WebViewهای قدیمی، build مینی‌اپ بعد از Vite با esbuild به target `es2015` post-process می‌شود و عبارت مبهم `TON"?.05` از سورس حذف شد.
+- build مخصوص Worker اکنون `npm run build:worker` است و خروجی آن باید به KV sync شود.
 
 ### 2026-06-26: پاکسازی و ساماندهی مستندات
 

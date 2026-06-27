@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useMemo } from 'react';
 import { Alert, Asset } from '../types';
 import { formatPrice } from '../utils';
 import { BellRing, Trash2, ToggleLeft, ToggleRight, CircleAlert, Clock, ArrowUpRight, ArrowDownRight, Plus, Terminal } from 'lucide-react';
@@ -60,7 +60,10 @@ export default function AlertManager({
   const [editLabel, setEditLabel] = useState<string>('');
 
   const isFa = language === 'fa';
-  const activeAsset = assets.find(a => a.symbol === selectedSymbol) || assets[0];
+  const activeAsset = useMemo(() => 
+    assets.find(a => a.symbol === selectedSymbol) || assets[0],
+    [assets, selectedSymbol]
+  );
 
   const handleDelete = async (id: string) => {
     setDeletingIds(prev => new Set(prev).add(id));
@@ -305,7 +308,7 @@ export default function AlertManager({
             🔥 {isFa ? 'هشدارهای فعال' : 'Active Alerts'}
           </h3>
 
-          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
             {alerts.length === 0 ? (
               <div className="bg-slate-950/20 border border-slate-800/40 p-8 rounded-xl text-center text-zinc-500 text-xs">
                 {isFa ? 'هیچ هشدار فعالی ندارید. یک هشدار جدید بسازید!' : 'No active alerts. Create one on the left!'}
@@ -315,12 +318,12 @@ export default function AlertManager({
                 <div
                   id={`alert-card-${alert.id}`}
                   key={alert.id}
-                  className={`bg-slate-950/40 border p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all ${
-                    alert.isTriggered 
-                      ? 'border-emerald-500/30 bg-emerald-500/5' 
-                      : alert.isActive 
-                        ? 'border-slate-800/80 hover:border-slate-800' 
-                        : 'border-slate-800/30 opacity-60'
+                  className={`relative overflow-hidden border p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all ${
+                    alert.isTriggered
+                      ? 'border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent'
+                      : alert.isActive
+                        ? 'border-slate-800/80 bg-slate-950/40 hover:border-slate-700'
+                        : 'border-slate-800/30 bg-slate-950/40 opacity-60'
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -397,8 +400,9 @@ export default function AlertManager({
                     {onEditAlert && (
                       <button
                         onClick={() => startEdit(alert)}
-                        className="p-1 px-2.5 rounded-lg text-sky-400/80 hover:text-sky-300 hover:bg-sky-500/10 transition-all cursor-pointer text-xs flex items-center gap-1"
+                        className="p-1 px-2.5 rounded-lg text-sky-400/80 hover:text-sky-300 hover:bg-sky-500/10 transition-all cursor-pointer text-xs flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Edit alert"
+                        disabled={togglingIds.has(alert.id)}
                       >
                         {isFa ? 'ویرایش' : 'Edit'}
                       </button>

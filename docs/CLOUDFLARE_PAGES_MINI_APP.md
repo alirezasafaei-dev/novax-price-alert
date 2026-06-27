@@ -1,6 +1,6 @@
 # دیپلوی خارجی مینی‌اپ روی Cloudflare
 
-**وضعیت:** مسیر production فعلی برای حذف VPS ایرانی از تجربه Telegram Mini App، سرو مستقیم build مینی‌اپ از Cloudflare Worker روی `/mini-app/` است. Cloudflare Pages همچنان گزینه خوب بعدی است، اما در تست واقعی upload آن با خطای شبکه fail شد.
+**وضعیت:** مسیر production فعلی برای حذف VPS ایرانی از تجربه Telegram Mini App، سرو مستقیم build مینی‌اپ از Cloudflare Worker روی `/mini-app/` است. assetها در `ALERTS_KV` sync می‌شوند و Worker آن‌ها را سرو می‌کند. Cloudflare Pages همچنان گزینه خوب بعدی است، اما در تست واقعی upload آن با خطای شبکه fail شد.
 
 ## معماری
 
@@ -31,12 +31,30 @@ Telegram WebApp → Worker `/mini-app/` یا Cloudflare Pages → Worker API
 
 مسیر اجراشده فعلی:
 
-- Build مینی‌اپ با base `/mini-app/`
+- Build مینی‌اپ با base `/mini-app/` از طریق `npm run build:worker`
 - Upload assetها به `ALERTS_KV`
 - سرو `GET /mini-app/` و assetها از خود Worker
 - اتصال API همان Worker با `VITE_NOVAX_API_BASE=https://<worker-domain>`
+- HTML مینی‌اپ علاوه بر bundle ماژولی Vite، fallback کلاسیک `assets/legacy-app.js` دارد تا در Telegram WebViewهایی که module/chunk را درست mount نمی‌کنند صفحه سفید نماند.
 
 Cloudflare Pages هنوز قابل استفاده است، اما تا وقتی upload ناپایدار است مسیر Worker+KV repeatableتر است.
+
+### نکته مهم درباره صفحه سفید Telegram WebView
+
+اگر در مرورگر عادی مینی‌اپ بالا می‌آید اما داخل Telegram فقط صفحه سفید دیده می‌شود، ابتدا این موارد را بررسی کنید:
+
+- `GET /mini-app/` باید HTML شامل هر دو مورد زیر را برگرداند:
+  - `assets/index-*.js`
+  - `assets/legacy-app.js`
+- `GET /mini-app/assets/legacy-app.js` باید `200` و `Content-Type: application/javascript` بدهد.
+- `mini-app/src/components/PriceBoard.tsx` نباید دوباره literal مبهمی مثل `condition ? 0.05 : ...` تولید کند که minifier آن را شبیه optional chaining (`?.05`) کند؛ برای مقادیر حساس از شکل غیرمبهم مثل `5 / 100` استفاده شده است.
+- `mini-app/index.html`، Telegram SDK را `async` لود می‌کند تا بارگیری کند یا ناموفق شود ولی parser و app را block نکند.
+
+Fallback کلاسیک در این فایل‌ها پیاده‌سازی شده است:
+
+- `mini-app/src/legacy-main.tsx`
+- `mini-app/scripts/build-legacy-fallback.mjs`
+- `mini-app/package.json` script `build:worker`
 
 ### Cloudflare Pages
 
@@ -84,7 +102,7 @@ npm test
 
 cd ../../mini-app
 npm run type-check
-npm run build:pages
+npm run build:worker
 ```
 
 بعد از deploy:
@@ -93,6 +111,7 @@ npm run build:pages
 curl -fsS https://<worker-domain>/health
 curl -fsS https://<worker-domain>/api/v1/prices/latest
 curl -fsS https://<worker-domain>/mini-app/
+curl -fsS https://<worker-domain>/mini-app/assets/legacy-app.js
 ```
 
 سپس از داخل Telegram، `/start` را بزنید و دکمه `🌐 داشبورد هوشمند` را باز کنید.

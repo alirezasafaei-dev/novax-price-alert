@@ -2,7 +2,7 @@ export const MAIN_KEYBOARD = {
   keyboard: [
     ["💰 قیمت‌ها", "🔔 تنظیم هشدار"],
     ["📋 هشدارهای من", "🌐 داشبورد هوشمند"],
-    ["💎 خرید Pro", "❓ راهنما"]
+    ["💎 ارتقا به Pro", "❓ راهنما"]
   ],
   resize_keyboard: true,
   one_time_keyboard: false

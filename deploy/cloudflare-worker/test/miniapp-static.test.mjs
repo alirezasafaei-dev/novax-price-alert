@@ -41,6 +41,11 @@ let response = await handleMiniAppStatic(new Request("https://worker.example/min
 assert.equal(response.status, 200);
 assert.equal(response.headers.get("Content-Type"), "application/javascript; charset=utf-8");
 
+response = await handleMiniAppStatic(new Request("https://worker.example/mini-app/"), env);
+assert.equal(response.status, 200);
+assert.equal(response.headers.get("Content-Type"), "text/html; charset=utf-8");
+assert.equal(response.headers.get("Cache-Control"), "no-store");
+
 response = await handleMiniAppStatic(new Request("https://worker.example/mini-app/assets/missing.js"), env);
 assert.equal(response.status, 404);
 

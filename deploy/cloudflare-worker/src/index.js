@@ -218,7 +218,7 @@ export default {
         return Response.json({ ok: true });
       }
 
-      if (text === "💎 خرید Pro" || text.startsWith("/pro")) {
+      if (text === "💎 ارتقا به Pro" || text.startsWith("/pro")) {
         await showSubscription(env, chatId);
         return Response.json({ ok: true });
       }
