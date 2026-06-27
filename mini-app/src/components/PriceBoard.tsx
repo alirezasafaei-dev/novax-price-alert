@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { formatPrice, formatPercent, toDisplayPrice } from '../utils';
 import { Asset } from '../types';
 import { TrendingUp, TrendingDown, Bell, Coins, Activity, Sliders } from 'lucide-react';
@@ -49,10 +49,13 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
     });
   }, [assets, selectedAsset]);
 
-  const filteredAssets = assets.filter(asset => {
-    if (filter === 'all') return true;
-    return asset.type === filter;
-  });
+  const filteredAssets = useMemo(() => 
+    assets.filter(asset => {
+      if (filter === 'all') return true;
+      return asset.type === filter;
+    }),
+    [assets, filter]
+  );
 
   // Debounced slider change — only send to backend after user stops sliding
   const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,13 +116,23 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
       return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
     }).join(' ');
   };
-  const chartAssets = compareSymbols.map(symbol => assets.find(asset => asset.symbol === symbol)).filter(Boolean) as Asset[];
-  const chartSeries = chartAssets.map(asset => ({
-    asset,
-    points: getDisplayHistory(asset),
-  }));
+  
+  const chartAssets = useMemo(() => 
+    compareSymbols.map(symbol => assets.find(asset => asset.symbol === symbol)).filter(Boolean) as Asset[],
+    [compareSymbols, assets]
+  );
+  
+  const chartSeries = useMemo(() => 
+    chartAssets.map(asset => ({
+      asset,
+      points: getDisplayHistory(asset),
+    })),
+    [chartAssets]
+  );
+  
   const legendColors = ['#22d3ee', '#34d399', '#f59e0b', '#f472b6', '#a78bfa'];
-  const advancedLabels = (() => {
+  
+  const advancedLabels = useMemo(() => {
     const length = chartSeries[0]?.points.length || 0;
     return Array.from({ length }, (_, index) => {
       if (range === 'intraday') {
@@ -127,11 +140,22 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
       }
       return isFa ? `بازه ${index + 1}` : `Range ${index + 1}`;
     });
-  })();
+  }, [chartSeries, range, isFa]);
 
-  const minSliderVal = selectedAsset ? Math.round(selectedAsset.price * 0.7) : 0;
-  const maxSliderVal = selectedAsset ? Math.round(selectedAsset.price * 1.3) : 100000;
-  const sliderStep = selectedAsset?.type === 'crypto' ? (selectedAsset.symbol === 'TON' ? 0.05 : 10) : 100;
+  const minSliderVal = useMemo(() => 
+    selectedAsset ? Math.round(selectedAsset.price * 0.7) : 0,
+    [selectedAsset]
+  );
+  
+  const maxSliderVal = useMemo(() => 
+    selectedAsset ? Math.round(selectedAsset.price * 1.3) : 100000,
+    [selectedAsset]
+  );
+  
+  const sliderStep = useMemo(() => 
+    selectedAsset?.type === 'crypto' ? (selectedAsset.symbol === 'TON' ? 5 / 100 : 10) : 100,
+    [selectedAsset]
+  );
 
   if (assets.length === 0) {
     return (

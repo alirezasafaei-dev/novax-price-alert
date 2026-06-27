@@ -87,3 +87,6 @@ telegram-bot-miniapp/
 # OS
 Thumbs.db
 .DS_Store
+
+# Obsidian
+.obsidian/

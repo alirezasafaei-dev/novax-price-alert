@@ -113,6 +113,8 @@ npx wrangler tail
 ```bash
 npx wrangler secret put TELEGRAM_BOT_TOKEN
 npx wrangler secret put TELEGRAM_SECRET_TOKEN
+npx wrangler secret put NOVAX_MINI_APP_URL
+npx wrangler secret put MINI_APP_URL
 ```
 
 
@@ -124,10 +126,54 @@ Current verified public endpoints:
 
 - Cloudflare Worker: `https://novax-telegram-relay.asdevelooper.workers.dev`
 - Telegram webhook: `https://novax-telegram-relay.asdevelooper.workers.dev/webhook`
+- Telegram Mini App: `https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/`
 
 The live Worker is menu-driven. Slash commands are only `/start` and `/help`; everything else is via the reply keyboard (💰 قیمت‌ها / 🔔 تنظیم هشدار / 📋 هشدارهای من / ❓ راهنما).
 
 Prices: crypto BTC/ETH/SOL/BNB from Binance in USDT; fiat (USD/EUR) and gold (18K/Emami) from TGJU in Toman. Times formatted in `Asia/Tehran`.
+
+### Telegram Webhook Recovery
+
+If the bot stops responding, check Telegram first:
+
+```bash
+python3 - <<'PY'
+import json, os, urllib.request
+bot = os.environ["TELEGRAM_BOT_TOKEN"]
+with urllib.request.urlopen(f"https://api.telegram.org/bot{bot}/getWebhookInfo") as r:
+    print(json.dumps(json.load(r)["result"], ensure_ascii=False, indent=2))
+PY
+```
+
+If `url` is empty, set webhook again. If Telegram reports DNS resolution failure for `workers.dev`, resolve the Worker host locally and pass `ip_address` to `setWebhook`; this was required on 2026-06-27.
+
+Required webhook values:
+
+- URL: `https://novax-telegram-relay.asdevelooper.workers.dev/webhook`
+- `secret_token`: current `TELEGRAM_SECRET_TOKEN`
+- `allowed_updates`: `message`, `edited_message`, `callback_query`
+
+### Mini-App Blank Screen Recovery
+
+Current production mini-app is KV-hosted. Do not rely on embedded Worker assets as the source of truth.
+
+Expected checks:
+
+```bash
+curl -fsS https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/ | grep -E 'assets/index-|assets/legacy-app.js'
+curl -fsS -I https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/assets/legacy-app.js
+```
+
+The HTML must include both the Vite module bundle and `assets/legacy-app.js`. The legacy fallback exists because some Telegram WebViews can show a blank page when the module/chunk path fails before React mounts.
+
+Deploy/update mini-app assets with:
+
+```bash
+cd mini-app
+VITE_NOVAX_API_BASE=https://novax-telegram-relay.asdevelooper.workers.dev npm run build:worker
+```
+
+Then sync `mini-app/dist` to `ALERTS_KV` using `deploy/cloudflare-worker/scripts/deploy-miniapp-worker-kv.sh` or the KV upload section from that script. After sync, verify `/mini-app/` references the new `assets/index-*.js` and `assets/legacy-app.js`.
 
 ## Monitoring
 

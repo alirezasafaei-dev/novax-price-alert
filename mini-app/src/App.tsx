@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Asset, Alert, AlertLog } from './types';
 import PriceBoard from './components/PriceBoard';
 import AlertManager from './components/AlertManager';
-import TelegramSimulator from './components/TelegramSimulator';
+
 import AIChat from './components/AIChat';
 import { formatPrice, toDisplayPrice } from './utils';
-import { Coins, Bell, HelpCircle, Sparkles, X, Wifi, WifiOff, Globe, ChevronDown } from 'lucide-react';
+import { Coins, Bell, Sparkles, X, Wifi, WifiOff, Globe, MoreHorizontal, Wallet, TrendingUp, LayoutGrid } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 /* ─── Toast notification system ─── */
@@ -86,7 +86,8 @@ function ConfirmDialog({ open, title, message, onConfirm, onCancel, language }: 
 
 /* ─── Main App ─── */
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'prices' | 'assets' | 'portfolio' | 'alerts' | 'chart' | 'ai' | 'vps'>('prices');
+  const [activeTab, setActiveTab] = useState<'prices' | 'assets' | 'portfolio' | 'alerts' | 'chart' | 'ai'>('prices');
+  const [bottomMenuOpen, setBottomMenuOpen] = useState<boolean>(false);
   const [language, setLanguage] = useState<'fa' | 'en'>('fa');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -99,7 +100,6 @@ export default function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [showConfirmDelete, setShowConfirmDelete] = useState<{ open: boolean; alertId: string | null }>({ open: false, alertId: null });
-  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [portfolioDraft, setPortfolioDraft] = useState<PortfolioDraft>({ symbol: '', amount: '' });
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
@@ -306,7 +306,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    try {
+    const bindTelegramWebApp = () => {
       const tg = (window as any).Telegram?.WebApp;
       if (tg?.initData) {
         setTgInitData(tg.initData);
@@ -314,8 +314,22 @@ export default function App() {
         setUseLiveData(true);
         tg.ready?.();
         tg.expand?.();
+        return true;
       }
-    } catch { /* not in TG */ }
+      return false;
+    };
+
+    try { bindTelegramWebApp(); } catch { /* not in TG */ }
+    let telegramAttempts = 0;
+    const telegramTimer = setInterval(() => {
+      telegramAttempts += 1;
+      try {
+        if (bindTelegramWebApp() || telegramAttempts >= 20) clearInterval(telegramTimer);
+      } catch {
+        clearInterval(telegramTimer);
+      }
+    }, 250);
+
     fetchAllData({ showOverlay: !hasLoadedOnce.current, refreshHistory: false });
     const historyTimer = setTimeout(() => fetchAllData({ showOverlay: false, refreshHistory: true }), 1500);
     const historyRetryTimer = setTimeout(() => {
@@ -323,13 +337,12 @@ export default function App() {
     }, 5000);
     const timer = setInterval(() => fetchAllData({ showOverlay: false }), 15000);
     return () => {
+      clearInterval(telegramTimer);
       clearTimeout(historyTimer);
       clearTimeout(historyRetryTimer);
       clearInterval(timer);
     };
   }, [useLiveData, tgInitData]);
-
-  useEffect(() => { setMobileMenuOpen(false); }, [activeTab]);
 
   const toggleLiveData = () => {
     if (!useLiveData && !tgInitData) {
@@ -484,8 +497,12 @@ export default function App() {
     setTimeout(() => setPushNotification(null), 6000);
   };
 
-  const watchedAssets = assets.filter(asset => alerts.some(alert => alert.symbol === asset.symbol));
-  const portfolioHoldings = (() => {
+  const watchedAssets = useMemo(() => 
+    assets.filter(asset => alerts.some(alert => alert.symbol === asset.symbol)), 
+    [assets, alerts]
+  );
+
+  const portfolioHoldings = useMemo(() => {
     if (typeof window === 'undefined') return [] as Array<{ symbol: string; amount: number; asset?: Asset }>;
     try {
       const raw = window.localStorage.getItem('novax_portfolio');
@@ -498,12 +515,16 @@ export default function App() {
     } catch {
       return [] as Array<{ symbol: string; amount: number; asset?: Asset }>;
     }
-  })();
-  const portfolioTotal = portfolioHoldings.reduce((sum, item) => {
-    if (!item.asset) return sum;
-    const multiplier = item.asset.type === 'crypto' ? item.asset.price : toDisplayPrice(item.asset.price, item.asset.unit || '');
-    return sum + multiplier * item.amount;
-  }, 0);
+  }, [assets]);
+
+  const portfolioTotal = useMemo(() => 
+    portfolioHoldings.reduce((sum, item) => {
+      if (!item.asset) return sum;
+      const multiplier = item.asset.type === 'crypto' ? item.asset.price : toDisplayPrice(item.asset.price, item.asset.unit || '');
+      return sum + multiplier * item.amount;
+    }, 0),
+    [portfolioHoldings]
+  );
   const persistPortfolio = (next: Record<string, number>) => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem('novax_portfolio', JSON.stringify(next));
@@ -536,15 +557,17 @@ export default function App() {
   };
 
   /* ── Tab definitions ── */
-  const tabs = [
-    { id: 'prices' as const, icon: Coins, labelFa: 'تابلو قیمت‌ها', labelEn: 'Price Board' },
+  const tabs = useMemo(() => [
+    { id: 'prices' as const, icon: LayoutGrid, labelFa: 'قیمت‌ها', labelEn: 'Prices' },
+    { id: 'alerts' as const, icon: Bell, labelFa: 'هشدارها', labelEn: 'Alerts' },
+    { id: 'portfolio' as const, icon: Wallet, labelFa: 'پورتفولیو', labelEn: 'Portfolio' },
+    { id: 'chart' as const, icon: TrendingUp, labelFa: 'چارت', labelEn: 'Chart' },
+  ], []);
+
+  const moreTabs = useMemo(() => [
     { id: 'assets' as const, icon: Coins, labelFa: 'دارایی‌های من', labelEn: 'My Assets' },
-    { id: 'portfolio' as const, icon: Coins, labelFa: 'پورتفولیو من', labelEn: 'My Portfolio' },
-    { id: 'alerts' as const, icon: Bell, labelFa: 'مرکز هشدارها', labelEn: 'Alert Center' },
-    { id: 'chart' as const, icon: Sparkles, labelFa: 'چارت پیشرفته', labelEn: 'Advanced Chart' },
     { id: 'ai' as const, icon: Sparkles, labelFa: 'تحلیل‌گر هوشمند', labelEn: 'AI Analyst' },
-    { id: 'vps' as const, icon: HelpCircle, labelFa: 'مستندات استقرار', labelEn: 'Deploy Docs' },
-  ];
+  ], []);
 
   return (
     <div className="min-h-screen bg-[#060814] text-white flex flex-col font-sans">
@@ -574,7 +597,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* ── Toast notifications ── */}
-      <div className="fixed bottom-4 right-4 z-[90] flex flex-col gap-2 pointer-events-none">
+      <div className="fixed bottom-24 md:bottom-4 right-4 z-[90] flex flex-col gap-2 pointer-events-none">
         <AnimatePresence>
           {toasts.map(t => (
             <motion.div key={t.id} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
@@ -681,7 +704,7 @@ export default function App() {
 
         {/* ── Tab navigation — desktop ── */}
         <div className="hidden md:flex gap-2 bg-slate-950/60 border border-slate-900 p-1.5 rounded-2xl">
-          {tabs.map(tab => (
+          {[...tabs, ...moreTabs].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={`flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold transition-all text-xs tracking-wide shrink-0 cursor-pointer
                 ${activeTab === tab.id
@@ -692,34 +715,8 @@ export default function App() {
           ))}
         </div>
 
-        {/* ── Tab navigation — mobile dropdown ── */}
-        <div className="md:hidden relative">
-          <button onClick={() => setMobileMenuOpen(p => !p)}
-            className="w-full flex items-center justify-between bg-slate-950/60 border border-slate-900 rounded-2xl px-4 py-3 cursor-pointer">
-            <span className="flex items-center gap-2 text-sm font-bold text-teal-300">
-              {(() => { const t = tabs.find(x => x.id === activeTab)!; return <t.icon size={14} />; })()}
-              {isFa ? tabs.find(x => x.id === activeTab)!.labelFa : tabs.find(x => x.id === activeTab)!.labelEn}
-            </span>
-            <ChevronDown size={16} className={`text-zinc-400 transition-transform ${mobileMenuOpen ? 'rotate-180' : ''}`} />
-          </button>
-          <AnimatePresence>
-            {mobileMenuOpen && (
-              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-40 overflow-hidden">
-                {tabs.map(tab => (
-                  <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all cursor-pointer
-                      ${activeTab === tab.id ? 'bg-teal-500/10 text-teal-300' : 'text-zinc-400 hover:bg-slate-800 hover:text-white'}`}>
-                    <tab.icon size={16} /> {isFa ? tab.labelFa : tab.labelEn}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
         {/* ── Screen viewport ── */}
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 pb-24 md:pb-0">
           <AnimatePresence mode="wait">
             {activeTab === 'prices' && (
               <motion.div key="prices" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}>
@@ -736,11 +733,27 @@ export default function App() {
             {activeTab === 'assets' && (
               <motion.div key="assets" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}
                 className="grid gap-4">
-                {watchedAssets.length === 0 ? <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 text-zinc-400">{isFa ? 'هنوز داراییِ دارای هشدار ندارید.' : 'No watched assets yet.'}</div> :
+                {watchedAssets.length === 0 ? (
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center mx-auto mb-4">
+                      <Bell size={24} className="text-zinc-600" />
+                    </div>
+                    <div className="text-zinc-400 text-sm font-medium">{isFa ? 'هنوز داراییِ دارای هشدار ندارید.' : 'No watched assets yet.'}</div>
+                    <div className="text-zinc-600 text-xs mt-1">{isFa ? 'از بخش قیمت‌ها هشدار بسازید.' : 'Create alerts from the Prices tab.'}</div>
+                  </div>
+                ) :
                   watchedAssets.map(asset => (
-                    <div key={asset.symbol} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-4">
-                      <div><div className="font-bold text-white">{isFa ? asset.nameFa : asset.name}</div><div className="text-zinc-400 text-sm">{formatPrice(asset.price, asset.type, asset.unit)}</div></div>
-                      <button onClick={() => handleSelectAssetForAlert(asset.symbol)} className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-bold text-white">{isFa ? 'ساخت/مدیریت هشدار' : 'Manage Alerts'}</button>
+                    <div key={asset.symbol} className="bg-gradient-to-r from-slate-900/80 to-slate-900/40 border border-slate-800/80 rounded-2xl p-5 flex items-center justify-between gap-4 hover:border-teal-500/30 transition-all group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500/20 to-indigo-500/20 flex items-center justify-center">
+                          <Coins size={18} className="text-teal-400" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-white">{isFa ? asset.nameFa : asset.name}</div>
+                          <div className="text-zinc-400 text-sm">{formatPrice(asset.price, asset.type, asset.unit)}</div>
+                        </div>
+                      </div>
+                      <button onClick={() => handleSelectAssetForAlert(asset.symbol)} className="rounded-xl bg-teal-600 hover:bg-teal-500 px-4 py-2 text-sm font-bold text-white cursor-pointer transition-all group-hover:shadow-lg group-hover:shadow-teal-500/20">{isFa ? 'ساخت/مدیریت هشدار' : 'Manage Alerts'}</button>
                     </div>
                   ))}
               </motion.div>
@@ -748,23 +761,46 @@ export default function App() {
             {activeTab === 'portfolio' && (
               <motion.div key="portfolio" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}
                 className="grid gap-4">
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                  <div className="text-zinc-400 text-sm mb-2">{isFa ? 'ارزش تقریبی کل پورتفولیو' : 'Estimated portfolio value'}</div>
-                  <div className="text-2xl font-bold text-white">{portfolioTotal.toLocaleString(isFa ? 'fa-IR' : 'en-US')} {isFa ? 'تومان' : 'Toman'}</div>
+                <div className="bg-gradient-to-br from-slate-900/80 to-indigo-950/40 border border-slate-800/80 rounded-2xl p-6">
+                  <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-1">{isFa ? 'ارزش تقریبی کل پورتفولیو' : 'Estimated portfolio value'}</div>
+                  <div className="text-3xl font-bold bg-gradient-to-r from-teal-300 to-indigo-300 bg-clip-text text-transparent">{portfolioTotal.toLocaleString(isFa ? 'fa-IR' : 'en-US')} <span className="text-lg text-zinc-400">{isFa ? 'تومان' : 'Toman'}</span></div>
                 </div>
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-[1fr,180px,auto] gap-3 items-end">
                   <div>
                     <div className="text-xs font-semibold text-zinc-400 mb-2">{isFa ? 'نماد دارایی' : 'Asset Symbol'}</div>
-                    <input value={portfolioDraft.symbol} onChange={e => setPortfolioDraft(prev => ({ ...prev, symbol: e.target.value }))} placeholder={isFa ? 'مثال: BTC یا USD_IRT' : 'e.g. BTC or USD_IRT'} className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white focus:outline-none" />
+                    <input value={portfolioDraft.symbol} onChange={e => setPortfolioDraft(prev => ({ ...prev, symbol: e.target.value }))} placeholder={isFa ? 'مثال: BTC یا USD_IRT' : 'e.g. BTC or USD_IRT'} className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white focus:outline-none focus:border-teal-500/50 transition-colors" />
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-zinc-400 mb-2">{isFa ? 'مقدار' : 'Amount'}</div>
-                    <input value={portfolioDraft.amount} onChange={e => setPortfolioDraft(prev => ({ ...prev, amount: e.target.value }))} placeholder="0.5" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white focus:outline-none" />
+                    <input value={portfolioDraft.amount} onChange={e => setPortfolioDraft(prev => ({ ...prev, amount: e.target.value }))} placeholder="0.5" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white focus:outline-none focus:border-teal-500/50 transition-colors" />
                   </div>
-                  <button onClick={addPortfolioItem} className="rounded-xl bg-gradient-to-r from-teal-500 to-indigo-600 px-5 py-3 text-sm font-bold text-white cursor-pointer">{isFa ? 'افزودن' : 'Add'}</button>
+                  <button onClick={addPortfolioItem} className="rounded-xl bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-400 hover:to-indigo-500 px-5 py-3 text-sm font-bold text-white cursor-pointer transition-all shadow-lg shadow-teal-500/20">{isFa ? 'افزودن' : 'Add'}</button>
                 </div>
-                {portfolioHoldings.length === 0 ? <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 text-zinc-400">{isFa ? 'هنوز چیزی در پورتفولیو ذخیره نشده.' : 'No portfolio items saved yet.'}</div> :
-                  portfolioHoldings.map(item => <div key={item.symbol} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-4"><div><div className="font-bold text-white">{item.symbol}</div><div className="text-zinc-400 text-sm">{item.amount}</div></div><div className="flex items-center gap-3"><div className="text-teal-300 font-bold">{item.asset ? formatPrice((item.asset.type === 'crypto' ? item.asset.price : toDisplayPrice(item.asset.price, item.asset.unit || '')) * item.amount, item.asset.type === 'crypto' ? 'crypto' : 'fiat', item.asset.type === 'crypto' ? 'USDT' : 'TOMAN') : '-'}</div><button onClick={() => removePortfolioItem(item.symbol)} className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-300 cursor-pointer">{isFa ? 'حذف' : 'Remove'}</button></div></div>)}
+                {portfolioHoldings.length === 0 ? (
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center mx-auto mb-4">
+                      <Wallet size={24} className="text-zinc-600" />
+                    </div>
+                    <div className="text-zinc-400 text-sm font-medium">{isFa ? 'هنوز چیزی در پورتفولیو ذخیره نشده.' : 'No portfolio items saved yet.'}</div>
+                  </div>
+                ) :
+                  portfolioHoldings.map(item => (
+                    <div key={item.symbol} className="bg-gradient-to-r from-slate-900/80 to-slate-900/40 border border-slate-800/80 rounded-2xl p-5 flex items-center justify-between gap-4 hover:border-teal-500/30 transition-all group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500/20 to-indigo-500/20 flex items-center justify-center">
+                          <Wallet size={18} className="text-teal-400" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-white">{item.symbol}</div>
+                          <div className="text-zinc-400 text-sm">{item.amount}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-teal-300 font-bold">{item.asset ? formatPrice((item.asset.type === 'crypto' ? item.asset.price : toDisplayPrice(item.asset.price, item.asset.unit || '')) * item.amount, item.asset.type === 'crypto' ? 'crypto' : 'fiat', item.asset.type === 'crypto' ? 'USDT' : 'TOMAN') : '-'}</div>
+                        <button onClick={() => removePortfolioItem(item.symbol)} className="rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-2 text-xs font-bold text-rose-300 cursor-pointer transition-all">{isFa ? 'حذف' : 'Remove'}</button>
+                      </div>
+                    </div>
+                  ))}
               </motion.div>
             )}
             {activeTab === 'chart' && (
@@ -777,13 +813,87 @@ export default function App() {
                 <AIChat assets={assets} language={language} />
               </motion.div>
             )}
-            {activeTab === 'vps' && (
-              <motion.div key="vps" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}>
-                <TelegramSimulator language={language} onSimulateFakeNotification={handleSimulateFakePush} />
-              </motion.div>
-            )}
+
           </AnimatePresence>
         </div>
+      </div>
+
+      {/* ── Bottom navigation — mobile ── */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-2xl border-t border-slate-800/60 z-50 pb-safe">
+        <div className="flex justify-around items-center py-1.5 px-2">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setBottomMenuOpen(false);
+              }}
+              className={`relative flex flex-col items-center gap-0.5 py-2 px-3 rounded-xl transition-all cursor-pointer ${
+                activeTab === tab.id
+                  ? 'text-teal-400'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {activeTab === tab.id && (
+                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-teal-400" />
+              )}
+              <tab.icon size={20} />
+              <span className="text-[10px] font-semibold">{isFa ? tab.labelFa : tab.labelEn}</span>
+            </button>
+          ))}
+          <button
+            onClick={() => setBottomMenuOpen(!bottomMenuOpen)}
+            className={`relative flex flex-col items-center gap-0.5 py-2 px-3 rounded-xl transition-all cursor-pointer ${
+              bottomMenuOpen ? 'text-teal-400' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            {bottomMenuOpen && (
+              <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-6 h-1 rounded-full bg-teal-400" />
+            )}
+            <MoreHorizontal size={20} />
+            <span className="text-[10px] font-semibold">{isFa ? 'بیشتر' : 'More'}</span>
+          </button>
+        </div>
+
+        {/* More menu overlay */}
+        <AnimatePresence>
+          {bottomMenuOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setBottomMenuOpen(false)}
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              />
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                className="absolute bottom-full left-4 right-4 mb-2 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden z-50"
+              >
+                {moreTabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setBottomMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold transition-all cursor-pointer ${
+                      activeTab === tab.id
+                        ? 'bg-teal-500/15 text-teal-300'
+                        : 'text-zinc-400 hover:bg-slate-800/80 hover:text-white'
+                    }`}
+                  >
+                    <tab.icon size={18} />
+                    {isFa ? tab.labelFa : tab.labelEn}
+                  </button>
+                ))}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* ── Footer ── */}

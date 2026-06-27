@@ -97,10 +97,11 @@ echo "Building mini-app for ${MINI_APP_URL}"
 (
   cd "${MINI_DIR}"
   VITE_NOVAX_API_BASE="${WORKER_URL%/}" npm run type-check
-  VITE_NOVAX_API_BASE="${WORKER_URL%/}" npm run build:pages -- --base=/mini-app/
+  VITE_NOVAX_API_BASE="${WORKER_URL%/}" npm run build:worker
 )
 
 echo "Uploading mini-app assets to KV namespace ${KV_NAMESPACE_ID:0:6}..."
+set +e
 MINI_DIST_DIR="${MINI_DIR}/dist" python3 - <<'PY'
 import hashlib
 import json
@@ -110,6 +111,29 @@ import pathlib
 import time
 import urllib.parse
 import urllib.request
+
+
+def retry_delay(attempt, exc):
+    if isinstance(exc, urllib.error.HTTPError) and exc.code == 429:
+        retry_after = exc.headers.get("Retry-After")
+        if retry_after:
+            try:
+                return min(120, max(10, int(retry_after)))
+            except ValueError:
+                pass
+        return min(120, 20 * attempt)
+    return min(20, attempt * 3)
+
+
+def is_daily_usage_limit(exc):
+    if not isinstance(exc, urllib.error.HTTPError) or exc.code != 429:
+        return False
+    try:
+        body = exc.read().decode(errors="replace")
+        payload = json.loads(body)
+    except Exception:
+        return False
+    return any(error.get("code") == 10048 for error in payload.get("errors", []))
 
 account = os.environ["CLOUDFLARE_ACCOUNT_ID"]
 token = os.environ["CLOUDFLARE_API_TOKEN"]
@@ -171,7 +195,7 @@ for path in sorted(root.rglob("*"), key=lambda item: item.stat().st_size if item
         skipped.append(rel)
         print(json.dumps({"skipped": rel, "reason": "remote_match"}, ensure_ascii=False), flush=True)
     else:
-        for attempt in range(1, 8):
+        for attempt in range(1, 11):
             try:
                 request = urllib.request.Request(
                     url,
@@ -191,13 +215,16 @@ for path in sorted(root.rglob("*"), key=lambda item: item.stat().st_size if item
                 break
             except Exception as exc:  # noqa: BLE001 - deploy script should retry broad network errors
                 last_error = exc
-                print(json.dumps({"retry": rel, "attempt": attempt, "error": type(exc).__name__}, ensure_ascii=False), flush=True)
-                time.sleep(min(20, attempt * 3))
+                if is_daily_usage_limit(exc):
+                    raise SystemExit(f"KV upload failed for {rel}: Cloudflare free usage limit reached for today.")
+                delay = retry_delay(attempt, exc)
+                print(json.dumps({"retry": rel, "attempt": attempt, "error": type(exc).__name__, "delay_seconds": delay}, ensure_ascii=False), flush=True)
+                time.sleep(delay)
         else:
             raise SystemExit(f"KV upload failed for {rel}: {last_error!r}")
 
     checksum_last_error = None
-    for attempt in range(1, 8):
+    for attempt in range(1, 11):
         try:
             request = urllib.request.Request(
                 checksum_url,
@@ -215,8 +242,11 @@ for path in sorted(root.rglob("*"), key=lambda item: item.stat().st_size if item
             break
         except Exception as exc:  # noqa: BLE001 - deploy script should retry broad network errors
             checksum_last_error = exc
-            print(json.dumps({"retry": checksum_key, "attempt": attempt, "error": type(exc).__name__}, ensure_ascii=False), flush=True)
-            time.sleep(min(20, attempt * 3))
+            if is_daily_usage_limit(exc):
+                raise SystemExit(f"KV checksum upload failed for {rel}: Cloudflare free usage limit reached for today.")
+            delay = retry_delay(attempt, exc)
+            print(json.dumps({"retry": checksum_key, "attempt": attempt, "error": type(exc).__name__, "delay_seconds": delay}, ensure_ascii=False), flush=True)
+            time.sleep(delay)
     else:
         raise SystemExit(f"KV checksum upload failed for {rel}: {checksum_last_error!r}")
 
@@ -227,7 +257,7 @@ manifest_url = (
 )
 manifest_data = json.dumps(manifest, ensure_ascii=False, sort_keys=True).encode()
 last_error = None
-for attempt in range(1, 8):
+for attempt in range(1, 11):
     try:
         request = urllib.request.Request(
             manifest_url,
@@ -246,13 +276,22 @@ for attempt in range(1, 8):
         break
     except Exception as exc:  # noqa: BLE001 - deploy script should retry broad network errors
         last_error = exc
-        print(json.dumps({"retry": manifest_key, "attempt": attempt, "error": type(exc).__name__}, ensure_ascii=False), flush=True)
-        time.sleep(min(20, attempt * 3))
+        if is_daily_usage_limit(exc):
+            raise SystemExit(f"KV upload failed for {manifest_key}: Cloudflare free usage limit reached for today.")
+        delay = retry_delay(attempt, exc)
+        print(json.dumps({"retry": manifest_key, "attempt": attempt, "error": type(exc).__name__, "delay_seconds": delay}, ensure_ascii=False), flush=True)
+        time.sleep(delay)
 else:
     raise SystemExit(f"KV upload failed for {manifest_key}: {last_error!r}")
 
 print(json.dumps({"uploaded_count": len(uploaded), "skipped_count": len(skipped)}, ensure_ascii=False))
 PY
+kv_upload_status=$?
+set -e
+if [[ "${kv_upload_status}" -ne 0 ]]; then
+  echo "Error: KV static asset upload failed. Mini-app assets are served from KV, so deploy cannot continue safely." >&2
+  exit "${kv_upload_status}"
+fi
 
 echo "Uploading Worker secrets..."
 (
