@@ -1,42 +1,19 @@
-# سیاست حریم نسخه
+# Privacy Policy
 
-## مقدمه
+Novax Price Alert stores the minimum data needed to operate Telegram price alerts and the Mini App.
 
-Novax Price Alert («نواکس») یک بات تلگرام برای نمایش لحظه‌ای قیمت و ثبت هشدار قیمت است.
-این سند توضیح می‌دهد که چه داده‌هایی جمع‌آوری، ذخیره و استفاده می‌شود.
+## Data we process
 
-## داده‌هایی که جمع‌آوری می‌کنیم
+- Telegram profile fields from Telegram WebApp/initData or bot messages: user id, username, first name, last name, language code.
+- Alert settings: asset, target price, condition, lifecycle state, timestamps, delivery status, and alert events.
+- Subscription and manual payment request records, including user-submitted payment references. We do not ask for card numbers, but manual references are payment-related data.
+- Price snapshots and provider metadata used for alert evaluation and Mini App history.
+- Operational logs with redacted structured fields. Bot tokens and secrets must not be logged.
 
-| داده | منبع | هدف |
-|------|------|-----|
-| شناسه کاربر تلگرام (`telegram_user_id`) | تلگرام (InitData) | شناسایی کاربر |
-| نام کاربری، نام، زبان | تلگرام (InitData) | نمایش شخصی‌سازی‌شده |
-| هشدارهای ثبت‌شده (دارایی، قیمت هدف، شرط) | ورودی کاربر | اجرای هشدار |
-| تاریخچه تریگرها | سیستم | جلوگیری از ارسال تکراری |
+## Storage
 
-## داده‌هایی که جمع‌آوری نمی‌کنیم
+Production stores product data in Cloudflare D1. KV is used for Mini App assets, sessions, and low-risk user/cache data. Telegram receives messages needed to operate the bot.
 
-- اطلاعات پرداخت (فاقد سیستم پرداخت هستیم)
-- موقعیت جغرافیایی
-- لیست مخاطبین
-- محتوای پیام‌های خصوصی (فقط دستورات بات پردازش می‌شود)
+## Deletion
 
-## نحوه ذخیره‌سازی
-
-- داده‌ها در پایگاه داده PostgreSQL روی سرویس Neonz ذخیره می‌شوند.
-- اتصال به پایگاه داده از طریق SSL/TLS رمزگذاری است.
-- توکن‌های حساس در متغیرهای محیطی (ENV) نگهداری می‌شوند و هرگز لاگ نمی‌شوند.
-
-## حت اشتراک‌گذاری
-
-- داده‌های کاربر با هیچ شخص ثالثی به اشتراک گذاشته نمی‌شود.
-- قیمت‌ها از منابع عمومی (Binance, TGJO) دریافت می‌شوند و شخصی نیستند.
-
-## حق حذف
-
-کاربر می‌تواند در هر زمان از طریق دستور `/deleteall` در بات، تمام هشدارها و
-داده‌های خود را حذف کند. در صورت نیاز به حذف کامل حساب، با پشتیبانی تماس بگیرید.
-
-## تغییرات در سیاست
-
-هر تغییر در این سند از طریق کانال رسمی تلگرام اعلام خواهد شد.
+Users can delete individual alerts from the bot/Mini App. A full self-service `/deleteall` command is not currently implemented; contact the operator for account/data deletion requests.

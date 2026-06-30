@@ -4,8 +4,8 @@ import { handleCallback, handleTextInSession } from "./callbacks.js";
 import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession, getSession } from "./sessions.js";
 import { runCronJob } from "./cron.js";
 import { recordCronHeartbeat, getCronStatus } from "./heartbeat.js";
-import { sendMessage } from "./telegram.js";
-import { logEvent, logError } from "./log.js";
+import { sendMessage, telegramApi } from "./telegram.js";
+import { logEvent, logWarn, logError } from "./log.js";
 import { MAIN_KEYBOARD } from "./keyboards.js";
 import { handleMiniAppApi } from "./miniapp-api.js";
 import { handleMiniAppStatic } from "./miniapp-static.js";
@@ -27,6 +27,10 @@ function requireSecret(request, env) {
   return null;
 }
 
+function getWebhookChatId(update) {
+  return String(update?.message?.chat?.id || update?.edited_message?.chat?.id || update?.callback_query?.message?.chat?.id || "") || null;
+}
+
 function requireSetupSecret(request, env) {
   const expected = env.SETUP_SECRET || env.TELEGRAM_SECRET_TOKEN;
   const received = request.headers.get("X-Setup-Secret");
@@ -44,8 +48,19 @@ export default {
     if (miniAppResponse) return miniAppResponse;
 
     if (request.method === "OPTIONS" || url.pathname.startsWith("/api/v1/")) {
-      const apiResponse = await handleMiniAppApi(request, env);
-      if (apiResponse) return apiResponse;
+      try {
+        const apiResponse = await handleMiniAppApi(request, env);
+        if (apiResponse) return apiResponse;
+      } catch (error) {
+        logError("miniapp_api_error", {
+          path: url.pathname,
+          error_message: error?.message || "mini app api failed",
+        });
+        return Response.json(
+          { detail: error?.message || "Mini App API unavailable", error: error?.message || "Mini App API unavailable" },
+          { status: error?.status || 500 },
+        );
+      }
     }
     
     if (url.pathname === "/health") {
@@ -80,24 +95,16 @@ export default {
     if (url.pathname === "/setup-webhook" && request.method === "POST") {
       const unauthorized = requireSetupSecret(request, env);
       if (unauthorized) return unauthorized;
-      const botToken = env.TELEGRAM_BOT_TOKEN;
       const webhookUrl = `${url.origin}/webhook`;
       const secretToken = env.TELEGRAM_SECRET_TOKEN;
       
       try {
-        const setResponse = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            url: webhookUrl, 
-            secret_token: secretToken,
-            allowed_updates: ["message", "edited_message", "callback_query"]
-          })
+        const { result: setResult } = await telegramApi(env, "setWebhook", {
+          url: webhookUrl,
+          secret_token: secretToken,
+          allowed_updates: ["message", "edited_message", "callback_query"],
         });
-        const setResult = await setResponse.json();
-        
-        const infoResponse = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
-        const infoResult = await infoResponse.json();
+        const { result: infoResult } = await telegramApi(env, "getWebhookInfo", {});
         
         return Response.json({ setWebhook: setResult, webhookInfo: infoResult });
       } catch (error) {
@@ -108,56 +115,54 @@ export default {
     if (url.pathname === "/setup-bot" && request.method === "POST") {
       const unauthorized = requireSetupSecret(request, env);
       if (unauthorized) return unauthorized;
-      const botToken = env.TELEGRAM_BOT_TOKEN;
       const webhookUrl = `${url.origin}/webhook`;
       const secretToken = env.TELEGRAM_SECRET_TOKEN;
 
-      const [setWebhookResponse, commandsResponse] = await Promise.all([
-        fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url: webhookUrl,
-            secret_token: secretToken,
-            allowed_updates: ["message", "edited_message", "callback_query"],
-          }),
+      const [webhookResult, commandsResult] = await Promise.all([
+        telegramApi(env, "setWebhook", {
+          url: webhookUrl,
+          secret_token: secretToken,
+          allowed_updates: ["message", "edited_message", "callback_query"],
         }),
-        fetch(`https://api.telegram.org/bot${botToken}/setMyCommands`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            commands: [
-              { command: "start", description: "شروع ربات" },
-              { command: "help", description: "راهنما" },
-              { command: "prices", description: "قیمت‌های لحظه‌ای" },
-              { command: "pro", description: "خرید یا مشاهده پلن Pro" },
-              { command: "faq", description: "سوالات پرتکرار" },
-            ],
-          }),
+        telegramApi(env, "setMyCommands", {
+          commands: [
+            { command: "start", description: "شروع ربات" },
+            { command: "help", description: "راهنما" },
+            { command: "prices", description: "قیمت‌های لحظه‌ای" },
+            { command: "pro", description: "خرید یا مشاهده پلن Pro" },
+            { command: "faq", description: "سوالات پرتکرار" },
+          ],
         }),
       ]);
 
       return Response.json({
-        webhook: await setWebhookResponse.json(),
-        commands: await commandsResponse.json(),
+        webhook: webhookResult.result,
+        commands: commandsResult.result,
         webhook_url: webhookUrl,
-      }, { status: setWebhookResponse.ok && commandsResponse.ok ? 200 : 500 });
+      }, { status: webhookResult.response.ok && commandsResult.response.ok ? 200 : 500 });
     }
     
     if (url.pathname === "/webhook" && request.method === "POST") {
       const unauthorized = requireSecret(request, env);
       if (unauthorized) return unauthorized;
       
-      const update = await request.json();
-      
+      let update;
+      try {
+        update = await request.json();
+      } catch (error) {
+        logWarn("webhook_malformed_json", { error_message: error?.message || "invalid json" });
+        return Response.json({ ok: false, error: "malformed_json" }, { status: 400 });
+      }
+
       if (update.update_id) {
         const processed = await isUpdateProcessed(env, update.update_id);
         if (processed) {
+          logEvent("webhook_duplicate_update", { update_id: String(update.update_id) });
           return Response.json({ ok: true, duplicate: true });
         }
-        await markUpdateProcessed(env, update.update_id);
       }
-      
+
+      try {
       if (update.callback_query) {
         try {
           await handleCallback(env, update.callback_query);
@@ -166,11 +171,13 @@ export default {
           await sendMessage(env, update.callback_query.message.chat.id, 
             "خطایی رخ داد. لطفاً دوباره تلاش کنید.");
         }
+        if (update.update_id) await markUpdateProcessed(env, update.update_id);
         return Response.json({ ok: true });
       }
       
       const message = update.message || update.edited_message;
       if (!message) {
+        if (update.update_id) await markUpdateProcessed(env, update.update_id);
         return Response.json({ ok: true, ignored: true });
       }
       
@@ -243,7 +250,16 @@ export default {
         await handleUnknownMessage(env, chatId);
       }
       
+      if (update.update_id) await markUpdateProcessed(env, update.update_id);
       return Response.json({ ok: true });
+      } catch (error) {
+        logError("webhook_handler_error", {
+          update_id: update?.update_id ? String(update.update_id) : null,
+          chat_id: getWebhookChatId(update),
+          error_message: error?.message || "webhook failed",
+        });
+        return Response.json({ ok: false, error: "handler_failed" }, { status: 500 });
+      }
     }
     
     return new Response("Not Found", { status: 404 });

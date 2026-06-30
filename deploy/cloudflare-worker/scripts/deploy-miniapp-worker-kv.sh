@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Secret-safe full deploy for the Telegram Worker + mini-app.
 # - builds the React mini-app for /mini-app/
-# - uploads static assets to ALERTS_KV
+# - uploads static assets to ASSETS_KV
 # - deploys the Worker code
 # - points Telegram webhook at the Worker
 # It never prints secret values.
@@ -19,7 +19,7 @@ MINI_DIR="${REPO_ROOT}/mini-app"
 ENV_FILE="${ENV_FILE:-${REPO_ROOT}/.env}"
 WORKER_URL="${WORKER_URL:-https://novax-telegram-relay.asdevelooper.workers.dev}"
 MINI_APP_URL="${MINI_APP_URL:-${WORKER_URL%/}/mini-app/}"
-KV_NAMESPACE_ID="${ALERTS_KV_ID:-9bfa7672e25d446aa0a24165cbd1848a}"
+KV_NAMESPACE_ID="${ASSETS_KV_ID:-33333333333333333333333333333333}"
 
 load_dotenv() {
   local line key value
@@ -88,10 +88,10 @@ if grep -q "REPLACE_WITH_D1_DATABASE_ID" "${WORKER_DIR}/wrangler.toml"; then
   exit 2
 fi
 
-if [[ -n "${ALERTS_KV_ID:-}" ]]; then
-  KV_NAMESPACE_ID="${ALERTS_KV_ID}"
+if [[ -n "${ASSETS_KV_ID:-}" ]]; then
+  KV_NAMESPACE_ID="${ASSETS_KV_ID}"
 fi
-export ALERTS_KV_ID="${KV_NAMESPACE_ID}"
+export ASSETS_KV_ID="${KV_NAMESPACE_ID}"
 
 echo "Building mini-app for ${MINI_APP_URL}"
 (
@@ -137,7 +137,7 @@ def is_daily_usage_limit(exc):
 
 account = os.environ["CLOUDFLARE_ACCOUNT_ID"]
 token = os.environ["CLOUDFLARE_API_TOKEN"]
-namespace = os.environ.get("ALERTS_KV_ID") or "9bfa7672e25d446aa0a24165cbd1848a"
+namespace = os.environ.get("ASSETS_KV_ID") or "33333333333333333333333333333333"
 root = pathlib.Path(os.environ["MINI_DIST_DIR"])
 
 skipped = []

@@ -32,7 +32,7 @@ async function getAssetManifest(env) {
   ) {
     return assetManifestCache;
   }
-  const manifest = await env.ALERTS_KV.get("miniapp:asset-manifest", "json");
+  const manifest = await (env.ASSETS_KV || env.ALERTS_KV).get("miniapp:asset-manifest", "json");
   assetManifestCache = manifest && typeof manifest === "object" ? manifest : {};
   assetManifestCachedAt = Date.now();
   return assetManifestCache;
@@ -55,7 +55,7 @@ export async function handleMiniAppStatic(request, env) {
   const knownAsset = manifest.assets?.[assetPath];
   if (!knownAsset && assetPath !== "index.html") return new Response("Not Found", { status: 404 });
 
-  const body = await env.ALERTS_KV.get(miniAppAssetKey(assetPath), "arrayBuffer");
+  const body = await (env.ASSETS_KV || env.ALERTS_KV).get(miniAppAssetKey(assetPath), "arrayBuffer");
   if (!body) return new Response("Mini app asset not deployed", { status: 503 });
 
   return new Response(body, {

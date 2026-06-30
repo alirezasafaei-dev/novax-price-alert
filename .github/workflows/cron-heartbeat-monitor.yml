@@ -1,7 +1,5 @@
 name: Cron heartbeat monitor
 
-# DISABLED: Monitor causing spam to ops group
-# Re-enable when worker is stable and OPS_CHAT_ID is confirmed to be private
 # مانیتورِ بیرونیِ ضربان cron برای Worker. روی رانرهای GitHub اجرا می‌شود (خارج از
 # ایران، با دسترسی به Cloudflare و Telegram) و مستقل از Cloudflare cron است.
 # `/status` را چک می‌کند و اگر cron کهنه یا قطع باشد به گروه ops تلگرام هشدار می‌دهد.
@@ -18,9 +16,6 @@ on:
 permissions:
   contents: read
 
-# Temporarily disable this workflow
-# Remove this condition when ready to re-enable
-if: false
 
 concurrency:
   group: cron-heartbeat-monitor
@@ -37,7 +32,7 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.OPS_BOT_TOKEN }}
           OPS_CHAT_ID: ${{ secrets.OPS_CHAT_ID }}
-          COOLDOWN_SEC: "0"
+          COOLDOWN_SEC: "1800"
           STATE_DIR: ${{ runner.temp }}
         run: |
           if [[ -z "$BOT_TOKEN" || -z "$OPS_CHAT_ID" ]]; then

@@ -80,10 +80,10 @@ jobs:
       - run: uv sync --all-extras
 
       - name: Run security checks
-        run: uv run bandit -r src || true
+        run: uv run bandit -r src
 
       - name: Check dependencies for vulnerabilities
-        run: uv pip check || true
+        run: uv pip check
 
   notify-failure:
     name: Notify on Failure

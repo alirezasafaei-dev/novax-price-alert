@@ -1,363 +1,52 @@
 # Operations
 
-## Runtime Model
+## Production path
 
-### VPS Deployment (Legacy)
+Production runs on Cloudflare Worker + D1 + Telegram Mini App.
 
-Operate two backend processes and one Cloudflare Worker:
+- Worker code: `deploy/cloudflare-worker/src/`
+- D1 schema: `deploy/cloudflare-worker/migrations/`
+- Mini App assets: Worker route `/mini-app/`, backed by `ASSETS_KV`
+- Telegram webhook: `/webhook` with `X-Telegram-Bot-Api-Secret-Token`
 
-- FastAPI API process
-- price/alert background worker process
-- Cloudflare Telegram relay Worker
+FastAPI/PostgreSQL/RQ/Render and KV-only alert storage are legacy/archive paths.
 
-Do not use Docker for this deployment path.
+## Required runtime secrets and bindings
 
-### Render + Cloudflare Deployment (Current)
+Secrets must be configured in Cloudflare/GitHub, never committed:
 
-Operate one web service and one Cloudflare Worker:
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_SECRET_TOKEN`
+- `SETUP_SECRET`
+- `OPS_CHAT_ID` (optional Worker ops alerts)
+- `PAYMENT_INSTRUCTIONS` (if payment instructions are served)
 
-- **Render Web Service**: FastAPI API (serverless, auto-scaling)
-- **Cloudflare Worker**: Telegram relay, webhook handling, and cron jobs
-- **No separate worker process**: Cron jobs run on Cloudflare Workers (free tier)
+Bindings:
 
-This is the recommended deployment path for cost-effectiveness and simplicity.
+- `DB` D1 database (`REQUIRE_D1=true` in production)
+- `ASSETS_KV` for Mini App assets
+- `SESSIONS_KV` for sessions/duplicate update state
+- `USERS_KV` for user/profile cache
+- `ALERTS_KV` only for legacy/local compatibility where explicitly allowed
 
-## Common Commands
+## Cron and external heartbeat monitor
 
-Run from the project root.
+Cloudflare Cron runs every minute. The GitHub Actions workflow `.github/workflows/cron-heartbeat-monitor.yml` runs every 5 minutes and calls `deploy/monitoring/cron_heartbeat_monitor.sh`. It alerts Telegram ops only after cooldown/state checks.
 
-### Install / Sync
+Required GitHub repository secrets:
 
-```bash
-uv sync
-```
+- `OPS_BOT_TOKEN`
+- `OPS_CHAT_ID`
 
-### Apply Migrations
+## KV namespace migration
 
-```bash
-uv run alembic upgrade head
-```
+If old production has `ALERTS_KV`, `SESSIONS_KV`, and `USERS_KV` pointing at the same namespace:
 
-### Seed MVP Assets
+1. Create separate namespaces for assets, sessions, and user/cache data.
+2. Upload Mini App assets to `ASSETS_KV` using `deploy/cloudflare-worker/scripts/deploy-miniapp-worker-kv.sh`.
+3. Keep `ALERTS_KV` bound only long enough for local/legacy fallback and duplicate-send helpers.
+4. Do not migrate production alerts from KV; D1 is canonical.
 
-```bash
-uv run python -m novax_price_alert.scripts.seed_mvp
-```
+## Telegram token incident
 
-### Start API
-
-```bash
-uv run uvicorn novax_price_alert.api.main:app --host 127.0.0.1 --port 8000
-```
-
-### Start Worker
-
-```bash
-uv run python -m novax_price_alert.worker_main
-```
-
-### Smoke Test
-
-```bash
-./scripts/smoke-local.sh
-```
-
-### Quality Checks
-
-```bash
-uv run ruff check .
-uv run mypy src
-uv run pytest
-```
-
-## Cloudflare Relay Operations
-
-Run from `deploy/cloudflare-worker/`.
-
-### Test Relay Locally
-
-```bash
-npm test
-```
-
-### Deploy Relay
-
-Use the secret-safe deploy script when updating Worker code, secrets, and webhook together:
-
-```bash
-cd deploy/cloudflare-worker
-bash scripts/deploy.sh
-```
-
-For one-off deploys using a temporary root `.env`, remove it automatically at script exit:
-
-```bash
-cd deploy/cloudflare-worker
-DELETE_ENV_AFTER_DEPLOY=1 bash scripts/deploy.sh
-```
-
-If secrets and webhook are already configured, code-only deploy is still:
-
-```bash
-npx wrangler deploy
-```
-
-### Tail Relay Logs
-
-```bash
-npx wrangler tail
-```
-
-### Update Secrets
-
-```bash
-npx wrangler secret put TELEGRAM_BOT_TOKEN
-npx wrangler secret put TELEGRAM_SECRET_TOKEN
-npx wrangler secret put NOVAX_MINI_APP_URL
-npx wrangler secret put MINI_APP_URL
-```
-
-
-## Current Telegram Production State
-
-The live system is a Telegram bot and relay flow backed by the FastAPI backend.
-
-Current verified public endpoints:
-
-- Cloudflare Worker: `https://novax-telegram-relay.asdevelooper.workers.dev`
-- Telegram webhook: `https://novax-telegram-relay.asdevelooper.workers.dev/webhook`
-- Telegram Mini App: `https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/`
-
-The live Worker is menu-driven. Slash commands are only `/start` and `/help`; everything else is via the reply keyboard (💰 قیمت‌ها / 🔔 تنظیم هشدار / 📋 هشدارهای من / ❓ راهنما).
-
-Prices: crypto BTC/ETH/SOL/BNB from Binance in USDT; fiat (USD/EUR) and gold (18K/Emami) from TGJU in Toman. Times formatted in `Asia/Tehran`.
-
-### Telegram Webhook Recovery
-
-If the bot stops responding, check Telegram first:
-
-```bash
-python3 - <<'PY'
-import json, os, urllib.request
-bot = os.environ["TELEGRAM_BOT_TOKEN"]
-with urllib.request.urlopen(f"https://api.telegram.org/bot{bot}/getWebhookInfo") as r:
-    print(json.dumps(json.load(r)["result"], ensure_ascii=False, indent=2))
-PY
-```
-
-If `url` is empty, set webhook again. If Telegram reports DNS resolution failure for `workers.dev`, resolve the Worker host locally and pass `ip_address` to `setWebhook`; this was required on 2026-06-27.
-
-Required webhook values:
-
-- URL: `https://novax-telegram-relay.asdevelooper.workers.dev/webhook`
-- `secret_token`: current `TELEGRAM_SECRET_TOKEN`
-- `allowed_updates`: `message`, `edited_message`, `callback_query`
-
-### Mini-App Blank Screen Recovery
-
-Current production mini-app is KV-hosted. Do not rely on embedded Worker assets as the source of truth.
-
-Expected checks:
-
-```bash
-curl -fsS https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/ | grep -E 'assets/index-|assets/legacy-app.js'
-curl -fsS -I https://novax-telegram-relay.asdevelooper.workers.dev/mini-app/assets/legacy-app.js
-```
-
-The HTML must include both the Vite module bundle and `assets/legacy-app.js`. The legacy fallback exists because some Telegram WebViews can show a blank page when the module/chunk path fails before React mounts.
-
-Deploy/update mini-app assets with:
-
-```bash
-cd mini-app
-VITE_NOVAX_API_BASE=https://novax-telegram-relay.asdevelooper.workers.dev npm run build:worker
-```
-
-Then sync `mini-app/dist` to `ALERTS_KV` using `deploy/cloudflare-worker/scripts/deploy-miniapp-worker-kv.sh` or the KV upload section from that script. After sync, verify `/mini-app/` references the new `assets/index-*.js` and `assets/legacy-app.js`.
-
-## Monitoring
-
-Minimum checks:
-
-- API `/health`
-- API `/api/v1/prices/latest`
-- Cloudflare relay `/health`
-- Cloudflare relay `/status` (cron heartbeat; returns `503` when stale)
-- worker process is running (VPS) OR Cloudflare cron is active (Render)
-- latest prices are not stale
-- provider failures appear in logs
-
-### Render + Cloudflare Monitoring
-
-For the current Render deployment:
-
-```bash
-# Check Render API health
-curl https://novax-price-alert-api.onrender.com/health
-
-# Check Render API latest prices
-curl https://novax-price-alert-api.onrender.com/api/v1/prices/latest
-
-# Check Cloudflare Worker health
-curl https://novax-telegram-relay.asdevelooper.workers.dev/health
-
-# Check Cloudflare Worker cron heartbeat
-curl https://novax-telegram-relay.asdevelooper.workers.dev/status
-```
-
-**Render Logs**: Access logs via Render dashboard for the web service.
-
-**Cloudflare Logs**: Use `npx wrangler tail` from `deploy/cloudflare-worker/` for Worker and cron logs.
-
-### Cron heartbeat monitor
-
-The scheduled (cron) handler cannot detect its own failure to run, so an
-external monitor polls `/status` and alerts the Telegram ops group when the
-heartbeat is stale or the Worker is unreachable. It runs on **GitHub Actions**
-every 15 minutes (`.github/workflows/cron-heartbeat-monitor.yml`); an in-Iran
-VPS cannot be used because Telegram is filtered there. Required repo secrets:
-`OPS_BOT_TOKEN`, `OPS_CHAT_ID`. Healthy runs are silent. Details:
-`docs/OBSERVABILITY.md` and ADR `docs/adr/0002-cron-heartbeat-monitor-placement.md`.
-
-## Failure Modes
-
-### Provider Outage
-
-- Keep existing latest prices.
-- Do not overwrite with empty or fabricated values.
-- Inspect worker logs (VPS) or Cloudflare Worker logs (Render) for provider failure order.
-- Prefer adding a provider key before lowering reliability assumptions.
-
-### Cloudflare Relay Failure
-
-- API can still operate, but Telegram notifications may fail.
-- Check Worker health and `wrangler tail`.
-- Verify `TELEGRAM_SECRET_TOKEN` matches the Telegram webhook secret configured for the Worker.
-- Verify `TELEGRAM_BOT_TOKEN` Worker secret is present.
-
-### Database Failure
-
-- `/health` should fail or return an error.
-- Stop workers if writes are failing repeatedly (VPS only).
-- Restore from PostgreSQL backup if needed (Neon or Render PostgreSQL).
-
-### Render Service Failure
-
-- Check Render dashboard for service status and logs.
-- Verify environment variables are correctly set.
-- Check deployment logs for startup errors.
-- Render automatically restarts failed services; check for crash loops.
-- If persistent, consider redeploying or scaling up resources.
-
-## Security Rules
-
-- Never commit `.env` or secrets.
-- Never print Telegram tokens or relay secrets in logs.
-- Keep `RELAY_SECRET` enabled in production.
-- Keep the backend bound to `127.0.0.1` behind a reverse proxy unless intentionally exposed.
-- Use HTTPS for Telegram Mini App and relay URLs.
-
-## Alert Hardening Rollout Operations
-
-Use this section after deploying the hardened alert lifecycle and Telegram Worker flow.
-
-### Required Pre-Rollout Checks
-
-Run these checks before enabling or trusting production alert delivery:
-
-```bash
-uv run ruff check src tests
-uv run mypy src
-uv run pytest -q
-cd deploy/cloudflare-worker && npm test
-```
-
-Apply backend migrations in the target environment:
-
-```bash
-uv run alembic upgrade head
-```
-
-Then create low-risk manual Telegram alerts in each supported market and verify:
-
-- the alert is not active before explicit confirmation;
-- the confirmation summary shows asset, condition, target price, unit, and current price when available;
-- correction before confirmation works;
-- delivered alerts are not sent again on the next cron run;
-- unavailable or missing provider data produces `stale_data_detected` and does not trigger.
-
-### Lifecycle Logs to Watch
-
-During rollout, tail Cloudflare Worker logs and backend worker logs and look for:
-
-- `alert_activated`
-- `alert_evaluated`
-- `stale_data_detected`
-- `duplicate_trigger_detected`
-- `duplicate_send_detected`
-- `notification_send_started`
-- `notification_send_succeeded`
-- `notification_send_failed`
-- `alert_evaluation_job_completed`
-
-### Rollout Stop Conditions
-
-Pause rollout immediately if any of the following occur:
-
-- any duplicate user-visible notification;
-- an alert activates without explicit confirmation;
-- a missing/unavailable price triggers an alert;
-- notification send failures spike across a cron cycle;
-- lifecycle logs do not include enough identifiers to trace a fired alert.
-
-### Next-Step Planning
-
-The detailed post-hardening roadmap and task backlog are maintained in `docs/IMPLEMENTATION_ROADMAP_FA.md`.
-
-## Post-hardening Alert Operations
-
-The hardened alert contract is now the release baseline:
-
-- Alert creation is staged. A newly created backend alert starts as `pending_confirmation` and the Telegram Worker keeps pending alert data in session state until the user confirms the summary.
-- Activation requires explicit confirmation. Operators should treat any `active` alert without `confirmed_at` as suspicious.
-- Asset identity is canonical. Use `asset_id` in backend records and the canonical asset id in Worker KV/logs; display labels are snapshots for user readability.
-- Price units are explicit through `target_price_display_unit`; do not infer units from asset names.
-- Stale, missing, or unavailable provider data must not trigger alerts. Look for `stale_data_detected` logs.
-- Delivered one-shot alerts are finalized and disabled; later cron/evaluation runs must not re-send them.
-
-For release gates and incident response, use `docs/OBSERVABILITY.md`. For roadmap and execution planning, use `docs/IMPLEMENTATION_ROADMAP_FA.md`.
-
-## Alert Rollout Commands
-
-Backend validation from the repo root:
-
-```bash
-git diff --check
-uv run ruff check src tests
-uv run mypy src
-uv run pytest -q
-```
-
-Worker validation:
-
-```bash
-cd deploy/cloudflare-worker
-npm test
-npx wrangler tail
-```
-
-## Alert Incident Shortcuts
-
-### Duplicate notification
-
-1. Stop rollout and disable cron or deploy the previous Worker.
-2. Search logs for `duplicate_send_detected`, `duplicate_trigger_detected`, `notification_send_started`, and `notification_send_succeeded`.
-3. Inspect the alert record for `trigger_event_id`, `triggered_at`, `delivered_at`, `enabled`, and `lifecycle_state`.
-4. Keep the alert disabled until root cause is understood.
-
-### Stale provider
-
-1. Search logs for `stale_data_detected` and provider-specific errors.
-2. Verify the same `alert_id` did not proceed to `notification_send_started` in that run.
-3. Check Binance for crypto and TGJU mirrors for fiat/gold.
-4. Do not lower freshness requirements during rollout unless explicitly approved.
+Canonical status: **open until rotation and git-history cleanup are confirmed**. Redaction in current files is not enough. Rotate the token in BotFather, update Cloudflare/GitHub secrets, refresh webhook setup, and coordinate history cleanup before marking closed.

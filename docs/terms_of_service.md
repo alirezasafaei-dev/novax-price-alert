@@ -1,37 +1,19 @@
-# شرایط استفاده از سرویس
+# Terms of Service
 
-## ۱. پذیرش شرایط
+Novax Price Alert provides Telegram price lookup, price alerts, and a Telegram Mini App.
 
-با استفاده از بات تلگرام Novax Price Alert («نواکس»)، شما این شرایط را می‌پذیرید.
-اگر با بخشی از این شرایط موافق نیستید، لطفاً از سرویس استفاده نکنید.
+## No financial advice
 
-## ۲. شرح سرویس
+The service is informational only. It is not investment, trading, tax, or financial advice. Users are responsible for their own decisions.
 
-نواکس یک ابزار شخصی برای پایش قیمت دارایی‌ها (ارز، طلا، کریپتو) و ثبت هشدار
-قیمت است. قیمت‌ها از منابع عمومی دریافت می‌شوند و صرفاً جنبه اطلاع‌رسانی دارند.
+## Price accuracy
 
-## ۳. دقت قیمت‌ها
+Prices come from external providers such as Binance and TGJU. Novax does not guarantee accuracy, freshness, uptime, or delivery of any alert. Stale provider data should not trigger alerts, but delays and failures can still occur.
 
-- قیمت‌ها از ت‌رمزار (TGJU) برای بازار ایران و Binance برای کریپتو دریافت می‌شوند.
-- نواکس هیچ تضمینی درباره دقت، به‌روز بودن یا کامل بودن قیمت‌ها نمی‌دهد.
-- تصمیمات مالی صرفاً بر اساس قیمت‌های نمایش‌داده‌شده با مسئولیت خود کاربر است.
+## Paid Pro plan
 
-## ۴. محدودیت مسئولیت
+A paid Pro plan may increase alert limits or check frequency. Manual payment references may be reviewed by an operator before activation. Subscription access can be delayed, rejected, or revoked for abuse or invalid payment references.
 
-- نواکس یک ابزار رایگان است و هیچ مسئولیتی درباره ضررهای مالی ناشی از
-  استفاده از آن ندارد.
-- سرویس «به همان شکلی که هست» ارائه می‌شود.
+## User responsibility
 
-## ۵. استفاده مجاز
-
-- استفاده تجاری بدون مجاز ممنوع است.
-- ارسال اسپام یا سوءاستفاده از بات باعث مسدود شدن حساب می‌شود.
-
-## ۶. تغییرات
-
-ممکن است این شرایط هر زمان تغییر کند. ادامه استفاده به معنای پذیرش شرایط جدید است.
-
-## ۷. تماس
-
-- ایمیل: support@novax.ir
-- تلگرام: @NovaxSupport
+Users must keep Telegram accounts secure, avoid sharing sensitive payment details in bot messages, and verify market data independently before acting.

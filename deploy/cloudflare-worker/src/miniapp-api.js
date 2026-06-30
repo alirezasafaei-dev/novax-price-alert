@@ -20,25 +20,55 @@ import {
   upsertUser,
 } from "./product-db.js";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
+const CORS_BASE_HEADERS = {
   "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type,X-Telegram-Init-Data",
   "Access-Control-Max-Age": "86400",
+  "Vary": "Origin",
 };
 
-function json(data, init = {}) {
+function configuredOrigins(env) {
+  return [
+    env.MINI_APP_ORIGIN,
+    env.NOVAX_MINI_APP_URL,
+    env.WORKER_ORIGIN,
+    env.PUBLIC_WORKER_ORIGIN,
+  ]
+    .flatMap((value) => String(value || "").split(","))
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => {
+      try { return new URL(value).origin; } catch { return value.replace(/\/$/, ""); }
+    });
+}
+
+function corsHeaders(request, env) {
+  const origin = request.headers.get("Origin");
+  const allowed = configuredOrigins(env);
+  const headers = { ...CORS_BASE_HEADERS };
+  if (origin && allowed.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  return headers;
+}
+
+function originForbidden(request, env) {
+  const origin = request.headers.get("Origin");
+  return Boolean(origin && !configuredOrigins(env).includes(origin));
+}
+
+function json(request, env, data, init = {}) {
   return Response.json(data, {
     ...init,
     headers: {
-      ...CORS_HEADERS,
+      ...corsHeaders(request, env),
       ...(init.headers || {}),
     },
   });
 }
 
-function error(message, status = 400) {
-  return json({ detail: message, error: message }, { status });
+function error(request, env, message, status = 400) {
+  return json(request, env, { detail: message, error: message }, { status });
 }
 
 function bytesToHex(buffer) {
@@ -90,7 +120,7 @@ export async function verifyTelegramInitData(initData, env) {
 
   const authDate = Number(params.get("auth_date"));
   if (!Number.isFinite(authDate)) throw new Error("telegram initData auth_date is missing");
-  const maxAge = Number(env.TELEGRAM_AUTH_MAX_AGE_SECONDS || 86400);
+  const maxAge = Number(env.TELEGRAM_AUTH_MAX_AGE_SECONDS || 3600);
   if (Math.floor(Date.now() / 1000) - authDate > maxAge) {
     throw new Error("telegram initData is expired");
   }
@@ -240,12 +270,12 @@ async function createUserAlert(request, env, chatId) {
   const payload = await request.json();
   const [market, symbol] = normalizeAssetCode(payload.asset_code);
   const asset = market && symbol ? getAssetByMarketSymbol(market, symbol) : null;
-  if (!asset) return error(`Asset not found for symbol: ${payload.asset_code}`, 404);
+  if (!asset) return error(request, env, `Asset not found for symbol: ${payload.asset_code}`, 404);
 
   const target = Number(payload.target_price);
-  if (!Number.isFinite(target) || target <= 0) return error("target_price must be positive", 422);
+  if (!Number.isFinite(target) || target <= 0) return error(request, env, "target_price must be positive", 422);
   const operator = String(payload.condition_type || "").toLowerCase();
-  if (!["above", "below"].includes(operator)) return error("condition_type must be above or below", 422);
+  if (!["above", "below"].includes(operator)) return error(request, env, "condition_type must be above or below", 422);
 
   try {
     const alert = await createAlert(env, chatId, {
@@ -258,10 +288,10 @@ async function createUserAlert(request, env, chatId) {
       target_price_display_unit: asset.unit,
       cooldown_minutes: Math.max(1, Math.min(Number(payload.cooldown_minutes || 60), 10080)),
     });
-    return json(alertOut(alert, chatId), { status: 201 });
+    return json(request, env, alertOut(alert, chatId), { status: 201 });
   } catch (createError) {
     const status = createError?.code === "MAX_ALERTS_REACHED" ? 409 : 422;
-    return error(String(createError?.message || createError), status);
+    return error(request, env, String(createError?.message || createError), createError?.status || status);
   }
 }
 
@@ -269,44 +299,47 @@ async function patchUserAlert(request, env, chatId, alertId) {
   const payload = await request.json();
   if (payload.target_price != null) {
     const target = Number(payload.target_price);
-    if (!Number.isFinite(target) || target <= 0) return error("target_price must be positive", 422);
+    if (!Number.isFinite(target) || target <= 0) return error(request, env, "target_price must be positive", 422);
     const alerts = await getUserAlerts(env, chatId);
     const current = alerts.find((alert) => alert.id === alertId);
     const updated = await updateAlertTarget(env, chatId, alertId, target, current?.target_price_display_unit);
-    return updated ? json(alertOut(updated, chatId)) : error("Alert not found", 404);
+    return updated ? json(request, env, alertOut(updated, chatId)) : error(request, env, "Alert not found", 404);
   }
   if (payload.is_active != null) {
     const updated = payload.is_active
       ? await resumeAlert(env, chatId, alertId)
       : await pauseAlert(env, chatId, alertId);
-    return updated ? json(alertOut(updated, chatId)) : error("Alert not found or invalid transition", 404);
+    return updated ? json(request, env, alertOut(updated, chatId)) : error(request, env, "Alert not found or invalid transition", 404);
   }
-  return error("No supported fields to update", 422);
+  return error(request, env, "No supported fields to update", 422);
 }
 
 export async function handleMiniAppApi(request, env) {
-  if (request.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: originForbidden(request, env) ? 403 : 204, headers: corsHeaders(request, env) });
+  }
+  if (originForbidden(request, env)) return error(request, env, "Origin is not allowed", 403);
 
   const url = new URL(request.url);
   const path = url.pathname;
 
   if (path === "/api/v1/prices/latest" && request.method === "GET") {
-    return json(await latestPrices());
+    return json(request, env, await latestPrices());
   }
 
   if (path === "/api/v1/prices/history" && request.method === "GET") {
     const requested = url.searchParams.get("asset_code");
     const [market, symbol] = normalizeAssetCode(requested);
     const asset = market && symbol ? getAssetByMarketSymbol(market, symbol) : null;
-    if (!asset) return error("Asset not found", 404);
+    if (!asset) return error(request, env, "Asset not found", 404);
     if (!hasProductDb(env)) {
-      return json({ items: [], data_status: "history_unavailable_without_d1" });
+      return json(request, env, { items: [], data_status: "history_unavailable_without_d1" });
     }
     const rangeDays = { "1d": 1, "7d": 7, "30d": 30, "90d": 30 };
     const days = rangeDays[String(url.searchParams.get("range") || "1d").toLowerCase()] || 1;
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     const rows = await getPriceHistoryDb(env, asset.canonical_asset_id, since);
-    return json({
+    return json(request, env, {
       items: rows.map((row) => ({
         asset_code: assetCodeForWorker(asset.symbol, asset.market),
         asset_name: asset.display_name,
@@ -328,14 +361,14 @@ export async function handleMiniAppApi(request, env) {
   try {
     user = await currentUser(request, env);
   } catch (authError) {
-    return error(String(authError?.message || authError), 401);
+    return error(request, env, String(authError?.message || authError), 401);
   }
   const chatId = user.telegram_user_id;
 
   if (path === "/api/v1/subscription" && request.method === "GET") {
     const entitlement = await getEntitlement(env, chatId);
     const activeAlertCount = hasProductDb(env) ? await getUserAlertCount(env, chatId) : 0;
-    return json({
+    return json(request, env, {
       ...entitlement,
       active_alert_count: activeAlertCount,
       pro_price_toman: PRO_PRICE_TOMAN,
@@ -344,23 +377,23 @@ export async function handleMiniAppApi(request, env) {
   }
 
   if (path === "/api/v1/subscription/payment-requests" && request.method === "POST") {
-    if (!hasProductDb(env)) return error("Subscription storage is unavailable", 503);
+    if (!hasProductDb(env)) return error(request, env, "Subscription storage is unavailable", 503);
     const payload = await request.json();
     try {
       const payment = await createPaymentRequest(env, chatId, payload.reference);
-      return json({
+      return json(request, env, {
         ...payment,
         status: "pending",
         amount_toman: PRO_PRICE_TOMAN,
       }, { status: payment.already_pending ? 200 : 201 });
     } catch (paymentError) {
-      return error(String(paymentError?.message || paymentError), 422);
+      return error(request, env, String(paymentError?.message || paymentError), 422);
     }
   }
 
   if (path === "/api/v1/alerts" && request.method === "GET") {
     const alerts = await getUserAlerts(env, chatId);
-    return json({ items: alerts.map((alert) => alertOut(alert, chatId)) });
+    return json(request, env, { items: alerts.map((alert) => alertOut(alert, chatId)) });
   }
 
   if (path === "/api/v1/alerts" && request.method === "POST") {
@@ -368,17 +401,17 @@ export async function handleMiniAppApi(request, env) {
   }
 
   if (path === "/api/v1/alerts/events" && request.method === "GET") {
-    return json(await listAlertEvents(env, chatId));
+    return json(request, env, await listAlertEvents(env, chatId));
   }
 
   const alertMatch = path.match(/^\/api\/v1\/alerts\/([^/]+)(?:\/confirm)?$/);
-  if (!alertMatch) return error("Not found", 404);
+  if (!alertMatch) return error(request, env, "Not found", 404);
   const alertId = alertMatch[1];
 
   if (path.endsWith("/confirm") && request.method === "POST") {
     const alerts = await getUserAlerts(env, chatId);
     const alert = alerts.find((item) => item.id === alertId);
-    return alert ? json(alertOut(alert, chatId)) : error("Alert not found", 404);
+    return alert ? json(request, env, alertOut(alert, chatId)) : error(request, env, "Alert not found", 404);
   }
 
   if (request.method === "PATCH") {
@@ -387,8 +420,8 @@ export async function handleMiniAppApi(request, env) {
 
   if (request.method === "DELETE") {
     const deleted = await deleteAlert(env, chatId, alertId);
-    return deleted ? json({ success: true }) : error("Alert not found", 404);
+    return deleted ? json(request, env, { success: true }) : error(request, env, "Alert not found", 404);
   }
 
-  return error("Method not allowed", 405);
+  return error(request, env, "Method not allowed", 405);
 }
