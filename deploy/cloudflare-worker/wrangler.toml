@@ -20,7 +20,7 @@ database_id = "b8cfb687-e321-4ef1-999e-169d1f78026c"
 
 [[kv_namespaces]]
 binding = "ASSETS_KV"
-id = "33333333333333333333333333333333" # replace with novax-miniapp-assets KV namespace id
+id = "REPLACE_WITH_ASSETS_KV_NAMESPACE_ID"
 
 [[kv_namespaces]]
 binding = "ALERTS_KV"
@@ -28,11 +28,11 @@ id = "9bfa7672e25d446aa0a24165cbd1848a" # legacy/local fallback only; production
 
 [[kv_namespaces]]
 binding = "SESSIONS_KV"
-id = "11111111111111111111111111111111" # replace with novax-sessions KV namespace id
+id = "REPLACE_WITH_SESSIONS_KV_NAMESPACE_ID"
 
 [[kv_namespaces]]
 binding = "USERS_KV"
-id = "22222222222222222222222222222222" # replace with novax-users-cache KV namespace id
+id = "REPLACE_WITH_USERS_KV_NAMESPACE_ID"
 
 # متریک‌های پایه (T-403) روی Workers Analytics Engine.
 # کوئری با SQL API: SELECT blob1 AS metric, SUM(double1) FROM novax_bot_metrics GROUP BY metric

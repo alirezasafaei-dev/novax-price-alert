@@ -24,7 +24,7 @@ Required secrets/bindings:
 Optional runtime variables:
 
 - `NOVAX_MINI_APP_URL` or `MINI_APP_URL`: enables the Telegram WebApp button in `/start`.
-- `TELEGRAM_AUTH_MAX_AGE_SECONDS`: max age for Telegram WebApp `initData` auth. Defaults to `86400`.
+- `TELEGRAM_AUTH_MAX_AGE_SECONDS`: max age for Telegram WebApp `initData` auth. Defaults to `3600`.
 - `MINI_APP_MANIFEST_CACHE_SECONDS`: static mini-app manifest cache TTL. Defaults to `60`; set `0` to disable during debugging.
 - `ADMIN_TELEGRAM_USER_IDS`: comma-separated Telegram user IDs allowed to approve payments.
 - `PAYMENT_INSTRUCTIONS`: payment destination/instructions shown to users.

@@ -84,6 +84,11 @@ if grep -q "REPLACE_WITH_D1_DATABASE_ID" "${WORKER_DIR}/wrangler.toml"; then
   exit 2
 fi
 
+if grep -Eq "REPLACE_WITH_(ASSETS|SESSIONS|USERS)_KV_NAMESPACE_ID" "${WORKER_DIR}/wrangler.toml"; then
+  echo "KV namespaces are not configured. Run deploy/cloudflare-worker/scripts/setup-kv.sh first." >&2
+  exit 2
+fi
+
 redact_json() {
   python3 -c '''
 import json
@@ -130,18 +135,20 @@ echo "Deploying Worker..."
 npx wrangler d1 migrations apply novax-product --remote
 npx wrangler deploy
 
-echo "Setting Telegram webhook..."
-set_webhook_response="$(curl -fsS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
-  -H "Content-Type: application/json" \
-  -d "{\"url\":\"${WORKER_URL}/webhook\",\"secret_token\":\"${TELEGRAM_SECRET_TOKEN}\"}")"
-printf '%s' "${set_webhook_response}" | redact_json
+echo "Setting Telegram webhook and commands through Worker setup endpoint..."
+setup_response="$(curl -fsS -X POST -H "X-Setup-Secret: ${TELEGRAM_SECRET_TOKEN}" "${WORKER_URL%/}/setup-bot")"
+printf '%s' "${setup_response}" | python3 -c '
+import json, sys
+p = json.load(sys.stdin)
+print(json.dumps({
+    "webhook_ok": p.get("webhook", {}).get("ok"),
+    "commands_ok": p.get("commands", {}).get("ok"),
+    "webhook_url": p.get("webhook_url"),
+}, ensure_ascii=False))
+'
 
 echo "Verifying Worker health..."
-curl -fsS "${WORKER_URL}/health"
+curl -fsS "${WORKER_URL%/}/health"
 echo
-
-echo "Verifying Telegram webhook..."
-webhook_info_response="$(curl -fsS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo")"
-printf '%s' "${webhook_info_response}" | redact_json
 
 echo "Deployment complete. Webhook: ${WORKER_URL}/webhook"

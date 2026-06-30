@@ -42,7 +42,7 @@ Required GitHub repository secrets:
 
 If old production has `ALERTS_KV`, `SESSIONS_KV`, and `USERS_KV` pointing at the same namespace:
 
-1. Create separate namespaces for assets, sessions, and user/cache data.
+1. Run `deploy/cloudflare-worker/scripts/setup-kv.sh` or create separate namespaces for assets, sessions, and user/cache data and patch `wrangler.toml`.
 2. Upload Mini App assets to `ASSETS_KV` using `deploy/cloudflare-worker/scripts/deploy-miniapp-worker-kv.sh`.
 3. Keep `ALERTS_KV` bound only long enough for local/legacy fallback and duplicate-send helpers.
 4. Do not migrate production alerts from KV; D1 is canonical.

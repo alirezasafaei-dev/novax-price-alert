@@ -214,7 +214,7 @@ let d1Closed = await worker.default.fetch(
   { ...mockEnv, DB: undefined, REQUIRE_D1: "true" },
   ctx,
 );
-assert.equal(d1Closed.status, 500);
+assert.equal(d1Closed.status, 503);
 
 // 1) /start registers user and shows the main keyboard
 sent = [];
@@ -228,17 +228,17 @@ assert.ok(mainKeyboardButtons.includes("🌐 داشبورد هوشمند"), "mai
 assert.equal(mainKeyboardButtons.includes("📝 ثبت درخواست"), false, "main keyboard should not include lead request");
 assert.equal(mainKeyboardButtons.includes("💬 تماس"), false, "main keyboard should not include contact");
 const duplicateStartCount = sent.length;
-const ignoredDuplicateId = 88888;
-const ignoredReq = new Request("https://bot.example/webhook", {
+const duplicateReq = new Request("https://bot.example/webhook", {
   method: "POST",
   headers: { "X-Telegram-Bot-Api-Secret-Token": "test_secret" },
-  body: JSON.stringify({ update_id: ignoredDuplicateId }),
+  body: JSON.stringify({
+    update_id: updateId,
+    message: { chat: { id: 123 }, from: { id: 123 }, text: "/start" },
+  }),
 });
-let duplicateRes = await worker.default.fetch(ignoredReq.clone(), mockEnv, ctx);
+const duplicateRes = await worker.default.fetch(duplicateReq, mockEnv, ctx);
 assert.equal(duplicateRes.status, 200);
-duplicateRes = await worker.default.fetch(ignoredReq, mockEnv, ctx);
-assert.equal(duplicateRes.status, 200);
-assert.equal(sent.length, duplicateStartCount, "duplicate ignored update should not send a Telegram message");
+assert.equal(sent.length, duplicateStartCount, "duplicate successful update should not send another Telegram message");
 
 // 1b) Smart dashboard reply-menu button opens the Telegram Web App inline button
 sent = [];

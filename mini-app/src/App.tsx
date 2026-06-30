@@ -491,11 +491,7 @@ export default function App() {
       'success',
     );
   };
-  const handleSimulateFakePush = () => {
-    setPushNotification({ id: `sim-${Math.random()}`, text: isFa ? '🔔 هشدار قیمت تستی: دارایی تتر به تومان (USDT_IRT) به مرز حمایتی ۵۹,۵۰۰ تومان رسید!' : '🔔 Mock Bot Alert: Tether / Toman (USDT_IRT) has violated lower boundary 59,500 Tomans!' });
-    playChime();
-    setTimeout(() => setPushNotification(null), 6000);
-  };
+
 
   const watchedAssets = useMemo(() => 
     assets.filter(asset => alerts.some(alert => alert.symbol === asset.symbol)), 

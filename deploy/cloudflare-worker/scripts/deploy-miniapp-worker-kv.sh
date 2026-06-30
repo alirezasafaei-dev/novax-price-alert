@@ -19,7 +19,7 @@ MINI_DIR="${REPO_ROOT}/mini-app"
 ENV_FILE="${ENV_FILE:-${REPO_ROOT}/.env}"
 WORKER_URL="${WORKER_URL:-https://novax-telegram-relay.asdevelooper.workers.dev}"
 MINI_APP_URL="${MINI_APP_URL:-${WORKER_URL%/}/mini-app/}"
-KV_NAMESPACE_ID="${ASSETS_KV_ID:-33333333333333333333333333333333}"
+KV_NAMESPACE_ID="${ASSETS_KV_ID:-REPLACE_WITH_ASSETS_KV_NAMESPACE_ID}"
 
 load_dotenv() {
   local line key value
@@ -88,6 +88,11 @@ if grep -q "REPLACE_WITH_D1_DATABASE_ID" "${WORKER_DIR}/wrangler.toml"; then
   exit 2
 fi
 
+if grep -Eq "REPLACE_WITH_(ASSETS|SESSIONS|USERS)_KV_NAMESPACE_ID" "${WORKER_DIR}/wrangler.toml"; then
+  echo "KV namespaces are not configured. Run deploy/cloudflare-worker/scripts/setup-kv.sh first." >&2
+  exit 2
+fi
+
 if [[ -n "${ASSETS_KV_ID:-}" ]]; then
   KV_NAMESPACE_ID="${ASSETS_KV_ID}"
 fi
@@ -137,7 +142,7 @@ def is_daily_usage_limit(exc):
 
 account = os.environ["CLOUDFLARE_ACCOUNT_ID"]
 token = os.environ["CLOUDFLARE_API_TOKEN"]
-namespace = os.environ.get("ASSETS_KV_ID") or "33333333333333333333333333333333"
+namespace = os.environ.get("ASSETS_KV_ID") or "REPLACE_WITH_ASSETS_KV_NAMESPACE_ID"
 root = pathlib.Path(os.environ["MINI_DIST_DIR"])
 
 skipped = []

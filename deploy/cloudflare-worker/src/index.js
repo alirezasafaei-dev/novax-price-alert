@@ -1,12 +1,11 @@
 import { FLOW_STATES } from "./alert-flow.js";
-import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage, handleFaq, handleGrowthMenu, handleMiniAppMenu } from "./commands.js";
+import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage, handleFaq, handleMiniAppMenu } from "./commands.js";
 import { handleCallback, handleTextInSession } from "./callbacks.js";
 import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession, getSession } from "./sessions.js";
 import { runCronJob } from "./cron.js";
 import { recordCronHeartbeat, getCronStatus } from "./heartbeat.js";
 import { sendMessage, telegramApi } from "./telegram.js";
 import { logEvent, logWarn, logError } from "./log.js";
-import { MAIN_KEYBOARD } from "./keyboards.js";
 import { handleMiniAppApi } from "./miniapp-api.js";
 import { handleMiniAppStatic } from "./miniapp-static.js";
 import { hasProductDb } from "./product-db.js";
@@ -145,7 +144,7 @@ export default {
     if (url.pathname === "/webhook" && request.method === "POST") {
       const unauthorized = requireSecret(request, env);
       if (unauthorized) return unauthorized;
-      
+
       let update;
       try {
         update = await request.json();
@@ -162,103 +161,99 @@ export default {
         }
       }
 
+      const ok = async (body = { ok: true }) => {
+        if (update.update_id) await markUpdateProcessed(env, update.update_id);
+        return Response.json(body);
+      };
+
       try {
-      if (update.callback_query) {
-        try {
+        if (update.callback_query) {
           await handleCallback(env, update.callback_query);
-        } catch (error) {
-          logError("callback_handler_error", { error_message: error?.message, stack: error?.stack });
-          await sendMessage(env, update.callback_query.message.chat.id, 
-            "خطایی رخ داد. لطفاً دوباره تلاش کنید.");
+          return ok();
         }
-        if (update.update_id) await markUpdateProcessed(env, update.update_id);
-        return Response.json({ ok: true });
-      }
-      
-      const message = update.message || update.edited_message;
-      if (!message) {
-        if (update.update_id) await markUpdateProcessed(env, update.update_id);
-        return Response.json({ ok: true, ignored: true });
-      }
-      
-      const chatId = message.chat.id;
-      const text = message.text?.trim() || "";
 
-      if (await handleAdminCommand(env, chatId, text)) {
-        return Response.json({ ok: true });
-      }
-      
-      if (text.startsWith("/start")) {
-        await handleStart(env, chatId, message.from);
-        return Response.json({ ok: true });
-      }
-      
-      if (text.startsWith("/help")) {
-        await handleHelp(env, chatId);
-        return Response.json({ ok: true });
-      }
+        const message = update.message || update.edited_message;
+        if (!message) {
+          return ok({ ok: true, ignored: true });
+        }
 
-      if (text.startsWith("/faq")) {
-        await handleFaq(env, chatId);
-        return Response.json({ ok: true });
-      }
+        const chatId = message.chat.id;
+        const text = message.text?.trim() || "";
 
-      if (text === "💰 قیمت‌ها") {
-        await clearSession(env, chatId);
-        await handlePricesMenu(env, chatId);
-        return Response.json({ ok: true });
-      }
-      
-      if (text === "🔔 تنظیم هشدار") {
-        await setSession(env, chatId, { flow: "create_alert", step: FLOW_STATES.CHOOSING_MARKET });
-        await handleCreateAlertStart(env, chatId);
-        return Response.json({ ok: true });
-      }
-      
-      if (text === "📋 هشدارهای من") {
-        await handleMyAlerts(env, chatId);
-        return Response.json({ ok: true });
-      }
+        if (await handleAdminCommand(env, chatId, text)) {
+          return ok();
+        }
 
-      if (text === "🌐 داشبورد هوشمند") {
-        await handleMiniAppMenu(env, chatId);
-        return Response.json({ ok: true });
-      }
+        if (text.startsWith("/start")) {
+          await handleStart(env, chatId, message.from);
+          return ok();
+        }
 
-      if (text === "💎 ارتقا به Pro" || text.startsWith("/pro")) {
-        await showSubscription(env, chatId);
-        return Response.json({ ok: true });
-      }
-      
-      if (text === "❓ راهنما") {
-        await handleHelp(env, chatId);
-        return Response.json({ ok: true });
-      }
-      
-      const session = await getSession(env, chatId);
-      if (session?.flow === "manual_payment") {
-        await handlePaymentReference(env, chatId, text);
-        return Response.json({ ok: true });
-      }
+        if (text.startsWith("/help")) {
+          await handleHelp(env, chatId);
+          return ok();
+        }
 
-      const handledInSession = await handleTextInSession(env, chatId, text);
-      if (handledInSession) {
-        return Response.json({ ok: true });
-      }
-      
-      if (text) {
-        await handleUnknownMessage(env, chatId);
-      }
-      
-      if (update.update_id) await markUpdateProcessed(env, update.update_id);
-      return Response.json({ ok: true });
+        if (text.startsWith("/faq")) {
+          await handleFaq(env, chatId);
+          return ok();
+        }
+
+        if (text === "💰 قیمت‌ها") {
+          await clearSession(env, chatId);
+          await handlePricesMenu(env, chatId);
+          return ok();
+        }
+
+        if (text === "🔔 تنظیم هشدار") {
+          await setSession(env, chatId, { flow: "create_alert", step: FLOW_STATES.CHOOSING_MARKET });
+          await handleCreateAlertStart(env, chatId);
+          return ok();
+        }
+
+        if (text === "📋 هشدارهای من") {
+          await handleMyAlerts(env, chatId);
+          return ok();
+        }
+
+        if (text === "🌐 داشبورد هوشمند") {
+          await handleMiniAppMenu(env, chatId);
+          return ok();
+        }
+
+        if (text === "💎 ارتقا به Pro" || text.startsWith("/pro")) {
+          await showSubscription(env, chatId);
+          return ok();
+        }
+
+        if (text === "❓ راهنما") {
+          await handleHelp(env, chatId);
+          return ok();
+        }
+
+        const session = await getSession(env, chatId);
+        if (session?.flow === "manual_payment") {
+          await handlePaymentReference(env, chatId, text);
+          return ok();
+        }
+
+        const handledInSession = await handleTextInSession(env, chatId, text);
+        if (handledInSession) {
+          return ok();
+        }
+
+        if (text) {
+          await handleUnknownMessage(env, chatId);
+        }
+
+        return ok();
       } catch (error) {
         logError("webhook_handler_error", {
           update_id: update?.update_id ? String(update.update_id) : null,
           chat_id: getWebhookChatId(update),
           error_message: error?.message || "webhook failed",
         });
-        return Response.json({ ok: false, error: "handler_failed" }, { status: 500 });
+        return Response.json({ ok: false, error: "handler_failed" }, { status: error?.status || 500 });
       }
     }
     
