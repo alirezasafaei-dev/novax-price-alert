@@ -11,7 +11,7 @@ crons = ["* * * * *"]
 
 [vars]
 REQUIRE_D1 = "true"
-TELEGRAM_AUTH_MAX_AGE_SECONDS = "86400"
+TELEGRAM_AUTH_MAX_AGE_SECONDS = "3600"
 
 [[d1_databases]]
 binding = "DB"
@@ -19,16 +19,20 @@ database_name = "novax-product"
 database_id = "b8cfb687-e321-4ef1-999e-169d1f78026c"
 
 [[kv_namespaces]]
+binding = "ASSETS_KV"
+id = "REPLACE_WITH_ASSETS_KV_NAMESPACE_ID"
+
+[[kv_namespaces]]
 binding = "ALERTS_KV"
-id = "9bfa7672e25d446aa0a24165cbd1848a"
+id = "9bfa7672e25d446aa0a24165cbd1848a" # legacy/local fallback only; production alerts use D1
 
 [[kv_namespaces]]
 binding = "SESSIONS_KV"
-id = "9bfa7672e25d446aa0a24165cbd1848a"
+id = "REPLACE_WITH_SESSIONS_KV_NAMESPACE_ID"
 
 [[kv_namespaces]]
 binding = "USERS_KV"
-id = "9bfa7672e25d446aa0a24165cbd1848a"
+id = "REPLACE_WITH_USERS_KV_NAMESPACE_ID"
 
 # متریک‌های پایه (T-403) روی Workers Analytics Engine.
 # کوئری با SQL API: SELECT blob1 AS metric, SUM(double1) FROM novax_bot_metrics GROUP BY metric

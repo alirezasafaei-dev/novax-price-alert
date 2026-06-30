@@ -7,6 +7,19 @@ export function hasProductDb(env) {
   return Boolean(env?.DB?.prepare);
 }
 
+export function isD1Required(env) {
+  return String(env?.REQUIRE_D1 || "false").toLowerCase() === "true";
+}
+
+export function assertProductDb(env, flow = "product") {
+  if (!hasProductDb(env) && isD1Required(env)) {
+    const error = new Error(`D1 is required for ${flow} flow but is unavailable`);
+    error.code = "D1_REQUIRED";
+    error.status = 503;
+    throw error;
+  }
+}
+
 function nowIso() {
   return new Date().toISOString();
 }

@@ -53,6 +53,8 @@ const env = {
   ALERTS_KV: new MockKV(),
   SESSIONS_KV: new MockKV(),
   USERS_KV: new MockKV(),
+  NOVAX_MINI_APP_URL: "https://mini.example/app",
+  WORKER_ORIGIN: "https://worker.example",
 };
 
 global.fetch = async (url) => {
@@ -107,6 +109,59 @@ response = await worker.fetch(
 payload = await response.json();
 assert.equal(payload.plan, "free");
 assert.equal(payload.alert_limit, 3);
+
+
+response = await worker.fetch(
+  new Request("https://worker.example/api/v1/alerts", {
+    method: "OPTIONS",
+    headers: { Origin: "https://mini.example" },
+  }),
+  env,
+  ctx,
+);
+assert.equal(response.status, 204);
+assert.equal(response.headers.get("access-control-allow-origin"), "https://mini.example");
+
+response = await worker.fetch(
+  new Request("https://worker.example/api/v1/alerts", {
+    headers: { Origin: "https://evil.example", "X-Telegram-Init-Data": initData },
+  }),
+  env,
+  ctx,
+);
+assert.equal(response.status, 403);
+assert.equal(response.headers.get("access-control-allow-origin"), null);
+
+const expiredInitData = signedInitData("123:test", {
+  auth_date: String(Math.floor(Date.now() / 1000) - 7200),
+  user: JSON.stringify({ id: 43, username: "old" }),
+});
+response = await worker.fetch(
+  new Request("https://worker.example/api/v1/alerts", {
+    headers: { "X-Telegram-Init-Data": expiredInitData },
+  }),
+  env,
+  ctx,
+);
+assert.equal(response.status, 401);
+
+response = await worker.fetch(
+  new Request("https://worker.example/api/v1/alerts", {
+    headers: { "X-Telegram-Init-Data": `${initData.slice(0, -1)}x` },
+  }),
+  env,
+  ctx,
+);
+assert.equal(response.status, 401);
+
+response = await worker.fetch(
+  new Request("https://worker.example/api/v1/alerts", {
+    headers: { "X-Telegram-Init-Data": initData },
+  }),
+  { ...env, DB: undefined, REQUIRE_D1: "true" },
+  ctx,
+);
+assert.equal(response.status, 503);
 
 response = await worker.fetch(new Request("https://worker.example/api/v1/alerts"), env, ctx);
 assert.equal(response.status, 401);

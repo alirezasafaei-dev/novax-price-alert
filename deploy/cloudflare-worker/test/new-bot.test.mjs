@@ -189,6 +189,33 @@ const noSecretWebhook = await worker.default.fetch(
 );
 assert.equal(noSecretWebhook.status, 503);
 
+// Webhook rejects malformed JSON before handling.
+let malformedWebhook = await worker.default.fetch(
+  new Request("https://bot.example/webhook", {
+    method: "POST",
+    headers: { "X-Telegram-Bot-Api-Secret-Token": "test_secret" },
+    body: "{not-json",
+  }),
+  mockEnv,
+  ctx,
+);
+assert.equal(malformedWebhook.status, 400);
+
+// D1-required production mode fails closed instead of silently using KV.
+let d1Closed = await worker.default.fetch(
+  new Request("https://bot.example/webhook", {
+    method: "POST",
+    headers: { "X-Telegram-Bot-Api-Secret-Token": "test_secret" },
+    body: JSON.stringify({
+      update_id: 99998,
+      message: { chat: { id: 99998 }, from: { id: 99998 }, text: "📋 هشدارهای من" },
+    }),
+  }),
+  { ...mockEnv, DB: undefined, REQUIRE_D1: "true" },
+  ctx,
+);
+assert.equal(d1Closed.status, 503);
+
 // 1) /start registers user and shows the main keyboard
 sent = [];
 let res = await sendMessageUpdate("/start");
@@ -200,6 +227,18 @@ const mainKeyboardButtons = startMsg.reply_markup.keyboard.flat();
 assert.ok(mainKeyboardButtons.includes("🌐 داشبورد هوشمند"), "main keyboard should include smart dashboard");
 assert.equal(mainKeyboardButtons.includes("📝 ثبت درخواست"), false, "main keyboard should not include lead request");
 assert.equal(mainKeyboardButtons.includes("💬 تماس"), false, "main keyboard should not include contact");
+const duplicateStartCount = sent.length;
+const duplicateReq = new Request("https://bot.example/webhook", {
+  method: "POST",
+  headers: { "X-Telegram-Bot-Api-Secret-Token": "test_secret" },
+  body: JSON.stringify({
+    update_id: updateId,
+    message: { chat: { id: 123 }, from: { id: 123 }, text: "/start" },
+  }),
+});
+const duplicateRes = await worker.default.fetch(duplicateReq, mockEnv, ctx);
+assert.equal(duplicateRes.status, 200);
+assert.equal(sent.length, duplicateStartCount, "duplicate successful update should not send another Telegram message");
 
 // 1b) Smart dashboard reply-menu button opens the Telegram Web App inline button
 sent = [];

@@ -8,6 +8,7 @@ import {
   claimAlertDb,
   deleteAlertDb,
   getAlertDb,
+  assertProductDb,
   hasProductDb,
   insertAlert,
   listDueAlertsDb,
@@ -26,6 +27,7 @@ export const RETRY_BACKOFF_MS = 60 * 1000;
 export const MAX_ALERTS_PER_USER = 10;
 
 export async function getUserAlerts(env, chatId) {
+  assertProductDb(env, "alerts");
   if (hasProductDb(env)) return listUserAlertsDb(env, chatId);
   const key = `alerts:user:${chatId}`;
   const data = await env.ALERTS_KV.get(key, "json");
@@ -38,6 +40,7 @@ export async function saveUserAlerts(env, chatId, alerts) {
 }
 
 export async function createAlert(env, chatId, alertData) {
+  assertProductDb(env, "alerts");
   if (hasProductDb(env)) {
     const alertId = alertData.id || crypto.randomUUID().split("-")[0];
     const created = await insertAlert(env, chatId, alertData, alertId);
@@ -115,6 +118,7 @@ export async function createAlert(env, chatId, alertData) {
 }
 
 export async function deleteAlert(env, chatId, alertId) {
+  assertProductDb(env, "alerts");
   if (hasProductDb(env)) {
     const deleted = await deleteAlertDb(env, chatId, alertId);
     if (deleted) logEvent("alert_cancelled", { alert_id: alertId, user_id: String(chatId) });
@@ -130,6 +134,7 @@ export async function deleteAlert(env, chatId, alertId) {
 }
 
 export async function getAllActiveAlerts(env) {
+  assertProductDb(env, "alerts");
   if (hasProductDb(env)) return listDueAlertsDb(env);
   const list = await env.ALERTS_KV.list({ prefix: "alerts:user:" });
   const allAlerts = [];
@@ -166,6 +171,7 @@ export function buildTriggerEventId(alert) {
 }
 
 export async function claimAlertForDelivery(env, chatId, alertId, eventId, currentPrice = null) {
+  assertProductDb(env, "alerts");
   if (hasProductDb(env)) {
     const alert = await getAlertDb(env, chatId, alertId);
     if (!alert) return null;
@@ -190,6 +196,7 @@ export async function claimAlertForDelivery(env, chatId, alertId, eventId, curre
 }
 
 export async function markAlertDelivered(env, chatId, alertId, eventId, telegramMessageId = null) {
+  assertProductDb(env, "alerts");
   if (hasProductDb(env)) {
     const alert = await getAlertDb(env, chatId, alertId);
     if (alert) await markDeliveredDb(env, alert, eventId, telegramMessageId);
@@ -215,6 +222,7 @@ export async function markAlertDelivered(env, chatId, alertId, eventId, telegram
 }
 
 export async function markAlertDeliveryFailed(env, chatId, alertId, eventId, error) {
+  assertProductDb(env, "alerts");
   if (hasProductDb(env)) {
     const alert = await getAlertDb(env, chatId, alertId);
     if (!alert) return { retryable: false };
@@ -248,6 +256,7 @@ export async function markAlertDeliveryFailed(env, chatId, alertId, eventId, err
 }
 
 export async function pauseAlert(env, chatId, alertId) {
+  assertProductDb(env, "alerts");
   if (hasProductDb(env)) return setAlertStateDb(env, chatId, alertId, ALERT_LIFECYCLE.ACTIVE, ALERT_LIFECYCLE.PAUSED);
   const alerts = await getUserAlerts(env, chatId);
   const alert = alerts.find((a) => a.id === alertId);
@@ -260,6 +269,7 @@ export async function pauseAlert(env, chatId, alertId) {
 }
 
 export async function resumeAlert(env, chatId, alertId) {
+  assertProductDb(env, "alerts");
   if (hasProductDb(env)) return setAlertStateDb(env, chatId, alertId, ALERT_LIFECYCLE.PAUSED, ALERT_LIFECYCLE.ACTIVE);
   const alerts = await getUserAlerts(env, chatId);
   const alert = alerts.find((a) => a.id === alertId);
@@ -272,6 +282,7 @@ export async function resumeAlert(env, chatId, alertId) {
 }
 
 export async function updateAlertTarget(env, chatId, alertId, target, unit) {
+  assertProductDb(env, "alerts");
   if (hasProductDb(env)) return updateAlertTargetDb(env, chatId, alertId, target, unit);
   const alerts = await getUserAlerts(env, chatId);
   const alert = alerts.find((a) => a.id === alertId);
@@ -303,6 +314,7 @@ export async function markAlertTriggered(env, chatId, alertId) {
 }
 
 export async function advanceAlertCheck(env, alert) {
+  assertProductDb(env, "alerts");
   if (hasProductDb(env)) await advanceAlertCheckDb(env, alert);
 }
 
