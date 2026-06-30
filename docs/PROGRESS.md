@@ -1,6 +1,6 @@
 # وضعیت پیشرفت
 
-آخرین بازبینی: 2026-06-30
+آخرین بازبینی: 2026-06-30 ( deploy record added )
 
 این سند وضعیت فعلی پروژه را خلاصه می‌کند. گزارش‌ها، چک‌لیست‌ها و راهنماهای مرحله‌ای قدیمی در
 `docs/archive/` نگهداری می‌شوند و نباید بدون بررسی کد واقعی به عنوان منبع اجرا استفاده شوند.
@@ -17,6 +17,16 @@
 - history نمایشی از snapshot واقعی D1 ساخته می‌شود؛ داده مصنوعی history نباید دوباره وارد محصول شود.
 
 ## آخرین تغییرات مهم
+
+### 2026-06-30: Hardening PR merge و اولین deploy پروداکشن
+
+- PR #34 `Harden Cloudflare Worker production path` با squash merge شد.
+- 3 KV namespace جداگانه ایجاد شد: `novax-miniapp-assets` (ASSETS_KV)، `novax-sessions` (SESSIONS_KV)، `novax-users-cache` (USERS_KV).
+- Worker code deploy شد: webhook تنظیم، health OK، cron فعال (`* * * * *`)، D1 متصل.
+- Secrets آپلود شد: TELEGRAM_BOT_TOKEN، TELEGRAM_SECRET_TOKEN، SETUP_SECRET، ADMIN_TELEGRAM_USER_IDS، PAYMENT_INSTRUCTIONS.
+- Mini-app assets هنوز آپلود نشده (Cloudflare KV free tier daily write limit). اجرای مجدد `deploy-miniapp-worker-kv.sh` فردا الزامی است.
+- wrangler.toml در repo فقط placeholder دارد ( real IDs در Cloudflare ذخیره شده‌اند ).
+- اقدامات hardening: CORS allowlist، malformed webhook 400، duplicate update guard، D1 fail-closed، Telegram API timeout/retry، structured logging بدون secrets.
 
 ### 2026-06-27: احیای بات و رفع صفحه سفید مینی‌اپ تلگرام
 
@@ -52,14 +62,15 @@
 
 ## اعتبارسنجی ثبت‌شده
 
-در آخرین فاز محصولی، این چک‌ها سبز گزارش شده‌اند:
+آخرین اجرا: 2026-06-30 (پس از merge PR #34):
 
-- Python unit: 153 passed
-- Python integration: 27 passed
-- Alembic fresh migration: passed
-- Ruff و mypy: passed
-- Worker D1 repository tests: passed
-- Mini-app type-check/build/tests: passed
+- Python unit/integration: 153 passed
+- Worker test suites: 8 suites all passed (log, metrics-alerting, heartbeat, product-db, miniapp-api, miniapp-static, telegram-relay, new-bot)
+- Mini-app: lint 0 errors, tests 3/3 passed, build OK
+- Bandit: 0 high/medium issues
+- pip-audit: 0 known vulnerabilities
+- npm audit (worker + mini-app): 0 vulnerabilities
+- Worker deploy: health OK, webhook OK, D1 connected, cron active
 
 برای هر تغییر جدید، وضعیت واقعی باید دوباره با تست‌های مرتبط و inspection کد تأیید شود.
 
