@@ -24,7 +24,7 @@
 - 3 KV namespace جداگانه ایجاد شد: `novax-miniapp-assets` (ASSETS_KV)، `novax-sessions` (SESSIONS_KV)، `novax-users-cache` (USERS_KV).
 - Worker code deploy شد: webhook تنظیم، health OK، cron فعال (`* * * * *`)، D1 متصل.
 - Secrets آپلود شد: TELEGRAM_BOT_TOKEN، TELEGRAM_SECRET_TOKEN، SETUP_SECRET، ADMIN_TELEGRAM_USER_IDS، PAYMENT_INSTRUCTIONS.
-- Mini-app assets هنوز آپلود نشده (Cloudflare KV free tier daily write limit). اجرای مجدد `deploy-miniapp-worker-kv.sh` فردا الزامی است.
+- Mini-app assets آپلود شد (۹ فایل + manifest). Mini-app روی `/mini-app/` فعال و سالم است.
 - wrangler.toml در repo فقط placeholder دارد ( real IDs در Cloudflare ذخیره شده‌اند ).
 - اقدامات hardening: CORS allowlist، malformed webhook 400، duplicate update guard، D1 fail-closed، Telegram API timeout/retry، structured logging بدون secrets.
 
