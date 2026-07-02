@@ -1,6 +1,6 @@
 # وضعیت پیشرفت
 
-آخرین بازبینی: 2026-06-30 ( deploy record added )
+آخرین بازبینی: 2026-07-02
 
 این سند وضعیت فعلی پروژه را خلاصه می‌کند. گزارش‌ها، چک‌لیست‌ها و راهنماهای مرحله‌ای قدیمی در
 `docs/archive/` نگهداری می‌شوند و نباید بدون بررسی کد واقعی به عنوان منبع اجرا استفاده شوند.
@@ -17,6 +17,31 @@
 - history نمایشی از snapshot واقعی D1 ساخته می‌شود؛ داده مصنوعی history نباید دوباره وارد محصول شود.
 
 ## آخرین تغییرات مهم
+
+### 2026-07-02: اصلاحات نهایی و deploy کامل
+
+**Infrastructure:**
+- 3 KV namespace جداگانه ایجاد و فعال شد: `novax-miniapp-assets` (ASSETS_KV)، `novax-sessions` (SESSIONS_KV)، `novax-users-cache` (USERS_KV).
+- Worker code با fixهای جدید deploy شد (Version ID: `2d37ae44`).
+- Mini-app assets (۱۰ فایل + manifest) به ASSETS_KV آپلود شد.
+- Webhook تلگرام تنظیم و تأیید شد (0 pending, 0 errors).
+- Bot commands ثبت شد: /start, /help, /prices, /pro, /faq.
+
+**Runtime hardening fixes:**
+- `scheduled` handler: try/catch اضافه شد تا اگه `runCronJob` خطا بده، heartbeat هنوز ثبت بشه و `/status` از کار نیفته (`index.js`).
+- `/setup-bot` endpoint: try/catch اضافه شد تا خطای `telegramApi` از fetch handler فرار نکنه (`index.js`).
+- `miniapp-static` handler: try/catch اضافه شد تا KV خطا کل request رو خراب نکنه (`index.js`).
+- import مرده `formatPrice` از `alerts.js` حذف شد.
+
+**Mini-app fixes:**
+- نمودار پیشرفته: labelهای نمونه ("نمونه 1، نمونه 2") با زمان واقعی از `historyLabels` جایگزین شد.
+- `App.tsx`: زمان `observed_at` از history API استخراج و در `historyLabels` ذخیره می‌شود.
+- `PriceBoard.tsx`: نمودار از `historyLabels` برای نمایش زمان واقعی استفاده می‌کنه.
+
+**Validation:**
+- Worker tests: 8/8 suites passed
+- Mini-app tests: 3/3 passed, lint 0 errors, build OK
+- Endpoints: health OK, status OK, prices 9 assets, mini-app 200, CORS working, auth 401, 404 correct
 
 ### 2026-06-30: Hardening PR merge و اولین deploy پروداکشن
 
@@ -62,7 +87,7 @@
 
 ## اعتبارسنجی ثبت‌شده
 
-آخرین اجرا: 2026-06-30 (پس از merge PR #34):
+آخرین اجرا: 2026-07-02:
 
 - Python unit/integration: 153 passed
 - Worker test suites: 8 suites all passed (log, metrics-alerting, heartbeat, product-db, miniapp-api, miniapp-static, telegram-relay, new-bot)
@@ -71,6 +96,7 @@
 - pip-audit: 0 known vulnerabilities
 - npm audit (worker + mini-app): 0 vulnerabilities
 - Worker deploy: health OK, webhook OK, D1 connected, cron active
+- Endpoints verified: health, status, prices/latest, mini-app/, CORS, auth, malformed webhook, 404
 
 برای هر تغییر جدید، وضعیت واقعی باید دوباره با تست‌های مرتبط و inspection کد تأیید شود.
 
