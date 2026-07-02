@@ -10,8 +10,9 @@ import {
 import { getUserAlerts, formatAlertLine } from "./alerts.js";
 import { logError } from "./log.js";
 import { upsertUser } from "./product-db.js";
+import { isReferralSource, referralInfoText, getReferralLink } from "./growth.js";
 
-export async function handleStart(env, chatId, from) {
+export async function handleStart(env, chatId, from, startParam) {
   if (from) {
     await setUser(env, chatId, {
       chat_id: chatId,
@@ -30,7 +31,7 @@ export async function handleStart(env, chatId, from) {
   
   await clearSession(env, chatId);
   
-  const text = `سلام ${from?.first_name || ""}! 👋
+  let text = `سلام ${from?.first_name || ""}! 👋
 
 به بات هشدار قیمت نواکس خوش اومدی.
 
@@ -39,6 +40,7 @@ export async function handleStart(env, chatId, from) {
 🔔 هشدار قیمت تنظیم کنی
 📋 هشدارهات رو مدیریت کنی
 🌐 داشبورد هوشمند رو باز کنی
+🎁 با دعوت دوستان، پلن Pro رایگان بگیری
 
 از منوی زیر شروع کن:`;
   
@@ -58,6 +60,8 @@ export async function handleHelp(env, chatId) {
 🔔 تنظیم هشدار: ساخت هشدار قیمت در ۶ مرحله (بازار → دارایی → قیمت فعلی → شرط → قیمت هدف → تایید)
 
 📋 هشدارهای من: مشاهده، ویرایش، توقف/ادامه، تکرار و حذف هشدارها با دکمه‌های داخل هر کارت
+
+🎁 دعوت دوستان: لینک دعوت خودت رو از «📋 هشدارهای من» بگیر. هر ۳ دعوت موفق = ۷ روز Pro رایگان!
 
 ❓ سوالات پرتکرار: /faq
 🌐 داشبورد هوشمند: باز کردن مینی‌اپ داخل تلگرام

@@ -7,6 +7,8 @@ import { createAlert, deleteAlert, getUserAlerts, pauseAlert, resumeAlert, updat
 import { getCryptoPrices, getIranMarketPrices, formatPrice, formatCryptoPricesMessage, formatFiatPricesMessage, formatGoldPricesMessage, unitForMarket, getCurrentPrice, formatCurrentPrice, assetLabel } from "./prices.js";
 import { handleStart, handleMyAlerts, handleCreateAlertStart, handleGrowthMenu } from "./commands.js";
 import { logWarn } from "./log.js";
+import { validateReferralOnAlert, getReferralLink, referralInfoText } from "./growth.js";
+import { getUserAlertCount, hasProductDb } from "./product-db.js";
 
 const ASSET_KEYBOARDS = {
   crypto: CRYPTO_ASSETS,
@@ -254,6 +256,20 @@ export async function handleCallback(env, callbackQuery) {
         messageId,
         `✅ هشدار فعال شد.\n\n${alert.display_asset_name_at_creation} اگر ${alert.operator === "above" ? "بالاتر از" : "پایین‌تر از"} ${formatPrice(alert.target)} ${unit} برسد، بهت پیام می‌دم.`,
       );
+
+      // Validate referral if this user was invited via referral link
+      await validateReferralOnAlert(env, chatId);
+
+      // Show referral link after first confirmed alert
+      if (hasProductDb(env)) {
+        const alertCount = await getUserAlertCount(env, chatId);
+        if (alertCount === 1) {
+          const referralLink = await getReferralLink(env, chatId);
+          if (referralLink) {
+            await sendMessage(env, chatId, referralInfoText(referralLink, 0));
+          }
+        }
+      }
     }
     return;
   }

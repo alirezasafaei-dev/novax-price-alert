@@ -146,3 +146,17 @@ export function alertActionsKeyboard(alertId) {
     ]
   };
 }
+
+export function referralKeyboard(referralLink) {
+  return {
+    inline_keyboard: [
+      [
+        { text: "📨 اشتراک‌گذاری لینک دعوت", url: referralLink || "https://t.me/" },
+      ],
+      [
+        { text: "📋 هشدارهای من", callback_data: "menu:alerts" },
+        { text: "🔙 منوی اصلی", callback_data: "menu:main" }
+      ]
+    ]
+  };
+}

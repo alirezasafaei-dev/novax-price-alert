@@ -20,14 +20,21 @@ Secrets must be configured in Cloudflare/GitHub, never committed:
 - `SETUP_SECRET`
 - `OPS_CHAT_ID` (optional Worker ops alerts)
 - `PAYMENT_INSTRUCTIONS` (if payment instructions are served)
+- `BOT_USERNAME` (Telegram bot username without @, required for referral links and marketing deep links)
 
-Bindings:
+Bindigs:
 
 - `DB` D1 database (`REQUIRE_D1=true` in production)
 - `ASSETS_KV` for Mini App assets
 - `SESSIONS_KV` for sessions/duplicate update state
 - `USERS_KV` for user/profile cache
 - `ALERTS_KV` only for legacy/local compatibility where explicitly allowed
+
+### Growth / Marketing env vars (optional)
+
+- `MARKETING_POSTING_ENABLED` — set to `"true"` to enable daily channel posts (default: `"false"`)
+- `MARKETING_CHANNEL_ID` — Telegram channel ID (e.g. `-1001234567890`) for daily market posts
+- `MARKETING_POST_HOUR_TEHRAN` — hour in Tehran timezone for posting (reserved, default behavior posts on first cron run of the day)
 
 ## Cron and external heartbeat monitor
 

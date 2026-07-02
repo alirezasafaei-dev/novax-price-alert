@@ -14,6 +14,7 @@ import { sendMessage } from "./telegram.js";
 import { logEvent, logWarn, logError } from "./log.js";
 import { recordMetric } from "./metrics.js";
 import { maybeOpsAlert } from "./alerting.js";
+import { sendDailyMarketingPost, shouldPostDailyMarketing } from "./growth.js";
 
 function classifyPriceBatch(prices, providerId) {
   if (!prices || Object.keys(prices).filter((key) => !key.startsWith("_")).length === 0) {
@@ -215,5 +216,19 @@ export async function runCronJob(env) {
   }
 
   logEvent("alert_evaluation_job_completed", { worker_run_id: workerRunId, checked, triggered });
+
+  // Marketing daily post (idempotent, only when enabled, only at configured Tehran hour)
+  try {
+    const now = new Date();
+    if (await shouldPostDailyMarketing(env, now)) {
+      const posted = await sendDailyMarketingPost(env, now);
+      if (posted) {
+        logEvent("marketing_daily_post_completed", { campaign_source: posted, worker_run_id: workerRunId });
+      }
+    }
+  } catch (error) {
+    logError("marketing_post_error", { error_message: error?.message, worker_run_id: workerRunId });
+  }
+
   return { checked, triggered };
 }

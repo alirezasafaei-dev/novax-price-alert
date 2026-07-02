@@ -14,6 +14,16 @@ import {
   handlePaymentReference,
   showSubscription,
 } from "./subscriptions.js";
+import {
+  parseStartParam,
+  recordCampaignVisit,
+  isReferralSource,
+  extractReferrerId,
+  isUserNew,
+  recordReferral,
+  handleGrowthCommand,
+} from "./growth.js";
+import { isAdmin } from "./subscriptions.js";
 
 function requireSecret(request, env) {
   const secret = env.TELEGRAM_SECRET_TOKEN;
@@ -195,8 +205,33 @@ export default {
           return ok();
         }
 
+        if (text.startsWith("/growth")) {
+          if (!isAdmin(env, chatId)) {
+            await sendMessage(env, chatId, "دسترسی ادمین ندارید.");
+          } else {
+            await handleGrowthCommand(env, chatId);
+          }
+          return ok();
+        }
+
         if (text.startsWith("/start")) {
-          await handleStart(env, chatId, message.from);
+          const startParam = parseStartParam(text);
+          // Check referral eligibility before handleStart creates the user in D1
+          let isReferralEligible = false;
+          if (startParam && isReferralSource(startParam)) {
+            const referrerId = extractReferrerId(startParam);
+            if (referrerId && referrerId !== String(chatId)) {
+              isReferralEligible = await isUserNew(env, chatId);
+            }
+          }
+          await handleStart(env, chatId, message.from, startParam);
+          if (startParam) {
+            await recordCampaignVisit(env, chatId, startParam);
+          }
+          if (isReferralEligible) {
+            const referrerId = extractReferrerId(startParam);
+            await recordReferral(env, referrerId, chatId);
+          }
           return ok();
         }
 

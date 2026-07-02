@@ -28,6 +28,10 @@ Optional runtime variables:
 - `MINI_APP_MANIFEST_CACHE_SECONDS`: static mini-app manifest cache TTL. Defaults to `60`; set `0` to disable during debugging.
 - `ADMIN_TELEGRAM_USER_IDS`: comma-separated Telegram user IDs allowed to approve payments.
 - `PAYMENT_INSTRUCTIONS`: payment destination/instructions shown to users.
+- `BOT_USERNAME`: the Telegram bot username (without `@`). Used for referral links and marketing CTA buttons.
+- `MARKETING_POSTING_ENABLED`: set to `true` to enable daily marketing posts to the marketing channel.
+- `MARKETING_CHANNEL_ID`: Telegram channel ID (e.g. `-1001234567890`) where marketing posts are published.
+- `MARKETING_POST_HOUR_TEHRAN`: hour in Tehran time (0-23) when the daily marketing post fires. Defaults to `10`.
 
 ## Current alert flow
 
@@ -66,6 +70,20 @@ Admin payment commands:
 /payments
 /approve <payment_id>
 /reject <payment_id>
+```
+
+## Growth system
+
+The bot includes a campaign attribution, referral rewards, and daily marketing posting system:
+
+- **Campaign attribution**: `/start <source>` records first-touch and latest-touch campaign visits in D1.
+- **Referral rewards**: Each user gets a unique referral link (`/start ref_<user_id>`). After 3 validated referrals, the referrer gets 7 days of Pro for free.
+- **Daily marketing posts**: When `MARKETING_POSTING_ENABLED=true`, the cron job posts a daily message to the marketing channel at the configured Tehran hour.
+
+Before deploying, apply the growth migration:
+
+```bash
+npx wrangler d1 migrations apply novax-product --remote
 ```
 
 ## Local test commands
