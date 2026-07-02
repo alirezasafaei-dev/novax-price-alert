@@ -75,7 +75,16 @@
     </script>
   </head>
   <body>
+    <!-- Empty root for React. Loading indicator is separate so legacy fallback can still mount if ESM fails. -->
     <div id="root"></div>
+    <div id="app-loading" style="min-height:100vh;background:#060814;color:#64748b;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;font-size:13px;direction:rtl;text-align:center;padding:20px;position:fixed;inset:0;z-index:9999;">
+      در حال بارگذاری داشبورد NovaX...
+    </div>
+    <noscript>
+      <div style="min-height:100vh;background:#060814;color:#fda4af;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;direction:rtl;text-align:center;padding:20px;">
+        JavaScript غیرفعال است. برای استفاده از مینی‌اپ NovaX، لطفاً JavaScript را فعال کنید.
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

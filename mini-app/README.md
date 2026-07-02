@@ -29,6 +29,15 @@ npm run build
 npm start
 ```
 
+**مهم برای پروداکشن (Worker + KV):** بعد از هر تغییری در `src/`، `index.html`، `vite.config.ts` یا `package.json` باید این دستور از ریشه ریپو اجرا شود (نه فقط `npm run build`):
+
+```bash
+MINI_APP_URL="https://<your-worker>/mini-app/" WORKER_URL="https://<your-worker>" \
+  bash deploy/cloudflare-worker/scripts/deploy-miniapp-worker-kv.sh
+```
+
+این کار بیلد مخصوص Worker (`build:worker`) + آپلود همه assetها + manifest به KV را انجام می‌دهد. عدم اجرای آن بعد از تغییر → ارجاع به هش‌های جدید در index.html اما فایل‌های قدیمی/ناموجود در KV → صفحه خالی.
+
 برای Cloudflare Pages یا Worker-hosted static:
 
 ```bash

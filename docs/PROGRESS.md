@@ -1,6 +1,6 @@
 # وضعیت پیشرفت
 
-آخرین بازبینی: 2026-07-02
+آخرین بازبینی: 2026-07-02 (مینی‌اپ blank page fix + deploys)
 
 این سند وضعیت فعلی پروژه را خلاصه می‌کند. گزارش‌ها، چک‌لیست‌ها و راهنماهای مرحله‌ای قدیمی در
 `docs/archive/` نگهداری می‌شوند و نباید بدون بررسی کد واقعی به عنوان منبع اجرا استفاده شوند.
@@ -19,6 +19,26 @@
 ## آخرین تغییرات مهم
 
 ### 2026-07-02: اصلاحات نهایی و deploy کامل
+
+**مینی‌اپ - رفع صفحه خالی / لودینگ گیرکرده (Blank / Stuck Loading):**
+- مشکل: بعد از تغییرات چارت و historyLabels، مینی‌اپ فقط placeholder «در حال بارگذاری داشبورد NovaX...» را نشان می‌داد و React mount نمی‌شد (نه HUD و نه محتوای واقعی).
+- علت واقعی (با تست زنده از worker): 
+  - المنت لودینگ به عنوان child داخل `<div id="root">` قرار گرفته بود → legacy fallback به خاطر `childElementCount > 0` بلاک می‌شد.
+  - اسکریپت اصلی ESM (`type=module` + vendor chunks + rolldown-runtime) در WebView تلگرام در برخی موارد کامل اجرا نمی‌شد یا render را commit نمی‌کرد.
+  - باندل‌های قدیمی در KV با HTML جدید mismatch داشتند.
+- فیکس‌ها:
+  - `mini-app/index.html`: `#root` خالی + لودینگ به صورت المنت جدا (`#app-loading` با position:fixed).
+  - `mini-app/src/main.tsx`: گارد try/catch + حذف لودینگ قبل از createRoot + نمایش پیام خطای واضح فارسی به جای blank.
+  - `mini-app/src/legacy-main.tsx`: حذف لودینگ + پاک کردن root + mount مقاوم (حتی اگر child داشته باشد).
+  - `mini-app/src/App.tsx`: حذف ایمنی لودینگ در اولین mount.
+  - `deploy/cloudflare-worker/src/miniapp-static.js`: وقتی index.html در KV نباشد، HTML تشخیصی با دستور دقیق deploy برمی‌گرداند.
+  - `deploy/cloudflare-worker/scripts/deploy-miniapp-worker-kv.sh`: verify چانک‌های vendor را هم HEAD می‌کند.
+  - `mini-app/README.md`: یادآوری قوی که بعد از هر تغییر سورس مینی‌اپ باید اسکریپت کامل KV deploy اجرا شود.
+- اقدامات عملی:
+  - چندین بار بیلد `npm run build:worker` و اجرای کامل `deploy-miniapp-worker-kv.sh` توسط خود agent (با لود .env + ست کردن ASSETS_KV_ID از wrangler.toml).
+  - تست واقعی با curl مستقیم از worker production (بررسی ساختار HTML، وجود legacy، محتوای باندل جدید، ۲۰۰ بودن assetها).
+  - دیپلوی موفق (worker version جدید، assetها آپلود، manifest آپدیت، /mini-app/ و JSها ۲۰۰).
+- نتیجه: ساختار درست شد. حالا main یا legacy لودینگ را حذف و UI واقعی را mount می‌کند.
 
 **Infrastructure:**
 - 3 KV namespace جداگانه ایجاد و فعال شد: `novax-miniapp-assets` (ASSETS_KV)، `novax-sessions` (SESSIONS_KV)، `novax-users-cache` (USERS_KV).

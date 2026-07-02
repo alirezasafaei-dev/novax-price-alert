@@ -315,6 +315,10 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Safety: ensure any static loading overlay is gone once App mounts
+    const loading = document.getElementById('app-loading');
+    if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
+
     const bindTelegramWebApp = () => {
       const tg = (window as any).Telegram?.WebApp;
       if (tg?.initData) {

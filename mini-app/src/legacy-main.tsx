@@ -5,7 +5,17 @@ import ErrorBoundary from './ErrorBoundary.tsx';
 
 function mountLegacyApp() {
   const root = document.getElementById('root');
-  if (!root || root.childElementCount > 0) return;
+  if (!root) return;
+
+  // Remove any static loading indicator (so we don't stay stuck on placeholder)
+  const loading = document.getElementById('app-loading');
+  if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
+
+  // Clear any previous static content inside root (e.g. old placeholder)
+  if (root.childElementCount > 0) {
+    root.innerHTML = '';
+  }
+
   createRoot(root).render(
     <StrictMode>
       <ErrorBoundary>

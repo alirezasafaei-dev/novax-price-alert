@@ -346,4 +346,35 @@ for path in /health /api/v1/prices/latest /mini-app/ "${first_asset:-/mini-app/}
   VERIFY_PATH="${path}" VERIFY_STATUS="${status}" VERIFY_SAMPLE="${sample}" python3 -c 'import json, os; print(json.dumps({"path": os.environ["VERIFY_PATH"], "status": int(os.environ["VERIFY_STATUS"]), "sample": os.environ["VERIFY_SAMPLE"]}, ensure_ascii=False))'
 done
 
+echo "Verifying mini-app asset chunks (from freshly built index.html)..."
+# Extract referenced /mini-app/assets/* filenames from the built html and HEAD them.
+python3 - <<'PY'
+import os, re, urllib.request, urllib.error, json
+worker = os.environ.get("WORKER_URL", "").rstrip("/")
+html_path = os.path.join(os.environ.get("MINI_DIR", ""), "dist", "index.html")
+try:
+    with open(html_path) as f:
+        html = f.read()
+except Exception as e:
+    print(json.dumps({"verify_chunks": "skipped", "reason": str(e)}))
+    raise SystemExit(0)
+
+refs = re.findall(r'["\']/mini-app/assets/[^"\']+["\']', html)
+checked = []
+for ref in refs:
+    p = ref.strip('"\'')
+    if not p.startswith("/mini-app/assets/"): continue
+    url = f"{worker}{p}"
+    try:
+        req = urllib.request.Request(url, method="HEAD")
+        with urllib.request.urlopen(req, timeout=15) as r:
+            code = r.status
+    except urllib.error.HTTPError as he:
+        code = he.code
+    except Exception:
+        code = "ERR"
+    checked.append({"path": p, "status": code})
+print(json.dumps({"miniapp_chunk_verify": checked}, ensure_ascii=False))
+PY
+
 echo "Deployment complete. Mini-app: ${MINI_APP_URL}"

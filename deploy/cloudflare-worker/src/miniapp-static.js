@@ -56,7 +56,21 @@ export async function handleMiniAppStatic(request, env) {
   if (!knownAsset && assetPath !== "index.html") return new Response("Not Found", { status: 404 });
 
   const body = await (env.ASSETS_KV || env.ALERTS_KV).get(miniAppAssetKey(assetPath), "arrayBuffer");
-  if (!body) return new Response("Mini app asset not deployed", { status: 503 });
+  if (!body) {
+    if (assetPath === "index.html") {
+      // Visible diagnostic shell instead of opaque 503/blank page.
+      const msg = "Mini-app assets are not deployed in KV yet. Run: bash deploy/cloudflare-worker/scripts/deploy-miniapp-worker-kv.sh";
+      return new Response(
+        `<!doctype html><html><body style="background:#060814;color:#fda4af;font-family:system-ui;padding:24px;direction:rtl">
+          <h3 style="color:#fff">NovaX Mini App</h3>
+          <p>${msg}</p>
+          <p style="font-size:12px;opacity:.7">After running the script, hard-refresh or re-open the web app from the bot.</p>
+        </body></html>`,
+        { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } }
+      );
+    }
+    return new Response("Mini app asset not deployed", { status: 503 });
+  }
 
   return new Response(body, {
     headers: {
