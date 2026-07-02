@@ -39,8 +39,8 @@ function priceEntryPrompt(session, { isEdit = false } = {}) {
   return `${priceLine}${label} را با واحد ${unit} وارد کن:\n\nمثال: ${example}`;
 }
 
-async function currentPriceTextForAlert(alert) {
-  const price = await getCurrentPrice(alert.market, alert.symbol);
+async function currentPriceTextForAlert(alert, { signal } = {}) {
+  const price = await getCurrentPrice(alert.market, alert.symbol, { signal });
   return formatCurrentPrice(price, alert.market, alert.target_price_display_unit || unitForMarket(alert.market));
 }
 
@@ -122,8 +122,19 @@ export async function handleCallback(env, callbackQuery) {
       await editMessageText(env, chatId, messageId, "هشدار پیدا نشد.");
       return;
     }
-    const livePrice = await getCurrentPrice(alert.market, alert.symbol);
-    const livePriceText = formatCurrentPrice(livePrice, alert.market, alert.target_price_display_unit || unitForMarket(alert.market));
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    let livePrice;
+    let livePriceText;
+    try {
+      livePrice = await getCurrentPrice(alert.market, alert.symbol, { signal: controller.signal });
+      livePriceText = formatCurrentPrice(livePrice, alert.market, alert.target_price_display_unit || unitForMarket(alert.market));
+    } catch {
+      livePrice = null;
+      livePriceText = "نامشخص";
+    } finally {
+      clearTimeout(timeoutId);
+    }
     await setSession(env, chatId, {
       flow: "edit_alert",
       step: FLOW_STATES.ENTERING_PRICE,
@@ -178,15 +189,27 @@ export async function handleCallback(env, callbackQuery) {
       // مشاهده قیمت‌ها (بدون session)
       await editMessageText(env, chatId, messageId, "⏳ در حال دریافت قیمت‌ها...");
 
-      if (market === "crypto") {
-        const prices = await getCryptoPrices();
-        await sendMessage(env, chatId, formatCryptoPricesMessage(prices));
-      } else if (market === "fiat") {
-        const prices = await getIranMarketPrices();
-        await sendMessage(env, chatId, formatFiatPricesMessage(prices));
-      } else if (market === "gold") {
-        const prices = await getIranMarketPrices();
-        await sendMessage(env, chatId, formatGoldPricesMessage(prices));
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      try {
+        if (market === "crypto") {
+          const prices = await getCryptoPrices({ signal: controller.signal });
+          await sendMessage(env, chatId, formatCryptoPricesMessage(prices));
+        } else if (market === "fiat") {
+          const prices = await getIranMarketPrices({ signal: controller.signal });
+          await sendMessage(env, chatId, formatFiatPricesMessage(prices));
+        } else if (market === "gold") {
+          const prices = await getIranMarketPrices({ signal: controller.signal });
+          await sendMessage(env, chatId, formatGoldPricesMessage(prices));
+        }
+      } catch (error) {
+        const msg = error?.name === "AbortError"
+          ? "⚠️ دریافت قیمت‌ها طولانی شد. لطفاً دوباره تلاش کن."
+          : "⚠️ خطا در دریافت قیمت‌ها. لطفاً دوباره تلاش کن.";
+        await sendMessage(env, chatId, msg);
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
     return;

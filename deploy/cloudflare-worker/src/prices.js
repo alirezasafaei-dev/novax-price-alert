@@ -2,18 +2,24 @@ import { logWarn, logError } from "./log.js";
 
 async function fetchWithRetry(url, options = {}, maxRetries = 3) {
   let lastError;
-  
+  const externalSignal = options.signal;
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (externalSignal?.aborted) throw new DOMException("Aborted", "AbortError");
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
+
+      const onExternalAbort = () => controller.abort();
+      if (externalSignal) externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+
       const response = await fetch(url, {
         ...options,
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
+      if (externalSignal) externalSignal.removeEventListener("abort", onExternalAbort);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -21,6 +27,7 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
       
       return response;
     } catch (error) {
+      if (externalSignal?.aborted) throw error;
       lastError = error;
       const willRetry = attempt < maxRetries - 1;
       const delay = willRetry ? Math.pow(2, attempt) * 1000 : 0; // Exponential backoff: 1s, 2s, 4s
@@ -38,7 +45,7 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
       }
     }
   }
-  
+
   throw lastError;
 }
 
@@ -50,7 +57,7 @@ const CRYPTO_BINANCE_SYMBOLS = {
   BNB: "BNBUSDT",
 };
 
-export async function getCryptoPrices() {
+export async function getCryptoPrices({ signal } = {}) {
   try {
     const pairs = Object.values(CRYPTO_BINANCE_SYMBOLS);
     const symbolsParam = encodeURIComponent(JSON.stringify(pairs));
@@ -62,15 +69,18 @@ export async function getCryptoPrices() {
 
     let data = null;
     for (const url of candidateUrls) {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       try {
         const response = await fetchWithRetry(url, {
           headers: {
             "User-Agent": "Novax-Price-Bot/1.0",
           },
+          signal,
         });
         data = await response.json();
         if (Array.isArray(data) && data.length) break;
       } catch (error) {
+        if (signal?.aborted) throw error;
         logWarn("provider_fetch_retry", {
           provider: "crypto",
           url,
@@ -96,7 +106,7 @@ export async function getCryptoPrices() {
       }
     }
 
-    if (!Object.keys(prices).length) {
+    if (!Object.keys(prices).length && !signal?.aborted) {
       try {
         const response = await fetchWithRetry(
           "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin&vs_currencies=usd",
@@ -104,6 +114,7 @@ export async function getCryptoPrices() {
             headers: {
               "User-Agent": "Novax-Price-Bot/1.0",
             },
+            signal,
           },
         );
         const fallback = await response.json();
@@ -142,7 +153,7 @@ function parseTgjuRial(raw) {
   return Number.isFinite(num) ? num : null;
 }
 
-export async function getIranMarketPrices() {
+export async function getIranMarketPrices({ signal } = {}) {
   const prices = {};
 
   // endpointهای آینه‌ای TGJU؛ به ترتیب امتحان می‌شوند تا یکی پاسخ بدهد.
@@ -154,13 +165,16 @@ export async function getIranMarketPrices() {
 
   let data = null;
   for (const url of endpoints) {
+    if (signal?.aborted) break;
     try {
       const response = await fetchWithRetry(url, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; Novax-Price-Bot/1.0)" },
+        signal,
       });
       data = await response.json();
       if (data) break;
     } catch (error) {
+      if (signal?.aborted) break;
       logError("provider_fetch_failed", { provider: "iran_market", url, error_message: error?.message });
     }
   }
@@ -213,8 +227,8 @@ export function unitForMarket(market) {
 }
 
 // قیمت فعلی یک دارایی را از منبع مربوط به همان بازار می‌گیرد (یا null اگر در دسترس نبود).
-export async function getCurrentPrice(market, symbol) {
-  const prices = market === "crypto" ? await getCryptoPrices() : await getIranMarketPrices();
+export async function getCurrentPrice(market, symbol, { signal } = {}) {
+  const prices = market === "crypto" ? await getCryptoPrices({ signal }) : await getIranMarketPrices({ signal });
   const price = prices?.[symbol];
   return price === undefined || price === null ? null : price;
 }
