@@ -230,9 +230,11 @@ export default function App() {
             const historyItems = historyMap.get(asset.symbol);
             const existingHistory = existingHistoryMap.get(asset.symbol);
             if (!historyItems && existingHistory?.length) {
+              const existingLabels = assetsRef.current.find(a => a.symbol === asset.symbol)?.historyLabels || [];
               return {
                 ...asset,
                 history: [...existingHistory.slice(-23), asset.price],
+                historyLabels: [...existingLabels.slice(-23), new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })],
               };
             }
             if (!historyItems || historyItems.length === 0) {
@@ -241,11 +243,18 @@ export default function App() {
                 history: existingHistory?.length
                   ? [...existingHistory.slice(-23), asset.price]
                   : [asset.price],
+                historyLabels: existingHistory?.length
+                  ? [...(assetsRef.current.find(a => a.symbol === asset.symbol)?.historyLabels || []).slice(-23), new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })]
+                  : [new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })],
               };
             }
             return {
               ...asset,
               history: historyItems.map((item: any) => Number(item.price_value || 0)),
+              historyLabels: historyItems.map((item: any) => {
+                const d = new Date(item.observed_at);
+                return d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+              }),
             };
           });
         }

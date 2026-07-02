@@ -133,6 +133,11 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
   const legendColors = ['#22d3ee', '#34d399', '#f59e0b', '#f472b6', '#a78bfa'];
   
   const advancedLabels = useMemo(() => {
+    const firstAsset = chartAssets[0];
+    const customLabels = firstAsset?.historyLabels;
+    if (customLabels && customLabels.length > 0) {
+      return customLabels;
+    }
     const length = chartSeries[0]?.points.length || 0;
     return Array.from({ length }, (_, index) => {
       if (range === 'intraday') {
@@ -140,7 +145,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
       }
       return isFa ? `بازه ${index + 1}` : `Range ${index + 1}`;
     });
-  }, [chartSeries, range, isFa]);
+  }, [chartAssets, chartSeries, range, isFa]);
 
   const minSliderVal = useMemo(() => 
     selectedAsset ? Math.round(selectedAsset.price * 0.7) : 0,
