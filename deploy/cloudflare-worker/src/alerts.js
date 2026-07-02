@@ -1,6 +1,6 @@
 import { ALERT_LIFECYCLE, formatNormalizedTarget, operatorLabel } from "./alert-flow.js";
 import { getAssetByCanonicalId, getAssetByMarketSymbol } from "./asset-catalog.js";
-import { formatPrice, unitForMarket } from "./prices.js";
+import { unitForMarket } from "./prices.js";
 import { logEvent } from "./log.js";
 import { recordMetric } from "./metrics.js";
 import {

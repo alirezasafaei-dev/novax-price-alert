@@ -43,7 +43,13 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    const miniAppResponse = await handleMiniAppStatic(request, env);
+    let miniAppResponse;
+    try {
+      miniAppResponse = await handleMiniAppStatic(request, env);
+    } catch (error) {
+      logError("miniapp_static_error", { error_message: error?.message || "static asset failed" });
+      miniAppResponse = null;
+    }
     if (miniAppResponse) return miniAppResponse;
 
     if (request.method === "OPTIONS" || url.pathname.startsWith("/api/v1/")) {
@@ -117,28 +123,33 @@ export default {
       const webhookUrl = `${url.origin}/webhook`;
       const secretToken = env.TELEGRAM_SECRET_TOKEN;
 
-      const [webhookResult, commandsResult] = await Promise.all([
-        telegramApi(env, "setWebhook", {
-          url: webhookUrl,
-          secret_token: secretToken,
-          allowed_updates: ["message", "edited_message", "callback_query"],
-        }),
-        telegramApi(env, "setMyCommands", {
-          commands: [
-            { command: "start", description: "شروع ربات" },
-            { command: "help", description: "راهنما" },
-            { command: "prices", description: "قیمت‌های لحظه‌ای" },
-            { command: "pro", description: "خرید یا مشاهده پلن Pro" },
-            { command: "faq", description: "سوالات پرتکرار" },
-          ],
-        }),
-      ]);
+      try {
+        const [webhookResult, commandsResult] = await Promise.all([
+          telegramApi(env, "setWebhook", {
+            url: webhookUrl,
+            secret_token: secretToken,
+            allowed_updates: ["message", "edited_message", "callback_query"],
+          }),
+          telegramApi(env, "setMyCommands", {
+            commands: [
+              { command: "start", description: "شروع ربات" },
+              { command: "help", description: "راهنما" },
+              { command: "prices", description: "قیمت‌های لحظه‌ای" },
+              { command: "pro", description: "خرید یا مشاهده پلن Pro" },
+              { command: "faq", description: "سوالات پرتکرار" },
+            ],
+          }),
+        ]);
 
-      return Response.json({
-        webhook: webhookResult.result,
-        commands: commandsResult.result,
-        webhook_url: webhookUrl,
-      }, { status: webhookResult.response.ok && commandsResult.response.ok ? 200 : 500 });
+        return Response.json({
+          webhook: webhookResult.result,
+          commands: commandsResult.result,
+          webhook_url: webhookUrl,
+        }, { status: webhookResult.response.ok && commandsResult.response.ok ? 200 : 500 });
+      } catch (error) {
+        logError("setup_bot_error", { error_message: error?.message || "setup failed" });
+        return Response.json({ error: error.message }, { status: 500 });
+      }
     }
     
     if (url.pathname === "/webhook" && request.method === "POST") {
@@ -261,8 +272,13 @@ export default {
   },
   
   async scheduled(event, env, ctx) {
-    const result = await runCronJob(env);
-    await recordCronHeartbeat(env, result);
-    logEvent("cron_invocation_completed", { checked: result.checked, triggered: result.triggered });
+    try {
+      const result = await runCronJob(env);
+      await recordCronHeartbeat(env, result);
+      logEvent("cron_invocation_completed", { checked: result.checked, triggered: result.triggered });
+    } catch (error) {
+      logError("cron_handler_error", { error_message: error?.message || "cron failed" });
+      await recordCronHeartbeat(env, { checked: 0, triggered: 0, error: error?.message }).catch(() => {});
+    }
   }
 };
