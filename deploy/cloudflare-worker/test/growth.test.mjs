@@ -923,4 +923,223 @@ let testsPassed = 0;
   await mf.dispose();
 }
 
+// ─── Cron Integration: Marketing Independent of Alert Count ────────────
+
+// Test 33: marketing post check runs when alerts.length === 0
+{
+  const { mf, DB } = await setupD1();
+  try {
+    const env = {
+      DB,
+      MARKETING_POSTING_ENABLED: "true",
+      MARKETING_CHANNEL_ID: "-100123",
+      BOT_USERNAME: "test_bot",
+      MARKETING_POST_HOUR_TEHRAN: "10",
+      TELEGRAM_BOT_TOKEN: "test_token",
+      ALERTS_KV: new MockKV(),
+      SESSIONS_KV: new MockKV(),
+      USERS_KV: new MockKV(),
+    };
+
+    sent = [];
+
+    // Import runCronJob fresh to avoid module cache issues
+    const { runCronJob } = await import("../src/cron.js");
+
+    // Run cron at configured Tehran hour with zero alerts in D1
+    // Before the fix, this would return early before checking marketing
+    const atHour = fakeDateAtTehranHour(2026, 7, 2, 10);
+    // Override Date constructor so runCronJob uses our fixed time
+    const OrigDate = Date;
+    globalThis.Date = class extends OrigDate {
+      constructor(...args) {
+        if (args.length === 0) {
+          super(atHour.getTime());
+        } else {
+          super(...args);
+        }
+      }
+      static now() { return atHour.getTime(); }
+    };
+
+    try {
+      const result = await runCronJob(env);
+      assert.equal(result.checked, 0, "should have zero alerts checked");
+      assert.equal(result.triggered, 0, "should have zero alerts triggered");
+
+      // Marketing post should have been sent despite zero alerts
+      const marketingMsg = sent.find(
+        (s) => s.method === "sendMessage" && String(s.chat_id) === "-100123",
+      );
+      assert.ok(marketingMsg, "marketing post should be sent even with zero alerts");
+      assert.ok(marketingMsg.text.includes("گزارش روزانه بازار"), "should contain market report text");
+
+      testsPassed++;
+      console.log("  ✓ marketing post check runs independently of alert count");
+    } finally {
+      globalThis.Date = OrigDate;
+    }
+  } finally {
+    await mf.dispose();
+  }
+}
+
+// Test 34: marketing post not sent when disabled (via cron path)
+{
+  const { mf, DB } = await setupD1();
+  try {
+    const env = {
+      DB,
+      MARKETING_POSTING_ENABLED: "false",
+      MARKETING_CHANNEL_ID: "-100123",
+      BOT_USERNAME: "test_bot",
+      MARKETING_POST_HOUR_TEHRAN: "10",
+      TELEGRAM_BOT_TOKEN: "test_token",
+      ALERTS_KV: new MockKV(),
+      SESSIONS_KV: new MockKV(),
+      USERS_KV: new MockKV(),
+    };
+
+    sent = [];
+    const { runCronJob } = await import("../src/cron.js");
+
+    const atHour = fakeDateAtTehranHour(2026, 7, 2, 10);
+    const OrigDate = Date;
+    globalThis.Date = class extends OrigDate {
+      constructor(...args) {
+        if (args.length === 0) {
+          super(atHour.getTime());
+        } else {
+          super(...args);
+        }
+      }
+      static now() { return atHour.getTime(); }
+    };
+
+    try {
+      await runCronJob(env);
+
+      const marketingMsg = sent.find(
+        (s) => s.method === "sendMessage" && String(s.chat_id) === "-100123",
+      );
+      assert.equal(marketingMsg, undefined, "no marketing post when disabled");
+
+      testsPassed++;
+      console.log("  ✓ no marketing post when disabled (cron path)");
+    } finally {
+      globalThis.Date = OrigDate;
+    }
+  } finally {
+    await mf.dispose();
+  }
+}
+
+// Test 35: no marketing post outside configured Tehran hour (via cron path)
+{
+  const { mf, DB } = await setupD1();
+  try {
+    const env = {
+      DB,
+      MARKETING_POSTING_ENABLED: "true",
+      MARKETING_CHANNEL_ID: "-100123",
+      BOT_USERNAME: "test_bot",
+      MARKETING_POST_HOUR_TEHRAN: "10",
+      TELEGRAM_BOT_TOKEN: "test_token",
+      ALERTS_KV: new MockKV(),
+      SESSIONS_KV: new MockKV(),
+      USERS_KV: new MockKV(),
+    };
+
+    sent = [];
+    const { runCronJob } = await import("../src/cron.js");
+
+    // Run at hour 9 (before configured hour 10)
+    const beforeHour = fakeDateAtTehranHour(2026, 7, 2, 9);
+    const OrigDate = Date;
+    globalThis.Date = class extends OrigDate {
+      constructor(...args) {
+        if (args.length === 0) {
+          super(beforeHour.getTime());
+        } else {
+          super(...args);
+        }
+      }
+      static now() { return beforeHour.getTime(); }
+    };
+
+    try {
+      await runCronJob(env);
+
+      const marketingMsg = sent.find(
+        (s) => s.method === "sendMessage" && String(s.chat_id) === "-100123",
+      );
+      assert.equal(marketingMsg, undefined, "no marketing post before configured hour");
+
+      testsPassed++;
+      console.log("  ✓ no marketing post outside configured Tehran hour (cron path)");
+    } finally {
+      globalThis.Date = OrigDate;
+    }
+  } finally {
+    await mf.dispose();
+  }
+}
+
+// Test 36: no duplicate marketing post for same Tehran date (via cron path)
+{
+  const { mf, DB } = await setupD1();
+  try {
+    const env = {
+      DB,
+      MARKETING_POSTING_ENABLED: "true",
+      MARKETING_CHANNEL_ID: "-100123",
+      BOT_USERNAME: "test_bot",
+      MARKETING_POST_HOUR_TEHRAN: "10",
+      TELEGRAM_BOT_TOKEN: "test_token",
+      ALERTS_KV: new MockKV(),
+      SESSIONS_KV: new MockKV(),
+      USERS_KV: new MockKV(),
+    };
+
+    sent = [];
+    const { runCronJob } = await import("../src/cron.js");
+
+    const atHour = fakeDateAtTehranHour(2026, 7, 2, 10);
+    const OrigDate = Date;
+    globalThis.Date = class extends OrigDate {
+      constructor(...args) {
+        if (args.length === 0) {
+          super(atHour.getTime());
+        } else {
+          super(...args);
+        }
+      }
+      static now() { return atHour.getTime(); }
+    };
+
+    try {
+      // First run — should post
+      await runCronJob(env);
+      const firstCount = sent.filter(
+        (s) => s.method === "sendMessage" && String(s.chat_id) === "-100123",
+      ).length;
+      assert.equal(firstCount, 1, "first cron run should post once");
+
+      // Second run at same hour — should NOT post again (idempotent)
+      await runCronJob(env);
+      const secondCount = sent.filter(
+        (s) => s.method === "sendMessage" && String(s.chat_id) === "-100123",
+      ).length;
+      assert.equal(secondCount, 1, "second cron run should not post again");
+
+      testsPassed++;
+      console.log("  ✓ no duplicate marketing post for same Tehran date (cron path)");
+    } finally {
+      globalThis.Date = OrigDate;
+    }
+  } finally {
+    await mf.dispose();
+  }
+}
+
 console.log(`\nGrowth system tests: ${testsPassed} passed`);

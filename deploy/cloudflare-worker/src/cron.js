@@ -63,6 +63,20 @@ export async function runCronJob(env) {
     }),
   );
 
+  // Marketing daily post — runs independently of alert count.
+  // Idempotent: only fires at configured Tehran hour, only once per Tehran date.
+  try {
+    const now = new Date();
+    if (await shouldPostDailyMarketing(env, now)) {
+      const posted = await sendDailyMarketingPost(env, now);
+      if (posted) {
+        logEvent("marketing_daily_post_completed", { campaign_source: posted, worker_run_id: workerRunId });
+      }
+    }
+  } catch (error) {
+    logError("marketing_post_error", { error_message: error?.message, worker_run_id: workerRunId });
+  }
+
   if (alerts.length === 0) {
     logEvent("alert_evaluation_job_completed", { worker_run_id: workerRunId, checked: 0, triggered: 0 });
     return { checked: 0, triggered: 0 };
@@ -216,19 +230,6 @@ export async function runCronJob(env) {
   }
 
   logEvent("alert_evaluation_job_completed", { worker_run_id: workerRunId, checked, triggered });
-
-  // Marketing daily post (idempotent, only when enabled, only at configured Tehran hour)
-  try {
-    const now = new Date();
-    if (await shouldPostDailyMarketing(env, now)) {
-      const posted = await sendDailyMarketingPost(env, now);
-      if (posted) {
-        logEvent("marketing_daily_post_completed", { campaign_source: posted, worker_run_id: workerRunId });
-      }
-    }
-  } catch (error) {
-    logError("marketing_post_error", { error_message: error?.message, worker_run_id: workerRunId });
-  }
 
   return { checked, triggered };
 }
