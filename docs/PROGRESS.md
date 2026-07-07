@@ -1,6 +1,6 @@
 # وضعیت پیشرفت
 
-آخرین بازبینی: 2026-07-07 (حساب نهایی + رفع assets مینی‌اپ + مستندسازی)
+آخرین بازبینی: 2026-07-07 (پورتفولیو + AI Chat آنالایزر endpoint + دیپلوی نهایی)
 
 این سند وضعیت فعلی پروژه را خلاصه می‌کند. گزارش‌ها، چک‌لیست‌ها و راهنماهای مرحله‌ای قدیمی در
 `docs/archive/` نگهداری می‌شوند و نباید بدون بررسی کد واقعی به عنوان منبع اجرا استفاده شوند.
@@ -11,7 +11,9 @@
 - Cloudflare D1 منبع اصلی هشدارها، کاربران، رخدادها، پرداخت‌ها، subscriptionها و snapshotهای قیمت است.
 - KV فقط برای assetهای مینی‌اپ، session و cache کم‌ریسک استفاده می‌شود و namespaceها باید جدا باشند.
 - مینی‌اپ از Worker روی `/mini-app/` و assetهای KV سرو می‌شود؛ برای WebViewهای حساس تلگرام یک fallback کلاسیک `legacy-app.js` هم در HTML قرار دارد.
-- بات تلگرام menu-driven است و قیمت‌ها، ساخت هشدار، مدیریت هشدار و پرداخت دستی را پوشش می‌دهد.
+- بات تلگرام menu-driven است و قیمت‌ها، ساخت هشدار، مدیریت هشدار، پرداخت دستی و تحلیل هوشمند را پوشش می‌دهد.
+- تحلیلگر هوشمند مینی‌اپ (`/api/chat`) روی Worker اجرا می‌شود؛ از Groq AI برای تحلیل استفاده می‌کند و در صورت عدم دسترسی، پاسخ‌های محلی با قیمت‌های واقعی برمی‌گرداند.
+- پورتفولیو با انتخاب دارایی از dropdown گروه‌بندی شده (رمزارز/فیات/طلا) و ذخیره در localStorage کار می‌کند.
 - cron Worker هر ۱ ساعت اجرا می‌شود (`0 * * * *`)؛ اینترنال heartbeat روی ۳۶۰۰ ثانیه تنظیم شده؛ هدف کاهش مصرف رایگان Cloudflare Workers.
 - مسیر جایگزین برای VPS خارج از ایران: Docker Compose شامل PostgreSQL, Redis, FastAPI API, Worker, Nginx.
 - worker و price-fetch در VPS هم هر ۳۶۰۰ ثانیه یک بار اجرا می‌شوند و از طریق env var `WORKER_INTERVAL_SECONDS` قابل تنظیم هستند.
@@ -19,6 +21,36 @@
 - history نمایشی از snapshot واقعی D1 ساخته می‌شود؛ داده مصنوعی history نباید دوباره وارد محصول شود.
 
 ## آخرین تغییرات مهم
+
+### 2026-07-07 (جلسه سوم): رفع پورتفولیو + endpoint تحلیلگر هوشمند + دیپلوی نهایی
+
+**رفع پورتفولیو (انتخاب دارایی):**
+- فیلد متنی `نماد دارایی` (که کاربر باید دستی "BTC" یا "USD_IRT" تایپ کند) → `<select>` گروه‌بندی شده با همه دارایی‌ها (رمزارز / فیات / طلا)
+- لیبل `مقدار` حالا نام دارایی انتخاب شده را نشان می‌دهد: `مقدار (BTC)`
+- در لیست دارایی‌ها، واحد (symbol) کنار مقدار هر دارایی درج شد
+
+**AI Chat endpoint روی Worker:**
+- endpoint `/api/chat` به Worker index.js اضافه شد (POST با `{ message, chatHistory }`)
+- دریافت قیمت‌های لحظه‌ای از `prices.js` (همان منبع API اصلی)
+- یکپارچه‌سازی با Groq API (مدل `mixtral-8x7b-32768`) برای پاسخ هوشمند
+- fallback محلی برای BTC, ETH, Gold, و نمای کلی بازار وقتی Groq در دسترس نیست (هر دو زبان فارسی/انگلیسی)
+- لاگ خطاهای Groq در `logError`
+
+**رفع AIChat.tsx:**
+- وقتی `VITE_NOVAX_CHAT_API_BASE` خالی است (Static/KV deploy)، به جای undefined از `window.location.origin` استفاده می‌کند
+- بلاک dead code "تحلیل‌گر AI در دیپلوی استاتیک فعلاً به endpoint امن وصل نیست" حذف شد
+
+**دیپلوی assets:**
+- مینی‌اپ با تغییرات بازبینی و بیلد شد (chunk هش: `index-B5b-pO0Q.js`)
+- ۹ فایل asset + manifest با Cloudflare REST API به ASSETS_KV آپلود شدند (wrangler v4 syntax تغییر کرده بود)
+- Worker دپلوی شد (Version ID: `583f636d`)
+
+**وضعیت نهایی:**
+- مینی‌اپ: `/mini-app/` ۲۰۰, JS/CSS همگی ۲۰۰
+- AI Chat: `/api/chat` ۲۰۰ با پاسخ‌های هوشمند + real-time prices
+- پورتفولیو: انتخاب دارایی با dropdown گروه‌بندی شده
+- Worker: health 200, prices/latest 200, webhook فعال, cron ساعتی
+- تمام assetها و manifest در KV با ۲۰۰ تأیید شدند
 
 ### 2026-07-07 (جلسه دوم):审计 و رفع مشکل assets مینی‌اپ + مستندسازی نهایی
 
@@ -183,7 +215,7 @@
 
 ## اعتبارسنجی ثبت‌شده
 
-آخرین اجرا: 2026-07-02:
+آخرین اجرا: 2026-07-07:
 
 - Python unit/integration: 153 passed
 - Worker test suites: 8 suites all passed (log, metrics-alerting, heartbeat, product-db, miniapp-api, miniapp-static, telegram-relay, new-bot)
@@ -192,7 +224,10 @@
 - pip-audit: 0 known vulnerabilities
 - npm audit (worker + mini-app): 0 vulnerabilities
 - Worker deploy: health OK, webhook OK, D1 connected, cron active
-- Endpoints verified: health, status, prices/latest, mini-app/, CORS, auth, malformed webhook, 404
+- Endpoints verified: health, status, prices/latest, mini-app/, /api/chat, CORS, auth, malformed webhook, 404
+- Mini-app assets: index.html 200, JS (index-B5b-pO0Q.js) 200, CSS 200, legacy-app.js 200, manifest 200
+- AI Chat: /api/chat POST با Groq + local fallback (BTC/ETH/Gold/market) تأیید شد
+- Portfolio: انتخاب با dropdown گروه‌بندی شده (crypto/fiat/gold)
 
 برای هر تغییر جدید، وضعیت واقعی باید دوباره با تست‌های مرتبط و inspection کد تأیید شود.
 
