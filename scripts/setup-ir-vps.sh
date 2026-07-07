@@ -1,150 +1,184 @@
-#!/bin/bash
-# Setup script for Iranian VPS deployment
-# This script automates the entire setup process
+#!/usr/bin/env bash
+# Novax Price Alert - VPS Setup (بدون Docker)
+# نصب و راه‌اندازی کامل روی VPS خارج از ایران
+set -euo pipefail
 
-set -e  # Exit on error
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+info() { echo -e "${GREEN}✓${NC} $1"; }
+warn() { echo -e "${YELLOW}⚠${NC} $1"; }
+err() { echo -e "${RED}✗${NC} $1"; exit 1; }
 
-echo "🇮🇷 Novax Price Alert - Iranian VPS Setup"
-echo "=========================================="
+DOMAIN="${DOMAIN:-your-domain.ir}"
+EMAIL="${EMAIL:-admin@your-domain.ir}"
+PROJECT_DIR="${PROJECT_DIR:-/opt/novax-price-alert}"
+DEPLOY_USER="${DEPLOY_USER:-deploy}"
+TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN required}"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+if [[ $EUID -ne 0 ]]; then
+  exec sudo bash "$0" "$@"
+fi
 
-# Configuration
-DOMAIN=${DOMAIN:-"your-domain.ir"}
-EMAIL=${EMAIL:-"admin@your-domain.ir"}
-PROJECT_DIR="/opt/novax-price-alert"
-POSTGRES_PASSWORD=$(openssl rand -base64 32)
-METRICS_TOKEN=$(openssl rand -base64 32)
-TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+echo "=============================="
+echo " Novax VPS Setup (بدون Docker)"
+echo "=============================="
 
-echo -e "${YELLOW}Step 1: System Update${NC}"
-sudo apt-get update && sudo apt-get upgrade -y
+# ── 1. System packages ──────────────────────────────────────────
+echo -e "\n${YELLOW}[1/12] به‌روزرسانی و نصب بسته‌های سیستمی${NC}"
+apt-get update -qq
+apt-get install -y -qq \
+  curl wget git nginx certbot python3-certbot-nginx \
+  postgresql postgresql-contrib redis-server \
+  python3 python3-pip python3-venv nodejs npm
 
-echo -e "${YELLOW}Step 2: Install Docker and Docker Compose${NC}"
-# Install Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
+info "بسته‌های سیستمی نصب شد"
 
-# Install Docker Compose
-sudo apt-get install docker-compose-plugin -y
+# ── 2. Install uv ───────────────────────────────────────────────
+echo -e "\n${YELLOW}[2/12] نصب uv (مدیریت پکیج Python)${NC}"
+if ! command -v uv &>/dev/null; then
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  export PATH="$HOME/.cargo/bin:$PATH"
+fi
+info "uv نصب شد: $(uv --version)"
 
-echo -e "${YELLOW}Step 3: Install Required Tools${NC}"
-sudo apt-get install -y git curl openssl certbot python3-certbot-nginx
+# ── 3. Create deploy user ───────────────────────────────────────
+echo -e "\n${YELLOW}[3/12] ایجاد کاربر deploy${NC}"
+if ! id -u "$DEPLOY_USER" &>/dev/null; then
+  useradd -m -s /bin/bash "$DEPLOY_USER"
+  usermod -aG "$DEPLOY_USER" "$SUDO_USER"
+fi
+info "کاربر $DEPLOY_USER آماده است"
 
-echo -e "${YELLOW}Step 4: Create Project Directory${NC}"
-sudo mkdir -p $PROJECT_DIR
-sudo chown $USER:$USER $PROJECT_DIR
-cd $PROJECT_DIR
+# ── 4. Project directory ────────────────────────────────────────
+echo -e "\n${YELLOW}[4/12] آماده‌سازی مسیر پروژه${NC}"
+mkdir -p "$PROJECT_DIR" /var/www/certbot
+chown "$DEPLOY_USER:$DEPLOY_USER" "$PROJECT_DIR"
 
-echo -e "${YELLOW}Step 5: Clone Repository${NC}"
-# Replace with your actual repository
-git clone https://github.com/yourusername/novax-price-alert.git .
-# Or copy files manually if deploying from local
+if [[ -d "$PROJECT_DIR/.git" ]]; then
+  info "پروژه از قبل clone شده"
+else
+  warn "پروژه در $PROJECT_DIR وجود ندارد."
+  warn "فایل‌ها را با rsync از ماشین محلی خود کپی کنید:"
+  echo "  rsync -avz --exclude='.git' --exclude='.venv' --exclude='node_modules' ./ $DEPLOY_USER@VPS_IP:$PROJECT_DIR/"
+fi
 
-echo -e "${YELLOW}Step 6: Setup Directory Structure${NC}"
-mkdir -p app logs backups certs
+# ── 5. PostgreSQL ──────────────────────────────────────────────
+echo -e "\n${YELLOW}[5/12] راه‌اندازی PostgreSQL${NC}"
+systemctl enable --now postgresql
 
-echo -e "${YELLOW}Step 7: Create Environment File${NC}"
-cat > .env.production << EOF
-# Database
-POSTGRES_USER=novax
-POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-POSTGRES_DB=novax_price_alert
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-$(openssl rand -base64 32)}"
+if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='novax'" | grep -q 1; then
+  sudo -u postgres psql -c "CREATE USER novax WITH PASSWORD '$POSTGRES_PASSWORD';"
+fi
+if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='novax_price_alert'" | grep -q 1; then
+  sudo -u postgres psql -c "CREATE DATABASE novax_price_alert OWNER novax ENCODING 'UTF8';"
+fi
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE novax_price_alert TO novax;"
 
-# Redis
-REDIS_URL=redis://redis:6379/0
+info "PostgreSQL: کاربر novax / دیتابیس novax_price_alert"
 
-# Telegram
-TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-TELEGRAM_WEBHOOK_URL=https://${DOMAIN}/api/v1/bot/webhook
+# ── 6. Redis ────────────────────────────────────────────────────
+echo -e "\n${YELLOW}[6/12] راه‌اندازی Redis${NC}"
+systemctl enable --now redis-server
+info "Redis active"
 
-# Security
-METRICS_ACCESS_TOKEN=${METRICS_TOKEN}
-
-# Environment
+# ── 7. .env ─────────────────────────────────────────────────────
+echo -e "\n${YELLOW}[7/12] ایجاد .env${NC}"
+cat > "$PROJECT_DIR/.env" << EOF
 ENVIRONMENT=production
 DEBUG=false
-
-# Application
+DATABASE_URL=postgresql+asyncpg://novax:${POSTGRES_PASSWORD}@localhost:5432/novax_price_alert
+REDIS_URL=redis://localhost:6379/0
+TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+TELEGRAM_WEBHOOK_URL=https://${DOMAIN}/api/v1/bot/webhook
+METRICS_ACCESS_TOKEN=${METRICS_ACCESS_TOKEN:-$(openssl rand -base32 32)}
+ADMIN_ACCESS_TOKEN=$(openssl rand -base32 32)
 ALLOWED_HOSTS=${DOMAIN}
+WORKER_INTERVAL_SECONDS=3600
 USE_MOCK_PROVIDER=false
 USE_MOCK_NOTIFICATIONS=false
-
-# Optional APIs
-NERKH_API_KEY=
 EOF
+chown "$DEPLOY_USER:$DEPLOY_USER" "$PROJECT_DIR/.env"
+chmod 600 "$PROJECT_DIR/.env"
 
-echo -e "${GREEN}✓ Environment file created${NC}"
-echo -e "${YELLOW}IMPORTANT: Save these passwords securely!${NC}"
-echo "PostgreSQL Password: ${POSTGRES_PASSWORD}"
-echo "Metrics Token: ${METRICS_TOKEN}"
+info ".env ساخته شد (پسوردها در ادامه نمایش داده می‌شوند)"
 
-echo -e "${YELLOW}Step 8: Setup SSL Certificates${NC}"
-# First, start nginx temporarily for certbot
-docker compose -f docker-compose.ir-vps.yml up -d nginx
+# ── 8. Python venv + deps ──────────────────────────────────────
+echo -e "\n${YELLOW}[8/12] نصب وابستگی‌های Python${NC}"
+sudo -u "$DEPLOY_USER" bash -c "
+  cd '$PROJECT_DIR'
+  export PATH=\"\$HOME/.cargo/bin:\$PATH\"
+  uv sync
+"
+info "uv sync completed"
 
-# Obtain SSL certificate
-sudo certbot certonly --nginx --agree-tos --email ${EMAIL} -d ${DOMAIN} -d www.${DOMAIN}
+# ── 9. Mini-app build ──────────────────────────────────────────
+echo -e "\n${YELLOW}[9/12] بیلد مینی‌اپ${NC}"
+if [[ -d "$PROJECT_DIR/mini-app" ]]; then
+  sudo -u "$DEPLOY_USER" bash -c "
+    cd '$PROJECT_DIR/mini-app'
+    npm install --silent
+    npm run build 2>/dev/null || warn 'mini-app build failed, skipping'
+  "
+  info "mini-app build done"
+else
+  warn "mini-app directory not found, skipping"
+fi
 
-# Copy certificates to project directory
-sudo cp /etc/letsencrypt/live/${DOMAIN}/fullchain.pem $PROJECT_DIR/certs/
-sudo cp /etc/letsencrypt/live/${DOMAIN}/privkey.pem $PROJECT_DIR/certs/
-sudo chown $USER:$USER $PROJECT_DIR/certs/*
+# ── 10. SSL + Nginx ─────────────────────────────────────────────
+echo -e "\n${YELLOW}[10/12] راه‌اندازی SSL و Nginx${NC}"
+if [[ "$DOMAIN" != "your-domain.ir" ]]; then
+  certbot certonly --nginx --agree-tos --email "$EMAIL" -d "$DOMAIN" -d "www.$DOMAIN" || \
+    warn "SSL failed; run certbot manually later"
+fi
 
-# Stop temporary nginx
-docker compose -f docker-compose.ir-vps.yml down
+# نصب nginx config
+sed "s/DOMAIN_PLACEHOLDER/$DOMAIN/g" "$PROJECT_DIR/nginx.vps.conf" > /etc/nginx/sites-available/novax
+if [[ ! -f /etc/nginx/sites-enabled/novax ]]; then
+  ln -sf /etc/nginx/sites-available/novax /etc/nginx/sites-enabled/
+fi
+rm -f /etc/nginx/sites-enabled/default
+nginx -t && systemctl reload nginx
+info "Nginx configured"
 
-echo -e "${GREEN}✓ SSL certificates obtained${NC}"
+# ── 11. systemd services ────────────────────────────────────────
+echo -e "\n${YELLOW}[11/12] نصب سرویس‌های systemd${NC}"
+for svc in novax-api novax-worker; do
+  cp "$PROJECT_DIR/deploy/$svc.service" /etc/systemd/system/
+  systemctl daemon-reload
+  systemctl enable "$svc"
+  systemctl restart "$svc"
+  systemctl is-active --quiet "$svc" || warn "srvice $svc active?"
+done
+info "systemd services running"
 
-echo -e "${YELLOW}Step 9: Configure Nginx${NC}"
-# Replace your-domain.ir with actual domain
-sed -i "s/your-domain.ir/${DOMAIN}/g" nginx.ir-vps.conf
-cp nginx.ir-vps.conf nginx.conf
+# ── 12. DB migrations ──────────────────────────────────────────
+echo -e "\n${YELLOW}[12/12] اجرای migrationها${NC}"
+sudo -u "$DEPLOY_USER" bash -c "
+  cd '$PROJECT_DIR'
+  export PATH=\"\$HOME/.cargo/bin:\$PATH\"
+  uv run alembic upgrade head
+" && info "Migrations done" || warn "Migrations failed; run manually: uv run alembic upgrade head"
 
-echo -e "${YELLOW}Step 10: Build and Start Services${NC}"
-docker compose -f docker-compose.ir-vps.yml build
-docker compose -f docker-compose.ir-vps.yml up -d
-
-echo -e "${YELLOW}Step 11: Wait for Services to be Ready${NC}"
-sleep 30
-
-echo -e "${YELLOW}Step 12: Run Database Migrations${NC}"
-docker compose -f docker-compose.ir-vps.yml exec api uv run alembic upgrade head
-
-echo -e "${YELLOW}Step 13: Seed Initial Data${NC}"
-docker compose -f docker-compose.ir-vps.yml exec api uv run python -m novax_price_alert.scripts.seed_mvp
-
-echo -e "${YELLOW}Step 14: Verify Deployment${NC}"
-# Health checks
-echo "Checking API health..."
-curl -f http://localhost:8000/health || echo "API health check failed"
-
-echo "Checking latest prices..."
-curl -f http://localhost:8000/api/v1/prices/latest || echo "Prices API check failed"
-
-echo -e "${GREEN}✓ VPS setup completed successfully!${NC}"
+# ── Summary ─────────────────────────────────────────────────────
 echo ""
-echo "=========================================="
-echo "Deployment Summary:"
-echo "=========================================="
-echo "Domain: https://${DOMAIN}"
-echo "API URL: https://${DOMAIN}/api/v1"
-echo "Health Check: https://${DOMAIN}/health"
+echo "=============================="
+echo "  Setup Complete"
+echo "=============================="
 echo ""
-echo "IMPORTANT: Save these credentials securely:"
-echo "------------------------------------------"
-echo "PostgreSQL Password: ${POSTGRES_PASSWORD}"
-echo "Metrics Token: ${METRICS_TOKEN}"
+echo "🔗 Domain: https://$DOMAIN"
+echo "🏥 Health: https://$DOMAIN/health"
+echo "🤖 Webhook: https://$DOMAIN/api/v1/bot/webhook"
 echo ""
-echo "Next Steps:"
-echo "1. Setup GitHub Actions for price fetching"
-echo "2. Configure Telegram webhook"
-echo "3. Setup automated backups"
-echo "4. Configure firewall rules"
+echo "📋 ذخیره این مقادیر:"
+echo "   PostgreSQL Password: $POSTGRES_PASSWORD"
+echo "   METRICS_ACCESS_TOKEN: ${METRICS_ACCESS_TOKEN:-$(grep METRICS_ACCESS_TOKEN "$PROJECT_DIR/.env" | cut -d= -f2)}"
 echo ""
-echo "For detailed instructions, see docs/IRANIAN_VPS_DEPLOYMENT.md"
+echo "🔧 مدیریت سرویس‌ها:"
+echo "   systemctl status novax-api"
+echo "   systemctl status novax-worker"
+echo "   journalctl -u novax-api -f"
+echo ""
+echo "📝 تنظیم webhook تلگرام:"
+echo "   curl -X POST 'https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook' -d 'url=https://${DOMAIN}/api/v1/bot/webhook'"
+echo ""
+echo "⚠️  اگر دامنه واقعی ندارید، nginx.vps.conf را دستی ویرایش کنید."

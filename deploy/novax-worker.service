@@ -1,0 +1,20 @@
+[Unit]
+Description=Novax Price Alert Worker
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/opt/novax-price-alert
+Environment=PATH=/home/deploy/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/deploy/.local/bin/uv run python -m novax_price_alert.worker_main
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

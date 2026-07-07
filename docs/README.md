@@ -1,6 +1,6 @@
 # فهرست مستندات
 
-آخرین بازبینی: 2026-06-26
+آخرین بازبینی: 2026-07-07
 
 ## اسناد زنده
 
@@ -14,6 +14,7 @@
 | [SECURITY.md](SECURITY.md) | کنترل‌های امنیتی فنی |
 | [CONTRACTS_AND_POLICIES.md](CONTRACTS_AND_POLICIES.md) | قراردادهای پایدار دامنه |
 | [CLOUDFLARE_PAGES_MINI_APP.md](CLOUDFLARE_PAGES_MINI_APP.md) | راهنمای mini-app روی Worker |
+| [VPS_DEPLOYMENT.md](VPS_DEPLOYMENT.md) | راهنمای دیپلوی مستقل روی VPS (بدون Cloudflare) |
 | [PREMIUM_FEATURES_PLAN.md](PREMIUM_FEATURES_PLAN.md) | وضعیت قابلیت‌های درآمدی |
 | [USER_GUIDE_FA.md](USER_GUIDE_FA.md) | راهنمای کوتاه کاربر |
 | [privacy_policy.md](privacy_policy.md) | سیاست حریم خصوصی |

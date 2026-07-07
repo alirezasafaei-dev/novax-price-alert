@@ -23,7 +23,7 @@ This file is the first stop for any new agent or chat session.
 - Crypto prices come from Binance in `USDT`.
 - Fiat and gold prices come from TGJU in `Toman`.
 - Alerts are staged and only activate after explicit confirmation.
-- Cron checks alerts every 10 minutes.
+- Cron checks alerts every hour (`0 * * * *`).
 
 ## What To Trust First
 
@@ -53,6 +53,15 @@ This file is the first stop for any new agent or chat session.
 - Telegram relay code: `deploy/cloudflare-worker/`
 - Tests: `tests/`
 - Database migrations: `migrations/versions/`
+- VPS deployment: `scripts/setup-vps.sh` (PM2+Nginx, بدون Docker)
+- Nginx config: `nginx.vps.conf` (with DOMAIN_PLACEHOLDER)
+- PM2 ecosystem: `ecosystem.config.js`
+- Worker interval: `WORKER_INTERVAL_SECONDS=3600` (۱ ساعت)
+- Mini-app VITE_NOVAX_API_BASE خالی (برای auto-detect origin) `mini-app/.env`
+- NLP handler: `deploy/cloudflare-worker/src/nlp.js` (keyword matching + Groq AI fallback)
+- Auto-post: `deploy/cloudflare-worker/src/auto-post.js` (قیمت‌ها ۳ بار در روز به گروه)
+- Groq API key: `GROQ_API_KEY` (secret در Cloudflare Worker)
+- Auto-post KV: `AUTO_POST_KV` binding (همان namespace ALERTS_KV)
 
 ## Recent Code Fixes
 

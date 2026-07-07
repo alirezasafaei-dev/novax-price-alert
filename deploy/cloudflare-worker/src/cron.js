@@ -15,6 +15,7 @@ import { logEvent, logWarn, logError } from "./log.js";
 import { recordMetric } from "./metrics.js";
 import { maybeOpsAlert } from "./alerting.js";
 import { sendDailyMarketingPost, shouldPostDailyMarketing } from "./growth.js";
+import { sendAutoPost, shouldAutoPost } from "./auto-post.js";
 
 function classifyPriceBatch(prices, providerId) {
   if (!prices || Object.keys(prices).filter((key) => !key.startsWith("_")).length === 0) {
@@ -75,6 +76,21 @@ export async function runCronJob(env) {
     }
   } catch (error) {
     logError("marketing_post_error", { error_message: error?.message, worker_run_id: workerRunId });
+  }
+
+  // Auto price post — multiple times per day (configurable via AUTO_POST_HOURS).
+  // Independent of marketing; posts to AUTO_POST_CHAT_ID with current prices + CTA.
+  // Idempotent via KV: only once per (chat_id, date, hour).
+  try {
+    const now = new Date();
+    if (await shouldAutoPost(env, now)) {
+      const posted = await sendAutoPost(env, now);
+      if (posted) {
+        logEvent("auto_post_completed", { worker_run_id: workerRunId });
+      }
+    }
+  } catch (error) {
+    logError("auto_post_error", { error_message: error?.message, worker_run_id: workerRunId });
   }
 
   if (alerts.length === 0) {

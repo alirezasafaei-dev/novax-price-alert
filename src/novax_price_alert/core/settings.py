@@ -77,19 +77,17 @@ class Settings(BaseSettings):
     # ── Scalability parameters ──────────────────────────────────────
     # How long (seconds) cached provider prices are considered valid.
     # Lower = fresher data but more upstream calls. Higher = less load, staler data.
-    # Range: 10-300 seconds. Default: 60.
-    provider_cache_ttl_seconds: int = Field(default=60, ge=10, le=300)
+    # Range: 300-3600 seconds. Default: 3540 (refresh just before hourly alert check).
+    provider_cache_ttl_seconds: int = Field(default=3540, ge=300, le=3600)
     # After how many seconds without an update a price is considered stale.
-    # Should be >= provider_cache_ttl_seconds. Default: 180.
-    stale_price_seconds: int = Field(default=180, ge=60)
+    # Should be >= provider_cache_ttl_seconds. Default: 3660.
+    stale_price_seconds: int = Field(default=3660, ge=600)
     # Interval (seconds) between alert worker evaluation runs.
-    # Lower = faster alert response but more DB/CPU load.
-    # Range: 15-600 seconds. Default: 60.
-    worker_interval_seconds: int = Field(default=60, ge=15)
+    # Range: 300-3600 seconds. Default: 3600 (once per hour to avoid Cloudflare limits).
+    worker_interval_seconds: int = Field(default=3600, ge=300)
     # Interval (seconds) between notification dispatch runs.
-    # Lower = faster notification delivery but more API calls.
-    # Range: 1-60 seconds. Default: 5.
-    notification_interval_seconds: int = Field(default=5, ge=1)
+    # Range: 5-60 seconds. Default: 10.
+    notification_interval_seconds: int = Field(default=10, ge=5)
     # Maximum number of assets to evaluate concurrently per evaluation cycle.
     # Higher = faster evaluation but more DB connections and memory.
     # Range: 1-50. Default: 10.

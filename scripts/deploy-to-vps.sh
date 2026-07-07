@@ -1,18 +1,8 @@
 #!/bin/bash
+# ⚠️  این اسکریپت قدیمی است (Docker+sshpass). از scripts/deploy-vps-only.sh استفاده کنید.
 
-# Novax Price Alert Deployment Script
-# Deploys to VPS at <redacted-vps-host>
-# Bot: @novax_price_bot
-
+# Novax Price Alert Deployment Script (DEPRECATED - use deploy-vps-only.sh)
 set -e
-
-echo "🚀 Novax Price Alert Deployment Script"
-echo "======================================"
-echo ""
-echo "🤖 Bot Info:"
-echo "   ID: ${TELEGRAM_BOT_ID:-<set TELEGRAM_BOT_ID>}"
-echo "   Username: @novax_price_bot"
-echo ""
 
 # VPS Configuration
 VPS_IP="<redacted-vps-host>"

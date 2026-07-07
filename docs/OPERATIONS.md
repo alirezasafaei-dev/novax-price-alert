@@ -1,15 +1,28 @@
 # Operations
 
-## Production path
+## Production paths
 
-Production runs on Cloudflare Worker + D1 + Telegram Mini App.
+### مسیر اصلی: Cloudflare Worker + D1
 
 - Worker code: `deploy/cloudflare-worker/src/`
 - D1 schema: `deploy/cloudflare-worker/migrations/`
 - Mini App assets: Worker route `/mini-app/`, backed by `ASSETS_KV`
 - Telegram webhook: `/webhook` with `X-Telegram-Bot-Api-Secret-Token`
+- Cron schedule: هر ۱ ساعت (`0 * * * *`) برای کاهش مصرف رایگان Workers.
+- Heartbeat monitor (GitHub Actions): هر ۵ دقیقه `/status` Worker را چک می‌کند.
 
-FastAPI/PostgreSQL/RQ/Render and KV-only alert storage are legacy/archive paths.
+### مسیر جایگزین: VPS مستقل (PM2 + Nginx, بدون Docker)
+
+- Setup: `scripts/setup-vps.sh` (اجرا به صورت root روی VPS)
+- شامل: PostgreSQL, Redis, FastAPI, Worker, Nginx (همه system package)
+- Process manager: PM2 (`ecosystem.config.js`)
+- Nginx config: `nginx.vps.conf` (upstream به FastAPI روی 127.0.0.1:8000)
+- Worker loop: هر ۳۶۰۰ ثانیه (قابل تنظیم با `WORKER_INTERVAL_SECONDS`)
+- Mini App assets توسط FastAPI در `/mini-app/` سرو می‌شود
+- Telegram webhook به API خود VPS تنظیم می‌شود
+- دیپلوی بروزرسانی: `scripts/deploy-vps-only.sh` (rsync + uv sync + pm2 restart)
+
+مستندات کامل: `docs/VPS_DEPLOYMENT.md`
 
 ## Required runtime secrets and bindings
 
@@ -38,7 +51,7 @@ Bindigs:
 
 ## Cron and external heartbeat monitor
 
-Cloudflare Cron runs every minute. The GitHub Actions workflow `.github/workflows/cron-heartbeat-monitor.yml` runs every 5 minutes and calls `deploy/monitoring/cron_heartbeat_monitor.sh`. It alerts Telegram ops only after cooldown/state checks.
+Cloudflare Cron runs every hour (`0 * * * *`). The GitHub Actions workflow `.github/workflows/cron-heartbeat-monitor.yml` runs every 5 minutes and calls `deploy/monitoring/cron_heartbeat_monitor.sh`. It alerts Telegram ops only after cooldown/state checks. Cooldown (1800 ثانیه) از هشدارهای تکراری جلوگیری می‌کند.
 
 Required GitHub repository secrets:
 

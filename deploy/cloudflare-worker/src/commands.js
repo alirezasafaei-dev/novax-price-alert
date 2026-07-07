@@ -1,6 +1,7 @@
 import { FAQ_KEYBOARD, GROWTH_KEYBOARD, MAIN_KEYBOARD, MARKET_KEYBOARD, alertActionsKeyboard, miniAppKeyboard } from "./keyboards.js";
 import { sendMessage } from "./telegram.js";
 import { setUser, clearSession } from "./sessions.js";
+import { handleNLP } from "./nlp.js";
 import {
   getCryptoPrices,
   getIranMarketPrices,
@@ -158,7 +159,97 @@ export async function handleCreateAlertStart(env, chatId) {
   await sendMessage(env, chatId, text, { reply_markup: MARKET_KEYBOARD });
 }
 
-export async function handleUnknownMessage(env, chatId) {
-  const text = "دستور نامعتبره. از منوی زیر استفاده کن یا /help رو بزن.";
-  await sendMessage(env, chatId, text, { reply_markup: MAIN_KEYBOARD });
+export async function handleUnknownMessage(env, chatId, text, messageId) {
+  const handled = await handleNLP(env, chatId, text, messageId);
+  if (!handled) {
+    await sendMessage(env, chatId, "متوجه نشدم 😕 می‌تونی سوالتو واضح‌تر بپرسی یا از /help استفاده کنی.", { reply_markup: MAIN_KEYBOARD, reply_to_message_id: messageId });
+  }
+}
+
+export async function handleInlineQuery(env, inlineQuery) {
+  const queryId = inlineQuery.id;
+  const query = (inlineQuery.query || '').trim().toLowerCase();
+  const userId = inlineQuery.from?.id;
+
+  let cryptoPrices, iranPrices;
+  try {
+    [cryptoPrices, iranPrices] = await Promise.all([getCryptoPrices(), getIranMarketPrices()]);
+  } catch {
+    // proceed with empty prices
+  }
+
+  const results = [];
+
+  if (query) {
+    // Specific asset lookup
+    const matchedAsset = Object.entries({
+      btc: { title: '₿ بیت‌کوین', price: cryptoPrices?.BTC, unit: 'USDT', dec: 2 },
+      bitcoin: { title: '₿ بیت‌کوین', price: cryptoPrices?.BTC, unit: 'USDT', dec: 2 },
+      eth: { title: '♦ اتریوم', price: cryptoPrices?.ETH, unit: 'USDT', dec: 2 },
+      ethereum: { title: '♦ اتریوم', price: cryptoPrices?.ETH, unit: 'USDT', dec: 2 },
+      sol: { title: '◎ سولانا', price: cryptoPrices?.SOL, unit: 'USDT', dec: 2 },
+      solana: { title: '◎ سولانا', price: cryptoPrices?.SOL, unit: 'USDT', dec: 2 },
+      bnb: { title: '■ بایننس', price: cryptoPrices?.BNB, unit: 'USDT', dec: 2 },
+      usd: { title: '💵 دلار', price: iranPrices?.USD, unit: 'تومان', dec: 0 },
+      dollar: { title: '💵 دلار', price: iranPrices?.USD, unit: 'تومان', dec: 0 },
+      دلار: { title: '💵 دلار', price: iranPrices?.USD, unit: 'تومان', dec: 0 },
+      eur: { title: '💶 یورو', price: iranPrices?.EUR, unit: 'تومان', dec: 0 },
+      یورو: { title: '💶 یورو', price: iranPrices?.EUR, unit: 'تومان', dec: 0 },
+      usdt: { title: '💠 تتر', price: iranPrices?.USDT, unit: 'تومان', dec: 0 },
+      تتر: { title: '💠 تتر', price: iranPrices?.USDT, unit: 'تومان', dec: 0 },
+      طلا: { title: '🪙 طلای ۱۸ عیار', price: iranPrices?.GOLD_18K, unit: 'تومان', dec: 0 },
+      gold: { title: '🪙 طلای ۱۸ عیار', price: iranPrices?.GOLD_18K, unit: 'تومان', dec: 0 },
+      سکه: { title: '🟡 سکه امامی', price: iranPrices?.SEKKEH_EMAMI, unit: 'تومان', dec: 0 },
+    }).find(([key]) => query.includes(key));
+
+    if (matchedAsset) {
+      const [, info] = matchedAsset;
+      const priceStr = info.price != null
+        ? formatPrice(info.price, info.dec) + ' ' + info.unit
+        : 'نامشخص';
+      results.push({
+        type: 'article',
+        id: 'price_1',
+        title: `${info.title}: ${priceStr}`,
+        description: 'قیمت لحظه‌ای از نواکس',
+        input_message_content: {
+          message_text: `${info.title}: ${priceStr}\n\n🤖 @novax_price_bot`,
+        },
+      });
+    }
+  }
+
+  // Always include "all prices" option
+  const btcPrice = cryptoPrices?.BTC != null ? '$' + formatPrice(cryptoPrices.BTC, cryptoPrices.BTC < 100 ? 2 : 0) : '?';
+  const usdPrice = iranPrices?.USD != null ? formatPrice(iranPrices.USD) + ' تومان' : '?';
+  const goldPrice = iranPrices?.GOLD_18K != null ? formatPrice(iranPrices.GOLD_18K) + ' تومان' : '?';
+
+  results.unshift({
+    type: 'article',
+    id: 'all_prices',
+    title: `📊 بیت‌کوین ${btcPrice} | دلار ${usdPrice} | طلا ${goldPrice}`,
+    description: 'نمایش همه قیمت‌های لحظه‌ای',
+    input_message_content: {
+      message_text: `📊 قیمت‌های لحظه‌ای نواکس\n\n₿ بیت‌کوین: ${btcPrice}\n♦ اتریوم: ${cryptoPrices?.ETH != null ? '$' + formatPrice(cryptoPrices.ETH) : '?'}\n💵 دلار: ${usdPrice}\n💠 تتر: ${iranPrices?.USDT != null ? formatPrice(iranPrices.USDT) + ' تومان' : '?'}\n🪙 طلای ۱۸ عیار: ${goldPrice}\n🟡 سکه امامی: ${iranPrices?.SEKKEH_EMAMI != null ? formatPrice(iranPrices.SEKKEH_EMAMI) + ' تومان' : '?'}\n\n🤖 @novax_price_bot | بات هوشمند هشدار قیمت`,
+    },
+  });
+
+  if (results.length === 0) {
+    results.push({
+      type: 'article',
+      id: 'help',
+      title: 'ℹ️ اسم دارایی رو بنویس',
+      description: 'مثلاً: btc, eth, طلا, دلار, تتر, سکه',
+      input_message_content: {
+        message_text: '💰 اسم دارایی مورد نظرت رو تایپ کن، مثلاً:\nbtc\neth\nطلا\nدلار\nتتر\nسکه\n\n🤖 @novax_price_bot',
+      },
+    });
+  }
+
+  await telegramApi(env, 'answerInlineQuery', {
+    inline_query_id: queryId,
+    results,
+    cache_time: 60,
+    is_personal: true,
+  });
 }

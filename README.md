@@ -4,12 +4,13 @@
 
 ## وضعیت فعلی
 
-- مسیر production: Cloudflare Worker + D1
-- Mini-app: روی همان Worker
+- مسیر production: Cloudflare Worker + D1 (cron: هر ۱ ساعت)
+- مسیر جایگزین: VPS مستقل با Docker Compose (PostgreSQL + Redis + API + Worker)
+- Mini-app: روی Worker یا سرو شده توسط FastAPI در VPS
 - قیمت کریپتو: Binance با واحد `USDT`
 - قیمت فیات، تتر و طلا: TGJU با واحد تومان
 - هشدارها فقط بعد از تأیید صریح فعال می‌شوند
-- cron هر دقیقه اجرا می‌شود؛ پلن Free هر ۱۰ دقیقه و Pro هر دقیقه بررسی می‌شود
+- cron و workerها هر ۱ ساعت اجرا می‌شوند (برای جلوگیری از محدودیت Cloudflare Free Plan)
 
 ## شروع توسعه
 

@@ -58,13 +58,17 @@ export async function telegramApi(env, method, payload) {
 }
 
 export async function sendMessage(env, chatId, text, options = {}) {
-  return telegramApi(env, "sendMessage", {
+  const payload = {
     chat_id: chatId,
     text,
     parse_mode: options.parse_mode,
     reply_markup: options.reply_markup,
     disable_web_page_preview: true,
-  });
+  };
+  if (options.reply_to_message_id) {
+    payload.reply_to_message_id = options.reply_to_message_id;
+  }
+  return telegramApi(env, "sendMessage", payload);
 }
 
 export async function editMessageText(env, chatId, messageId, text, options = {}) {

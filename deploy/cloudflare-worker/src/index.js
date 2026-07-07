@@ -1,5 +1,5 @@
 import { FLOW_STATES } from "./alert-flow.js";
-import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage, handleFaq, handleMiniAppMenu } from "./commands.js";
+import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage, handleFaq, handleMiniAppMenu, handleInlineQuery } from "./commands.js";
 import { handleCallback, handleTextInSession } from "./callbacks.js";
 import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession, getSession } from "./sessions.js";
 import { runCronJob } from "./cron.js";
@@ -36,6 +36,70 @@ function requireSecret(request, env) {
   return null;
 }
 
+/** Only respond in groups if message is relevant to the bot. */
+function isRelevantGroupMessage(message, env) {
+  if (!message) return false;
+  const chatType = message.chat?.type;
+  if (chatType === 'private') return true;
+
+  const text = (message.text || '').trim();
+  if (!text || text.startsWith('/')) return true;
+
+  // Check if bot is mentioned (@novax_price_bot)
+  const entities = message.entities || [];
+  const botUsername = (env.BOT_USERNAME || '').toLowerCase();
+  if (botUsername) {
+    const hasMention = entities.some(e =>
+      e.type === 'mention' &&
+      text.substring(e.offset, e.offset + e.length).toLowerCase() === `@${botUsername}`
+    );
+    if (hasMention) return true;
+  }
+
+  // Reply to a bot message (user tapped reply on bot's post)
+  if (message.reply_to_message?.from?.is_bot) return true;
+
+  // Price/domain keywords (no greetings — avoid replying to random social chatter)
+  const keywords = [
+    'قیمت', 'چنده', 'چند', 'طلا', 'بیت', 'دلار', 'تتر', 'سکه',
+    'اتریوم', 'بایننس', 'سولانا', 'ارز', 'رمزارز', 'نواکس', 'novax',
+    'bnb', 'btc', 'eth', 'sol', 'usdt', 'گزارش', 'قیمتش',
+    'نرخ', 'gold', 'dollar', 'tether', 'sats',
+  ];
+  const lower = text.toLowerCase();
+  if (keywords.some(k => lower.includes(k))) return true;
+
+  return false;
+}
+
+/** After 3rd relevant NLP interaction in a group, promote the mini-app once per user. */
+async function maybePromoteUser(env, chatId, userId, username) {
+  if (!userId || !chatId) return;
+  const key = `promo:${userId}`;
+  const val = await env.USERS_KV.get(key);
+  if (val === 'd') return;
+
+  const count = val ? parseInt(val, 10) + 1 : 1;
+  if (count < 3) {
+    await env.USERS_KV.put(key, String(count), { expirationTtl: 86400 * 7 });
+    return;
+  }
+
+  const miniAppUrl = env.NOVAX_MINI_APP_URL || env.MINI_APP_URL
+    || (env.BOT_USERNAME ? `https://t.me/${env.BOT_USERNAME}/miniapp` : null);
+  const mention = username ? `@${username}` : null;
+  const text = [
+    mention ? `👋 ${mention}!` : '👋 سلام!',
+    '',
+    'می‌دونستی نواکس یه داشبورد هوشمند هم داره؟ 🌐',
+    'مینی‌اپ اختصاصی با نمودار قیمت لحظه‌ای، تحلیل هوش مصنوعی Gemini و مدیریت هشدار هوشمند!',
+    miniAppUrl ? `\n🚀 ${miniAppUrl}` : '',
+    '\nراستی دوستاتم دعوت کن، هر ۳ نفر = ۷ روز Pro رایگان 🎁',
+  ].filter(Boolean).join('\n');
+  await sendMessage(env, chatId, text);
+  await env.USERS_KV.put(key, 'd', { expirationTtl: 86400 * 60 });
+}
+
 function getWebhookChatId(update) {
   return String(update?.message?.chat?.id || update?.edited_message?.chat?.id || update?.callback_query?.message?.chat?.id || "") || null;
 }
@@ -48,6 +112,83 @@ function requireSetupSecret(request, env) {
   }
   return null;
 }
+
+const PRIVACY_POLICY_HTML = `<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>سیاست حفظ حریم خصوصی - نواکس</title>
+<style>
+  body{font-family:system-ui,sans-serif;line-height:1.8;max-width:720px;margin:0 auto;padding:24px;color:#e2e8f0;background:#0f172a}
+  h1{color:#2dd4bf;border-bottom:2px solid #334155;padding-bottom:8px}
+  h2{color:#67e8f9;margin-top:32px;font-size:1.1em}
+  p,li{color:#cbd5e1}
+  ul{padding-right:20px}
+  a{color:#2dd4bf}
+  footer{margin-top:48px;padding-top:16px;border-top:1px solid #334155;font-size:.85em;color:#64748b}
+</style>
+</head>
+<body>
+<h1>🔒 سیاست حفظ حریم خصوصی</h1>
+<p><strong>آخرین به‌روزرسانی:</strong> جولای ۲۰۲۶</p>
+
+<p>نواکس یک ربات تلگرام و مینی‌اپ برای مدیریت هشدارهای قیمت رمزارز، ارز، تتر و طلا است. این سیاست توضیح می‌دهد چه داده‌هایی جمع‌آوری می‌شود و چگونه استفاده می‌شود.</p>
+
+<h2>۱. داده‌هایی که جمع‌آوری می‌کنیم</h2>
+<p>فقط حداقل داده لازم برای عملکرد بات و مینی‌اپ جمع‌آوری می‌شود:</p>
+<ul>
+  <li>اطلاعات کاربر تلگرام: آیدی، یوزرنیم، نام، نام خانوادگی، زبان</li>
+  <li>تنظیمات هشدار: دارایی، قیمت هدف، شرط، وضعیت، زمان‌بندی</li>
+  <li>سوابق اشتراک و درخواست پرداخت (ارجاعات پرداختی که کاربر ارسال می‌کند)</li>
+  <li>اطلاعات دعوت و کمپین (در صورت استفاده از لینک دعوت)</li>
+  <li>نمونه‌های قیمت و فراداده تأمین‌کننده برای بررسی هشدارها</li>
+  <li>لاگ‌های عملیاتی برای امنیت، رفع اشکال و جلوگیری از سوءاستفاده</li>
+</ul>
+<p>ما شماره کارت، رمز بانکی، کلید خصوصی کیف پول یا اطلاعات حساب صرافی درخواست نمی‌کنیم.</p>
+
+<h2>۲. چگونه از داده‌ها استفاده می‌کنیم</h2>
+<ul>
+  <li>ایجاد، تأیید، مدیریت و ارسال هشدارهای قیمت</li>
+  <li>نمایش هشدارهای فعال و تاریخچه به کاربر</li>
+  <li>مدیریت محدودیت‌های پلن رایگان و حرفه‌ای</li>
+  <li>بررسی دستی درخواست اشتراک/پرداخت</li>
+  <li>پاداش دعوت و انتساب کمپین</li>
+  <li>بهبود قابلیت اطمینان، امنیت و جلوگیری از سوءاستفاده</li>
+  <li>ارسال پیام‌های تلگرام لازم برای عملکرد بات</li>
+</ul>
+
+<h2>۳. ذخیره‌سازی و زیرساخت</h2>
+<p>سرویس اصلی از Cloudflare Worker، Cloudflare D1 و Cloudflare KV استفاده می‌کند. داده‌های محصول (کاربران، هشدارها، رویدادها، اشتراک‌ها، درخواست‌های پرداخت، دعوت‌ها) در D1 ذخیره می‌شوند. KV برای دارایی‌های مینی‌اپ، نشست‌های کوتاه‌مدت و کش استفاده می‌شود.</p>
+
+<h2>۴. سرویس‌های شخص ثالث</h2>
+<ul>
+  <li>Telegram Bot API و پلتفرم Mini App</li>
+  <li>Cloudflare برای میزبانی، دیتابیس، کش و امنیت</li>
+  <li>بین‌نس و TGJU برای داده‌های قیمت</li>
+  <li>Groq برای پاسخ‌های هوشمند (اختیاری)</li>
+</ul>
+<p>ما داده‌های شخصی کاربران را نمی‌فروشیم.</p>
+
+<h2>۵. پرداخت‌ها</h2>
+<p>در زمان تأیید دستی اشتراک، کاربر ممکن است یک مرجع پرداخت ارسال کند. ما شماره کارت یا اطلاعات بانکی کامل را از طریق بات جمع‌آوری نمی‌کنیم.</p>
+
+<h2>۶. امنیت</h2>
+<p>لاگ‌های عملیاتی برای مانیتورینگ خطا، جلوگیری از سوءاستفاده و بهبود سرویس استفاده می‌شوند. توکن‌های بات، رمز عبور و کلیدهای API هرگز لاگ نمی‌شوند.</p>
+
+<h2>۷. حذف داده‌ها</h2>
+<p>کاربران می‌توانند هشدارهای خود را از بات یا مینی‌اپ حذف کنند. برای درخواست حذف کامل حساب یا داده‌ها، با اپراتور بات از طریق کانال پشتیبانی تماس بگیرید.</p>
+
+<h2>۸. تغییرات در این سیاست</h2>
+<p>ممکن است این سیاست را به‌روزرسانی کنیم. آخرین نسخه همیشه در این آدرس در دسترس است.</p>
+
+<h2>۹. تماس</h2>
+<p>برای سوالات حریم خصوصی یا درخواست حذف داده، با اپراتور بات از طریق کانال پشتیبانی داخل بات تماس بگیرید.</p>
+
+<footer>
+  <p>نواکس | @novax_price_bot</p>
+</footer>
+</body>
+</html>`;
 
 export default {
   async fetch(request, env, ctx) {
@@ -78,6 +219,12 @@ export default {
       }
     }
     
+    if (url.pathname === "/privacy") {
+      return new Response(PRIVACY_POLICY_HTML, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+
     if (url.pathname === "/health") {
       const d1Configured = hasProductDb(env);
       const d1Required = String(env.REQUIRE_D1 || "false").toLowerCase() === "true";
@@ -117,7 +264,7 @@ export default {
         const { result: setResult } = await telegramApi(env, "setWebhook", {
           url: webhookUrl,
           secret_token: secretToken,
-          allowed_updates: ["message", "edited_message", "callback_query"],
+          allowed_updates: ["message", "edited_message", "callback_query", "inline_query"],
         });
         const { result: infoResult } = await telegramApi(env, "getWebhookInfo", {});
         
@@ -138,7 +285,7 @@ export default {
           telegramApi(env, "setWebhook", {
             url: webhookUrl,
             secret_token: secretToken,
-            allowed_updates: ["message", "edited_message", "callback_query"],
+            allowed_updates: ["message", "edited_message", "callback_query", "inline_query"],
           }),
           telegramApi(env, "setMyCommands", {
             commands: [
@@ -190,6 +337,11 @@ export default {
       try {
         if (update.callback_query) {
           await handleCallback(env, update.callback_query);
+          return ok();
+        }
+
+        if (update.inline_query) {
+          await handleInlineQuery(env, update.inline_query);
           return ok();
         }
 
@@ -245,6 +397,12 @@ export default {
           return ok();
         }
 
+        if (text.startsWith("/prices") || text.startsWith("/price")) {
+          await clearSession(env, chatId);
+          await handlePricesMenu(env, chatId);
+          return ok();
+        }
+
         if (text === "💰 قیمت‌ها") {
           await clearSession(env, chatId);
           await handlePricesMenu(env, chatId);
@@ -288,8 +446,13 @@ export default {
           return ok();
         }
 
-        if (text) {
-          await handleUnknownMessage(env, chatId);
+        if (text && isRelevantGroupMessage(message, env)) {
+          const msgId = update?.message?.message_id;
+          await handleUnknownMessage(env, chatId, text, msgId);
+          // Track interactions & promote mini-app in groups (after 3rd NLP hit)
+          if (message.chat?.type !== 'private') {
+            ctx.waitUntil(maybePromoteUser(env, chatId, message.from?.id, message.from?.username));
+          }
         }
 
         return ok();

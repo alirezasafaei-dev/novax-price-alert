@@ -1,6 +1,6 @@
 # وضعیت پیشرفت
 
-آخرین بازبینی: 2026-07-02 (مینی‌اپ blank page fix + deploys)
+آخرین بازبینی: 2026-07-07 (حساب نهایی + رفع assets مینی‌اپ + مستندسازی)
 
 این سند وضعیت فعلی پروژه را خلاصه می‌کند. گزارش‌ها، چک‌لیست‌ها و راهنماهای مرحله‌ای قدیمی در
 `docs/archive/` نگهداری می‌شوند و نباید بدون بررسی کد واقعی به عنوان منبع اجرا استفاده شوند.
@@ -12,11 +12,87 @@
 - KV فقط برای assetهای مینی‌اپ، session و cache کم‌ریسک استفاده می‌شود و namespaceها باید جدا باشند.
 - مینی‌اپ از Worker روی `/mini-app/` و assetهای KV سرو می‌شود؛ برای WebViewهای حساس تلگرام یک fallback کلاسیک `legacy-app.js` هم در HTML قرار دارد.
 - بات تلگرام menu-driven است و قیمت‌ها، ساخت هشدار، مدیریت هشدار و پرداخت دستی را پوشش می‌دهد.
-- cron Worker هر دقیقه اجرا می‌شود؛ مانیتور GitHub هر ۵ دقیقه با cooldown هشدار می‌دهد؛ پلن Free هر ۱۰ دقیقه و پلن Pro هر ۱ دقیقه واجد بررسی است.
+- cron Worker هر ۱ ساعت اجرا می‌شود (`0 * * * *`)؛ اینترنال heartbeat روی ۳۶۰۰ ثانیه تنظیم شده؛ هدف کاهش مصرف رایگان Cloudflare Workers.
+- مسیر جایگزین برای VPS خارج از ایران: Docker Compose شامل PostgreSQL, Redis, FastAPI API, Worker, Nginx.
+- worker و price-fetch در VPS هم هر ۳۶۰۰ ثانیه یک بار اجرا می‌شوند و از طریق env var `WORKER_INTERVAL_SECONDS` قابل تنظیم هستند.
 - قیمت کریپتو از Binance با واحد `USDT` و قیمت تتر/فیات/طلا از TGJU با واحد تومان خوانده می‌شود.
 - history نمایشی از snapshot واقعی D1 ساخته می‌شود؛ داده مصنوعی history نباید دوباره وارد محصول شود.
 
 ## آخرین تغییرات مهم
+
+### 2026-07-07 (جلسه دوم):审计 و رفع مشکل assets مینی‌اپ + مستندسازی نهایی
+
+**مشکل مینی‌اپ (Assets 404):**
+- assets مینی‌اپ (JS/CSS) در ASSETS_KV نبودند و فقط index.html سرو می‌شد → ۶ فایل asset به KV آپلود شدند و همه HTTP 200 شدند.
+- manifest assets هم به KV آپلود شد تا `miniapp-static.js` از cache محلی استفاده کند.
+- تأیید نهایی: HTML شامل `<script src="/mini-app/assets/index-Dg69A40Q.js">` و `<link href="/mini-app/assets/index-B-VlLaBb.css">` است و هر دو ۲۰۰ برمی‌گردانند.
+
+**اصلاح wrangler.toml (git ref):**
+- `CI_COMMIT_REF_NAME` و `refs/heads/master` به `main` تغییر یافت (قبلاً اشاره به tag master/branch ناموجود داشت).
+
+**اصلاح `docker-compose.ir-vps.yml`:**
+- build.context از `./` به `.` اصلاح شد تا docker compose بدون خطا اجرا شود.
+- سینتکس volumes اصلاح شد.
+
+**اصلاح `settings.py`:**
+- import گمشده `field_validator` از pydantic اضافه شد.
+
+**تغییرات زیرساختی:**
+- mini-app: `meta[name="viewport"]` اضافه شد (`maximum-scale=1, user-scalable=no`).
+- Inline query handler: price info به همراه `reply_markup` با دکمه open mini-app برمی‌گرداند.
+- Group message filter: فقط به `/commands`, @mention, reply-to-bot, یا keywords قیمت پاسخ می‌دهد.
+- Promotion: بعد از ۳ بار تعامل NLP در گروه، دعوت به مینی‌اپ (یکبار/۶۰ روز) با `USERS_KV`.
+- Heartbeat: `WORKER_INTERVAL_SECONDS` به ۳۶۰۰ تنظیم و heartbeat در cron جدید ذخیره می‌شود (نه cron قدیم).
+- Privacy policy endpoint (`/privacy`) با HTML کامل هد设置了.
+
+**اعتبارسنجی نهایی:**
+- Worker endpoints: `/health` → 200, `/api/v1/prices/latest` → 200 (BTC, ETH, TON, ...), `/mini-app/` → 200 (HTML با اسکریپت‌ها), `/mini-app/assets/*` → 200.
+- Webhook تلگرام ثبت و تأیید.
+- Bot commands: start, help, prices, alerts, faq, mini-app.
+- Bot settings: Inline mode ON, Privacy mode OFF, Menu button → web_app.
+
+**پشتیبان‌گیری:**
+- git bundle و tar.gz دوم از پروژه تهیه شد.
+
+### 2026-07-07 (جلسه اول): NLP فارسی + Auto-post + آماده‌سازی VPS مستقل
+
+**NLP و زبان عامیانه (فایل جدید `src/nlp.js`):**
+- تشخیص intent با کیورد مپینگ فارسی/انگلیسی (قیمت، سلام، خداحافظ، تشکر، راهنما)
+- درک جمله‌های طبیعی مثل "نواکس طلا چنده؟"، "قیمت بیت کوین"، "نواکس همه قیمت و بگو"
+- پشتیبانی از اعداد فارسی و عربی
+- پاسخ به صورت reply به پیام کاربر (message reply)
+- **Groq AI fallback** (`mixtral-8x7b-32768`) برای queries پیچیده که کیورد نمی‌شناسد
+- API Key: Groq (فری تایر ۳۰ RPM, ۱۴۴۰۰ RPD) به عنوان secret تنظیم شد
+- سه حالت پاسخ: قیمت یک دارایی خاص / قیمت یک بازار / همه قیمت‌ها
+
+**Auto-post خودکار (فایل جدید `src/auto-post.js`):**
+- ارسال قیمت‌های لحظه‌ای به گروه/کانال در ساعت‌های مشخص (پیش‌فرض ۱۰, ۱۴, ۲۰ تهران)
+- همراه با تبلیغ بات (CTA با لینک دعوت)
+- Idempotent با KV: فقط یک بار در هر (chat_id, date, hour)
+- کنترل با env vars: `AUTO_POST_ENABLED`, `AUTO_POST_CHAT_ID`, `AUTO_POST_HOURS`
+- KV namespace جدید: `AUTO_POST_KV` (اشتراک با ALERTS_KV)
+
+**تغییرات زیرساختی:**
+- `telegram.js`: اضافه شدن `reply_to_message_id` به sendMessage
+- `commands.js`: `handleUnknownMessage` حالا NLP صدا میزند، پیام fallback هوشمند
+- `index.js`: ارسال متن پیام و message_id به handleUnknownMessage
+- `cron.js`: اضافه شدن auto-post بعد از marketing post
+- `wrangler.toml`: env vars جدید AUTO_POST_ENABLED, AUTO_POST_HOURS + KV binding
+- دیپلوی نهایی Version ID: `c0ee41d0`
+
+**کاهش بار Cloudflare:**
+- cron Worker از `* * * * *` (هر دقیقه) به `0 * * * *` (هر ۱ ساعت)
+- heartbeat interval ۶۰ → ۳۶۰۰ ثانیه
+
+**بهبود پیکربندی VPS (بدون Docker):**
+- فایل‌های جدید: `ecosystem.config.js`, `nginx.vps.conf`, `scripts/setup-vps.sh`
+- `scripts/deploy-vps-only.sh`: بروزرسانی با uv sync + pm2 restart
+- `docs/VPS_DEPLOYMENT.md`: راهنمای کامل PM2 + Nginx
+- systemd service files: `deploy/novax-api.service`, `deploy/novax-worker.service`
+- `mini-app/.env`: `VITE_NOVAX_API_BASE=` خالی (auto-detect origin)
+
+**پشتیبان‌گیری:**
+- git bundle و tar.gz کامل از پروژه تهیه شد.
 
 ### 2026-07-02: اصلاحات نهایی و deploy کامل
 
