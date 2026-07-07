@@ -25,7 +25,7 @@ export default function AIChat({ assets, language }: AIChatProps) {
   const isFa = language === 'fa';
   const chatEndpoint = import.meta.env.VITE_NOVAX_CHAT_API_BASE
     ? `${String(import.meta.env.VITE_NOVAX_CHAT_API_BASE).replace(/\/$/, '')}/api/chat`
-    : undefined;
+    : `${window.location.origin}/api/chat`;
 
   const quickPrompts = isFa
     ? [
@@ -53,21 +53,6 @@ export default function AIChat({ assets, language }: AIChatProps) {
     setIsLoading(true);
 
     try {
-      if (!chatEndpoint) {
-        const snapshot = assets
-          .slice(0, 4)
-          .map((asset) => `${asset.nameFa || asset.symbol}: ${asset.price.toLocaleString('fa-IR')} ${asset.unit || ''}`)
-          .join('\n');
-        setMessages(prev => [...prev, {
-          id: `msg-local-${Date.now() + 1}`,
-          sender: 'assistant',
-          text: isFa
-            ? `تحلیل‌گر AI در دیپلوی استاتیک فعلاً به endpoint امن وصل نیست.\n\nقیمت‌های زنده در دسترس هستند:\n${snapshot}\n\nبرای تحلیل هوشمند، یک endpoint خارجی امن با VITE_NOVAX_CHAT_API_BASE تنظیم کنید.`
-            : `The AI analyst is not connected to a secure endpoint in this static deployment yet.\n\nLive prices are available:\n${snapshot}\n\nConfigure VITE_NOVAX_CHAT_API_BASE to enable AI chat.`,
-          timestamp: new Date().toISOString(),
-        }]);
-        return;
-      }
       const response = await fetch(chatEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

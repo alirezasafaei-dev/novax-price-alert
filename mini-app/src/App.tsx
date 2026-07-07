@@ -776,11 +776,30 @@ export default function App() {
                 </div>
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-[1fr,180px,auto] gap-3 items-end">
                   <div>
-                    <div className="text-xs font-semibold text-zinc-400 mb-2">{isFa ? 'نماد دارایی' : 'Asset Symbol'}</div>
-                    <input value={portfolioDraft.symbol} onChange={e => setPortfolioDraft(prev => ({ ...prev, symbol: e.target.value }))} placeholder={isFa ? 'مثال: BTC یا USD_IRT' : 'e.g. BTC or USD_IRT'} className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white focus:outline-none focus:border-teal-500/50 transition-colors" />
+                    <div className="text-xs font-semibold text-zinc-400 mb-2">{isFa ? 'انتخاب دارایی' : 'Select Asset'}</div>
+                    <select value={portfolioDraft.symbol} onChange={e => setPortfolioDraft(prev => ({ ...prev, symbol: e.target.value }))}
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white focus:outline-none focus:border-teal-500/50 transition-colors appearance-none cursor-pointer">
+                      <option value="" disabled>{isFa ? '— یک دارایی انتخاب کنید —' : '— Select an asset —'}</option>
+                      {(['crypto', 'fiat', 'gold'] as const).map(group => {
+                        const groupItems = assets.filter(a => a.type === group);
+                        if (!groupItems.length) return null;
+                        return (
+                          <optgroup key={group} label={isFa
+                            ? ({ crypto: 'رمزارز', fiat: 'فیات/ارز', gold: 'طلا' })[group]
+                            : ({ crypto: 'Crypto', fiat: 'Fiat/Currency', gold: 'Gold' })[group]}>
+                            {groupItems.map(a =>
+                              <option key={a.symbol} value={a.symbol}>{a.symbol} — {isFa ? a.nameFa : a.name}</option>
+                            )}
+                          </optgroup>
+                        );
+                      })}
+                    </select>
                   </div>
                   <div>
-                    <div className="text-xs font-semibold text-zinc-400 mb-2">{isFa ? 'مقدار' : 'Amount'}</div>
+                    <div className="text-xs font-semibold text-zinc-400 mb-2">
+                      {isFa ? 'مقدار' : 'Amount'}
+                      {portfolioDraft.symbol ? <span className="text-teal-400"> ({portfolioDraft.symbol})</span> : ''}
+                    </div>
                     <input value={portfolioDraft.amount} onChange={e => setPortfolioDraft(prev => ({ ...prev, amount: e.target.value }))} placeholder="0.5" className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white focus:outline-none focus:border-teal-500/50 transition-colors" />
                   </div>
                   <button onClick={addPortfolioItem} className="rounded-xl bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-400 hover:to-indigo-500 px-5 py-3 text-sm font-bold text-white cursor-pointer transition-all shadow-lg shadow-teal-500/20">{isFa ? 'افزودن' : 'Add'}</button>
@@ -801,7 +820,7 @@ export default function App() {
                         </div>
                         <div>
                           <div className="font-bold text-white">{item.symbol}</div>
-                          <div className="text-zinc-400 text-sm">{item.amount}</div>
+                          <div className="text-zinc-400 text-sm">{item.amount} {item.asset?.symbol || ''}</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">

@@ -8,6 +8,7 @@ import { sendMessage, telegramApi } from "./telegram.js";
 import { logEvent, logWarn, logError } from "./log.js";
 import { handleMiniAppApi } from "./miniapp-api.js";
 import { handleMiniAppStatic } from "./miniapp-static.js";
+import { getCryptoPrices, getIranMarketPrices, formatPrice } from "./prices.js";
 import { hasProductDb } from "./product-db.js";
 import {
   handleAdminCommand,
@@ -223,6 +224,117 @@ export default {
       return new Response(PRIVACY_POLICY_HTML, {
         headers: { "Content-Type": "text/html; charset=utf-8" },
       });
+    }
+
+    if (url.pathname === "/api/chat" && request.method === "POST") {
+      try {
+        const { message, chatHistory } = await request.json();
+        if (!message || typeof message !== 'string') {
+          return Response.json({ error: "message is required" }, { status: 400 });
+        }
+
+        let cryptoPrices, iranPrices;
+        try {
+          [cryptoPrices, iranPrices] = await Promise.all([
+            getCryptoPrices().catch(() => ({})),
+            getIranMarketPrices().catch(() => ({})),
+          ]);
+        } catch {
+          cryptoPrices = {}; iranPrices = {};
+        }
+
+        const snapshot = [
+          cryptoPrices?.BTC ? `BTC: $${formatPrice(cryptoPrices.BTC)}` : null,
+          cryptoPrices?.ETH ? `ETH: $${formatPrice(cryptoPrices.ETH)}` : null,
+          cryptoPrices?.SOL ? `SOL: $${formatPrice(cryptoPrices.SOL)}` : null,
+          cryptoPrices?.BNB ? `BNB: $${formatPrice(cryptoPrices.BNB)}` : null,
+          iranPrices?.USD ? `USD: ${formatPrice(iranPrices.USD)} تومان` : null,
+          iranPrices?.USDT ? `USDT: ${formatPrice(iranPrices.USDT)} تومان` : null,
+          iranPrices?.GOLD_18K ? `GOLD: ${formatPrice(iranPrices.GOLD_18K)} تومان` : null,
+          iranPrices?.SEKKEH_EMAMI ? `SEKKEH_EMAMI: ${formatPrice(iranPrices.SEKKEH_EMAMI)} تومان` : null,
+        ].filter(Boolean).join(", ");
+
+        const isFa = /[آ-ی]/.test(message);
+        const langInstruction = isFa
+          ? 'تو یک تحلیلگر مالی حرفه‌ای هستی. فارسی پاسخ بده، حداکثر ۳-۴ خط، دوستانه و حرفه‌ای.'
+          : 'You are a professional financial analyst. Answer in English, max 3-4 lines, friendly and professional.';
+
+        const groqKey = env.GROQ_API_KEY;
+        let groqResponse = null;
+        if (groqKey) {
+          const systemPrompt = `${langInstruction}\n\nقیمت‌های فعلی بازار:\n${snapshot || "نامشخص"}`;
+          groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${groqKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "mixtral-8x7b-32768",
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...(chatHistory || []).slice(-10).map((m) => ({
+                role: m.role === "user" ? "user" : "assistant",
+                content: m.text,
+              })),
+              { role: "user", content: message },
+            ],
+            max_tokens: 500,
+            temperature: 0.7,
+          }),
+          signal: AbortSignal.timeout(12000),
+        });
+
+          if (!groqResponse.ok) {
+            logError("chat_api_groq_error", { status: groqResponse.status });
+          } else {
+            const data = await groqResponse.json();
+            const text = data?.choices?.[0]?.message?.content?.trim();
+            if (text) return Response.json({ text });
+          }
+        }
+
+        // Local fallback when Groq is unavailable
+        const lowerMsg = message.toLowerCase();
+        const btcPrice = cryptoPrices?.BTC ? `$${formatPrice(cryptoPrices.BTC)}` : '—';
+        const ethPrice = cryptoPrices?.ETH ? `$${formatPrice(cryptoPrices.ETH)}` : '—';
+        const goldPrice = iranPrices?.GOLD_18K ? `${formatPrice(iranPrices.GOLD_18K)} تومان` : '—';
+        const usdPrice = iranPrices?.USD ? `${formatPrice(iranPrices.USD)} تومان` : '—';
+
+        if (lowerMsg.includes('بیت') || lowerMsg.includes('btc') || lowerMsg.includes('bitcoin')) {
+          return Response.json({
+            text: isFa
+              ? `📊 تحلیل بیت‌کوین (BTC)\n\nقیمت فعلی: ${btcPrice}\n\nبیت‌کوین به عنوان بزرگترین رمزارز جهان، نقش بازار را تعیین می‌کند. برای تحلیل دقیق‌تر، اندیکاتورهای تکنیکال و اخبار بنیادی را بررسی کنید.\n\n📌 پیشنهاد: از بخش چارت برای مشاهده روند قیمت استفاده کنید.`
+              : `📊 Bitcoin (BTC) Analysis\n\nCurrent Price: ${btcPrice}\n\nBitcoin, as the largest cryptocurrency, sets the market direction. For detailed analysis, check technical indicators and fundamental news.\n\n📌 Tip: Use the Chart section to view the price trend.`
+          });
+        }
+        if (lowerMsg.includes('اتریوم') || lowerMsg.includes('eth') || lowerMsg.includes('ethereum')) {
+          return Response.json({
+            text: isFa
+              ? `📊 تحلیل اتریوم (ETH)\n\nقیمت فعلی: ${ethPrice}\n\nاتریوم با اکوسیستم گسترده دیفای و قراردادهای هوشمند، جایگاه دوم بازار را دارد. اتریوم معمولاً هم‌راستا با بیت‌کوین حرکت می‌کند اما نوسانات کمتری دارد.\n\n📌 پیشنهاد: حتماً اخبار آپدیت‌های شبکه را دنبال کنید.`
+              : `📊 Ethereum (ETH) Analysis\n\nCurrent Price: ${ethPrice}\n\nEthereum, with its vast DeFi ecosystem and smart contracts, holds the second market position. ETH typically moves in line with BTC but with lower volatility.\n\n📌 Tip: Follow network upgrade news closely.`
+          });
+        }
+        if (lowerMsg.includes('طلا') || lowerMsg.includes('gold') || lowerMsg.includes('سکه')) {
+          return Response.json({
+            text: isFa
+              ? `🥇 تحلیل طلا و سکه\n\nقیمت طلا (۱۸ عیار): ${goldPrice}\nدلار آزاد: ${usdPrice}\n\nقیمت طلا و سکه در ایران عمدتاً تابع قیمت دلار و انس جهانی است. طلا به عنوان پناهگاه امن سرمایه در شرایط تورمی شناخته می‌شود.\n\n📌 پیشنهاد: می‌توانید با تنظیم هشدار قیمت در بات، از تغییرات مطلع شوید.`
+              : `🥇 Gold & Coin Analysis\n\nGold (18K): ${goldPrice}\nUSD Free: ${usdPrice}\n\nGold prices in Iran mainly follow USD rates and global spot. Gold is considered a safe haven in inflationary conditions.`
+          });
+        }
+        return Response.json({
+          text: isFa
+            ? `📈 بازار لحظه‌ای:\n• بیت‌کوین: ${btcPrice}\n• اتریوم: ${ethPrice}\n• طلا: ${goldPrice}\n• دلار: ${usdPrice}\n\n💡 سوالات متداول:\n• "بیت‌کوین رو تحلیل کن"\n• "قیمت طلا"\n• "اتریوم چنده؟"\n\nاز منوی قیمت‌ها و چارت برای اطلاعات بیشتر استفاده کنید.`
+            : `📈 Live Market:\n• Bitcoin: ${btcPrice}\n• Ethereum: ${ethPrice}\n• Gold: ${goldPrice}\n• USD: ${usdPrice}\n\n💡 Try asking:\n• "Analyze Bitcoin"\n• "Gold price"\n• "Ethereum analysis"\n\nUse the Prices menu and Chart for more details.`
+        });
+      } catch (error) {
+        logError("chat_api_error", { error_message: error?.message || "chat failed" });
+        return Response.json({
+          text: /[آ-ی]/.test(String(error?.message || ''))
+            ? '⚠️ خطا در ارتباط با سرور تحلیل. لطفاً دوباره تلاش کنید.'
+            : '⚠️ AI server error. Please try again.'
+        });
+      }
     }
 
     if (url.pathname === "/health") {
