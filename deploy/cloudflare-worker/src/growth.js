@@ -324,6 +324,14 @@ export async function getGrowthStats(env, now) {
     SELECT COUNT(*) AS count FROM users
   `).first();
 
+  const usersToday = await env.DB.prepare(`
+    SELECT COUNT(*) AS count FROM users WHERE created_at >= datetime('now', '-1 day')
+  `).first();
+
+  const usersThisWeek = await env.DB.prepare(`
+    SELECT COUNT(*) AS count FROM users WHERE created_at >= datetime('now', '-7 days')
+  `).first();
+
   const campaignVisits = await env.DB.prepare(`
     SELECT COUNT(*) AS count FROM user_campaigns
   `).first();
@@ -338,6 +346,23 @@ export async function getGrowthStats(env, now) {
     GROUP BY latest_source ORDER BY count DESC LIMIT 5
   `).all();
 
+  const totalAlerts = await env.DB.prepare(`
+    SELECT COUNT(*) AS count FROM alerts
+  `).first();
+
+  const activeAlerts = await env.DB.prepare(`
+    SELECT COUNT(*) AS count FROM alerts WHERE lifecycle_state = 'active'
+  `).first();
+
+  const alertsToday = await env.DB.prepare(`
+    SELECT COUNT(*) AS count FROM alerts WHERE created_at >= datetime('now', '-1 day')
+  `).first();
+
+  const usersWithAlerts = await env.DB.prepare(`
+    SELECT COUNT(DISTINCT telegram_user_id) AS count FROM alerts
+    WHERE lifecycle_state IN ('active', 'delivered', 'paused')
+  `).first();
+
   const confirmedAlertsBySource = await env.DB.prepare(`
     SELECT uc.first_source, COUNT(DISTINCT a.telegram_user_id) AS user_count, COUNT(a.id) AS alert_count
     FROM user_campaigns uc
@@ -347,6 +372,15 @@ export async function getGrowthStats(env, now) {
     ORDER BY alert_count DESC
     LIMIT 5
   `).all();
+
+  const totalPro = await env.DB.prepare(`
+    SELECT COUNT(DISTINCT telegram_user_id) AS count FROM subscriptions WHERE status = 'active'
+  `).first();
+
+  const proUpgradedToday = await env.DB.prepare(`
+    SELECT COUNT(*) AS count FROM subscriptions
+    WHERE status = 'active' AND created_at >= datetime('now', '-1 day')
+  `).first();
 
   const totalReferrals = await env.DB.prepare(`
     SELECT COUNT(*) AS count FROM referrals WHERE status = 'valid'
@@ -371,17 +405,34 @@ export async function getGrowthStats(env, now) {
     SELECT COUNT(*) AS count FROM referral_rewards
   `).first();
 
+  const pendingPayments = await env.DB.prepare(`
+    SELECT COUNT(*) AS count FROM payment_requests WHERE status = 'pending'
+  `).first();
+
   const todayCampaign = getDailyMarketingCampaignId(now);
   const todayPost = await env.DB.prepare(`
     SELECT 1 FROM marketing_posts WHERE campaign_source = ?
   `).bind(todayCampaign).first();
 
+  const usersTotal = Number(totalUsers?.count || 0);
+  const withAlerts = Number(usersWithAlerts?.count || 0);
+  const proUsers = Number(totalPro?.count || 0);
+
   return {
-    totalUsers: Number(totalUsers?.count || 0),
+    totalUsers: usersTotal,
+    usersToday: Number(usersToday?.count || 0),
+    usersThisWeek: Number(usersThisWeek?.count || 0),
     campaignVisits: Number(campaignVisits?.count || 0),
     topSources: topSources?.results || [],
     usersBySource: usersBySource?.results || [],
+    totalAlerts: Number(totalAlerts?.count || 0),
+    activeAlerts: Number(activeAlerts?.count || 0),
+    alertsToday: Number(alertsToday?.count || 0),
+    usersWithAlerts: withAlerts,
     confirmedAlertsBySource: confirmedAlertsBySource?.results || [],
+    totalPro: proUsers,
+    proUpgradedToday: Number(proUpgradedToday?.count || 0),
+    pendingPayments: Number(pendingPayments?.count || 0),
     totalReferrals: Number(totalReferrals?.count || 0),
     pendingReferrals: Number(pendingReferrals?.count || 0),
     referralConversions: Number(referralConversions?.count || 0),
@@ -389,6 +440,14 @@ export async function getGrowthStats(env, now) {
     totalRewards: Number(totalRewards?.count || 0),
     marketingTodayPosted: Boolean(todayPost),
     marketingTodayCampaign: todayCampaign,
+    funnel: {
+      started: usersTotal,
+      createdAlert: withAlerts,
+      upgradedToPro: proUsers,
+      startToAlertRate: usersTotal > 0 ? ((withAlerts / usersTotal) * 100).toFixed(1) : "0.0",
+      alertToProRate: withAlerts > 0 ? ((proUsers / withAlerts) * 100).toFixed(1) : "0.0",
+      overallConversion: usersTotal > 0 ? ((proUsers / usersTotal) * 100).toFixed(1) : "0.0",
+    },
   };
 }
 
@@ -426,10 +485,32 @@ export async function handleGrowthCommand(env, chatId) {
     ? `\n⚠️ هشدارهای پیکربندی:\n${configWarnings.map((w) => `  • ${w}`).join("\n")}`
     : "";
 
+  const f = stats.funnel;
+  const funnelText = [
+    `📊 قیف تبدیل:`,
+    `  👥 شروع: ${f.started}`,
+    `  🔔 هشدار ساخت: ${f.createdAlert} (${f.startToAlertRate}%)`,
+    `  💎 Pro: ${f.upgradedToPro} (${f.alertToProRate}% از هشدارسازا — ${f.overallConversion}% کل)`,
+  ].join("\n");
+
+  const trendsText = [
+    `📅 روند روزانه:`,
+    `  کاربران جدید — امروز: ${stats.usersToday} | هفته: ${stats.usersThisWeek}`,
+    `  هشدارهای جدید امروز: ${stats.alertsToday}`,
+    `  ارتقا به Pro امروز: ${stats.proUpgradedToday}`,
+  ].join("\n");
+
   const text = `📈 آمار رشد
 
+${funnelText}
+
+${trendsText}
+
 👥 کل کاربران: ${stats.totalUsers}
-🔗 کمپین‌ها: ${stats.campaignVisits} بازدید
+🔔 هشدارها: ${stats.totalAlerts} کل (${stats.activeAlerts} فعال — ${stats.usersWithAlerts} کاربر)
+💎 کاربران Pro: ${stats.totalPro}
+🧾 پرداخت‌های در انتظار: ${stats.pendingPayments}
+🔗 بازدید کمپین: ${stats.campaignVisits}
 
 📌 منابع ورودی (اولین لمس):
 ${topSourcesText}
@@ -447,6 +528,55 @@ ${alertsBySourceText}
 ${marketingStatus}${warningsText}`;
 
   await sendMessage(env, chatId, text);
+}
+
+export async function sendDailySummary(env) {
+  if (!hasProductDb(env)) return;
+  const adminChatId = env.ADMIN_CHAT_ID;
+  if (!adminChatId) {
+    logWarn("daily_summary_skipped", { reason: "ADMIN_CHAT_ID not configured" });
+    return;
+  }
+
+  const now = new Date();
+  const { hour } = getTehranDateHour(now);
+  const stats = await getGrowthStats(env, now);
+  if (!stats) return;
+
+  const f = stats.funnel;
+  const text = [
+    `📋 *گزارش روزانه — ${now.toLocaleDateString("fa-IR")}*`,
+    ``,
+    `▫️ *کاربران*`,
+    `  مجموع: ${stats.totalUsers}`,
+    `  جدید امروز: ${stats.usersToday} | هفته: ${stats.usersThisWeek}`,
+    ``,
+    `▫️ *هشدارها*`,
+    `  مجموع: ${stats.totalAlerts}`,
+    `  فعال: ${stats.activeAlerts}`,
+    `  جدید امروز: ${stats.alertsToday}`,
+    ``,
+    `▫️ *قیف تبدیل*`,
+    `  شروع → هشدار: ${f.startToAlertRate}%`,
+    `  هشدار → Pro: ${f.alertToProRate}%`,
+    `  تبدیل کلی: ${f.overallConversion}%`,
+    ``,
+    `▫️ *اشتراک*`,
+    `  کاربران Pro: ${stats.totalPro}`,
+    `  ارتقا امروز: ${stats.proUpgradedToday}`,
+    `  پرداخت‌های pending: ${stats.pendingPayments}`,
+    ``,
+    `▫️ *دعوت‌ها*`,
+    `  معتبر: ${stats.totalReferrals}`,
+    `  در انتظار: ${stats.pendingReferrals}`,
+    `  پاداش داده شده: ${stats.totalRewards}`,
+    ``,
+    `▫️ *بازاریابی*`,
+    `  پست امروز: ${stats.marketingTodayPosted ? "✅ ارسال شد" : "⏳ نشده"}`,
+  ].join("\n");
+
+  await sendMessage(env, adminChatId, text);
+  logEvent("daily_summary_sent", { admin_chat_id: adminChatId, hour });
 }
 
 export async function getReferralLink(env, telegramUserId) {

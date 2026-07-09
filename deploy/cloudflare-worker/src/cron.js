@@ -14,7 +14,7 @@ import { sendMessage } from "./telegram.js";
 import { logEvent, logWarn, logError } from "./log.js";
 import { recordMetric } from "./metrics.js";
 import { maybeOpsAlert } from "./alerting.js";
-import { sendDailyMarketingPost, shouldPostDailyMarketing } from "./growth.js";
+import { getTehranDateHour, sendDailyMarketingPost, sendDailySummary, shouldPostDailyMarketing } from "./growth.js";
 import { sendAutoPost, shouldAutoPost } from "./auto-post.js";
 
 function classifyPriceBatch(prices, providerId) {
@@ -76,6 +76,17 @@ export async function runCronJob(env) {
     }
   } catch (error) {
     logError("marketing_post_error", { error_message: error?.message, worker_run_id: workerRunId });
+  }
+
+  // Daily summary report — sent to admin at Tehran hour 23 (end of day)
+  try {
+    const now = new Date();
+    const { hour } = getTehranDateHour(now);
+    if (hour === 23) {
+      await sendDailySummary(env);
+    }
+  } catch (error) {
+    logError("daily_summary_error", { error_message: error?.message, worker_run_id: workerRunId });
   }
 
   // Auto price post — multiple times per day (configurable via AUTO_POST_HOURS).
