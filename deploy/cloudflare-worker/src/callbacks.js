@@ -6,7 +6,8 @@ import { getSession, setSession, clearSession } from "./sessions.js";
 import { createAlert, deleteAlert, getUserAlerts, pauseAlert, resumeAlert, updateAlertTarget, setAlertRepeat, formatAlertLine } from "./alerts.js";
 import { getCryptoPrices, getIranMarketPrices, formatPrice, formatCryptoPricesMessage, formatFiatPricesMessage, formatGoldPricesMessage, unitForMarket, getCurrentPrice, formatCurrentPrice, assetLabel } from "./prices.js";
 import { handleStart, handleMyAlerts, handleCreateAlertStart, handleGrowthMenu } from "./commands.js";
-import { logWarn } from "./log.js";
+import { logWarn, logEvent } from "./log.js";
+import { recordMetric } from "./metrics.js";
 import { validateReferralOnAlert, getReferralLink, referralInfoText } from "./growth.js";
 import { getUserAlertCount, hasProductDb } from "./product-db.js";
 
@@ -65,6 +66,14 @@ export async function handleCallback(env, callbackQuery) {
   const chatId = callbackQuery.message.chat.id;
   const messageId = callbackQuery.message.message_id;
   const data = callbackQuery.data || callbackQuery.callback_data;
+  const chatType = callbackQuery.message.chat?.type || "unknown";
+
+  logEvent("callback_clicked", {
+    user_id: String(chatId),
+    callback_data: data,
+    chat_type: chatType,
+  });
+  recordMetric(env, "callback_clicked", { asset: data });
 
   if (!data) {
     logWarn("callback_data_missing", { callback_query_id: callbackQuery?.id });
@@ -225,6 +234,8 @@ export async function handleCallback(env, callbackQuery) {
         await editMessageText(env, chatId, messageId, "دارایی نامعتبر است. لطفاً دوباره انتخاب کن.");
         return;
       }
+      logEvent("asset_selected", { user_id: String(chatId), symbol, market: session.market });
+      recordMetric(env, "asset_selected", { asset: symbol, market: session.market });
       const currentPrice = await getCurrentPrice(session.market, symbol);
       const currentPriceText = formatCurrentPrice(currentPrice, session.market, asset.unit);
       await setSession(env, chatId, {

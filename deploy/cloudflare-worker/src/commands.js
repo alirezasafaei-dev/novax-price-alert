@@ -9,11 +9,14 @@ import {
   unitForMarket,
 } from "./prices.js";
 import { getUserAlerts, formatAlertLine } from "./alerts.js";
-import { logError } from "./log.js";
+import { logError, logEvent } from "./log.js";
+import { recordMetric } from "./metrics.js";
 import { upsertUser } from "./product-db.js";
 import { isReferralSource, referralInfoText, getReferralLink } from "./growth.js";
 
 export async function handleStart(env, chatId, from, startParam) {
+  logEvent("bot_started", { user_id: String(chatId), start_param: startParam || null });
+  recordMetric(env, "bot_started", {});
   if (from) {
     await setUser(env, chatId, {
       chat_id: chatId,
@@ -54,6 +57,8 @@ export async function handleStart(env, chatId, from, startParam) {
 }
 
 export async function handleHelp(env, chatId) {
+  logEvent("command_used", { user_id: String(chatId), command: "help" });
+  recordMetric(env, "command_used", { asset: "help" });
   const text = `❓ راهنمای استفاده:
 
 💰 قیمت‌ها: مشاهده قیمت‌های لحظه‌ای کریپتو (BTC/ETH/SOL/BNB از Binance)، ارز و طلا (از TGJU)
@@ -74,6 +79,8 @@ export async function handleHelp(env, chatId) {
 }
 
 export async function handleMiniAppMenu(env, chatId) {
+  logEvent("mini_app_opened", { user_id: String(chatId) });
+  recordMetric(env, "mini_app_opened", {});
   if (env.NOVAX_MINI_APP_URL || env.MINI_APP_URL) {
     await sendMessage(env, chatId, "🌐 داشبورد هوشمند نواکس را از دکمه زیر باز کن:", {
       reply_markup: miniAppKeyboard(env),
@@ -98,11 +105,15 @@ export async function handleGrowthMenu(env, chatId) {
 }
 
 export async function handlePricesMenu(env, chatId) {
+  logEvent("command_used", { user_id: String(chatId), command: "prices" });
+  recordMetric(env, "command_used", { asset: "prices" });
   const text = "کدوم بازار رو می‌خوای ببینی؟";
   await sendMessage(env, chatId, text, { reply_markup: MARKET_KEYBOARD });
 }
 
 export async function handleMyAlerts(env, chatId) {
+  logEvent("command_used", { user_id: String(chatId), command: "my_alerts" });
+  recordMetric(env, "command_used", { asset: "my_alerts" });
   const alerts = await getUserAlerts(env, chatId);
 
   if (alerts.length === 0) {

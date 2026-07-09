@@ -19,6 +19,8 @@ import {
   PRO_PRICE_TOMAN,
   upsertUser,
 } from "./product-db.js";
+import { logEvent } from "./log.js";
+import { recordMetric } from "./metrics.js";
 
 const CORS_BASE_HEADERS = {
   "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
@@ -365,7 +367,13 @@ export async function handleMiniAppApi(request, env) {
   }
   const chatId = user.telegram_user_id;
 
+  if (path === "/api/v1/alerts" && request.method === "GET") {
+    logEvent("mini_app_action", { user_id: chatId, action: "view_alerts" });
+  }
+
   if (path === "/api/v1/subscription" && request.method === "GET") {
+    logEvent("mini_app_action", { user_id: chatId, action: "view_subscription" });
+    recordMetric(env, "mini_app_opened", {});
     const entitlement = await getEntitlement(env, chatId);
     const activeAlertCount = hasProductDb(env) ? await getUserAlertCount(env, chatId) : 0;
     return json(request, env, {

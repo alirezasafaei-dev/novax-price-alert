@@ -14,6 +14,7 @@ import {
   handleAdminCommand,
   handlePaymentReference,
   showSubscription,
+  handleReceiptMedia,
 } from "./subscriptions.js";
 import {
   parseStartParam,
@@ -538,7 +539,7 @@ export default {
         }
 
         if (text === "💎 ارتقا به Pro" || text.startsWith("/pro")) {
-          await showSubscription(env, chatId);
+          await showSubscription(env, chatId, message.chat?.type);
           return ok();
         }
 
@@ -549,7 +550,7 @@ export default {
 
         const session = await getSession(env, chatId);
         if (session?.flow === "manual_payment") {
-          await handlePaymentReference(env, chatId, text);
+          await handlePaymentReference(env, chatId, text, message.chat?.type);
           return ok();
         }
 
@@ -564,6 +565,14 @@ export default {
           // Track interactions & promote mini-app in groups (after 3rd NLP hit)
           if (message.chat?.type !== 'private') {
             ctx.waitUntil(maybePromoteUser(env, chatId, message.from?.id, message.from?.username));
+          }
+        }
+
+        // Detect receipt-like media (photo/document) in private chat for payment review
+        if (message.chat?.type === "private" && (message.photo || message.document)) {
+          const mediaReceiptHandled = await handleReceiptMedia(env, chatId, message, ctx);
+          if (mediaReceiptHandled) {
+            return ok();
           }
         }
 
