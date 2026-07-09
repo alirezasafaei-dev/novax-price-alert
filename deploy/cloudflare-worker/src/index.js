@@ -435,7 +435,7 @@ export default {
       }
 
       if (update.update_id) {
-        const processed = await isUpdateProcessed(env, update.update_id);
+        const processed = isUpdateProcessed(env, update.update_id);
         if (processed) {
           logEvent("webhook_duplicate_update", { update_id: String(update.update_id) });
           return Response.json({ ok: true, duplicate: true });
@@ -443,7 +443,7 @@ export default {
       }
 
       const ok = async (body = { ok: true }) => {
-        if (update.update_id) await markUpdateProcessed(env, update.update_id);
+        if (update.update_id) markUpdateProcessed(env, update.update_id);
         return Response.json(body);
       };
 

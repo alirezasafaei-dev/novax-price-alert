@@ -25,13 +25,14 @@ export async function setUser(env, chatId, user) {
   await env.USERS_KV.put(key, JSON.stringify(user));
 }
 
-export async function markUpdateProcessed(env, updateId) {
-  const key = `processed_update:${updateId}`;
-  await env.SESSIONS_KV.put(key, "1", { expirationTtl: 600 });
+const processedUpdates = new Set();
+const PROCESSED_TTL = 120_000;
+
+export function markUpdateProcessed(_env, updateId) {
+  processedUpdates.add(updateId);
+  setTimeout(() => processedUpdates.delete(updateId), PROCESSED_TTL);
 }
 
-export async function isUpdateProcessed(env, updateId) {
-  const key = `processed_update:${updateId}`;
-  const exists = await env.SESSIONS_KV.get(key);
-  return exists !== null;
+export function isUpdateProcessed(_env, updateId) {
+  return processedUpdates.has(updateId);
 }
