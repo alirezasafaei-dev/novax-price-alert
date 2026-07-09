@@ -1,29 +1,30 @@
-export async function getSession(env, chatId) {
+const sessions = new Map();
+const SESSION_TTL = 3_600_000;
+
+export async function getSession(_env, chatId) {
   const key = `session:${chatId}`;
-  const data = await env.SESSIONS_KV.get(key, "json");
-  return data || null;
+  const entry = sessions.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    sessions.delete(key);
+    return null;
+  }
+  return entry.data;
 }
 
-export async function setSession(env, chatId, session) {
+export async function setSession(_env, chatId, session) {
   const key = `session:${chatId}`;
-  await env.SESSIONS_KV.put(key, JSON.stringify(session), { expirationTtl: 3600 });
+  sessions.set(key, { data: session, expiresAt: Date.now() + SESSION_TTL });
 }
 
-export async function clearSession(env, chatId) {
+export async function clearSession(_env, chatId) {
   const key = `session:${chatId}`;
-  await env.SESSIONS_KV.delete(key);
+  sessions.delete(key);
 }
 
-export async function getUser(env, chatId) {
-  const key = `user:${chatId}`;
-  const data = await env.USERS_KV.get(key, "json");
-  return data || null;
-}
-
-export async function setUser(env, chatId, user) {
-  const key = `user:${chatId}`;
-  await env.USERS_KV.put(key, JSON.stringify(user));
-}
+// User data is persisted via D1 upsertUser; no KV writes needed.
+export function getUser() { return null; }
+export function setUser() {}
 
 const processedUpdates = new Set();
 const PROCESSED_TTL = 120_000;

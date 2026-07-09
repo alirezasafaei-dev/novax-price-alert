@@ -10,6 +10,7 @@ import {
 import { clearSession, setSession } from "./sessions.js";
 import { sendMessage, telegramApi } from "./telegram.js";
 import { MAIN_KEYBOARD } from "./keyboards.js";
+import { recordMetric } from "./metrics.js";
 import { logEvent } from "./log.js";
 
 function adminIds(env) {
