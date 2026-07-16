@@ -67,7 +67,7 @@ python -c "import secrets; print(secrets.token_hex(32))"
 
 ### TELEGRAM_RELAY_SECRET
 ```
-d0dea42744f215de668c40bbe208317a398b75f19fffe45226405a06b5a82197
+<CHANGE_ME_IN_PRODUCTION>
 ```
 
 ### METRICS_ACCESS_TOKEN

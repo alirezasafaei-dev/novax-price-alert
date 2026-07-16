@@ -151,7 +151,7 @@ TELEGRAM_RELAY_SECRET=
 **تنظیمات .env**:
 ```bash
 TELEGRAM_RELAY_URL=https://novax-telegram-relay.asdevelooper.workers.dev
-TELEGRAM_RELAY_SECRET=d0dea42744f215de668c40bbe208317a398b75f19fffe45226405a06b5a82197
+TELEGRAM_RELAY_SECRET=<CHANGE_ME_IN_PRODUCTION>
 ```
 
 ---
