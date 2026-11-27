@@ -339,7 +339,9 @@ export async function handleMiniAppApi(request, env) {
     const rangeDays = { "1d": 1, "7d": 7, "30d": 30, "90d": 30 };
     const days = rangeDays[String(url.searchParams.get("range") || "1d").toLowerCase()] || 1;
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-    const rows = await getPriceHistoryDb(env, asset.canonical_asset_id, since);
+    const requestedLimit = Number(url.searchParams.get("limit") || 500);
+    const limit = Number.isInteger(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 500) : 500;
+    const rows = await getPriceHistoryDb(env, asset.canonical_asset_id, since, limit);
     return json(request, env, {
       items: rows.map((row) => ({
         asset_code: assetCodeForWorker(asset.symbol, asset.market),
