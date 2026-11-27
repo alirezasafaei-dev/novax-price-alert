@@ -37,16 +37,32 @@ async function markSent(env, eventId) {
   await env.ALERTS_KV.put(`notification_sent:${eventId}`, "1", { expirationTtl: 60 * 60 * 24 * 30 });
 }
 
-export async function runCronJob(env) {
-  const workerRunId = crypto.randomUUID();
-  const alerts = await getAllActiveAlerts(env);
+// Actual scheduled timestamps are used so a delayed invocation cannot turn a
+// minute tick into a second hourly side effect. Manual/test invocations retain
+// the full maintenance path for compatibility.
+export function getTickPlan(scheduledAt) {
+  if (!Number.isFinite(scheduledAt)) return { snapshot: true, hourly: true, heartbeat: true };
+  const minute = new Date(scheduledAt).getUTCMinutes();
+  return { snapshot: minute % 10 === 0, hourly: minute === 0, heartbeat: minute % 5 === 0 };
+}
 
-  const [cryptoPrices, iranPrices] = await Promise.all([getCryptoPrices(), getIranMarketPrices()]);
+export async function runCronJob(env, { scheduledAt } = {}) {
+  const workerRunId = crypto.randomUUID();
+  const tick = getTickPlan(scheduledAt);
+  const alerts = await getAllActiveAlerts(env);
+  if (!alerts.length && !tick.snapshot && !tick.hourly) {
+    return { checked: 0, triggered: 0 };
+  }
+
+  // Bound provider waiting on frequent scheduled ticks; retain fail-closed
+  // behavior if a provider is down. No price calls on idle minute ticks.
+  const signal = Number.isFinite(scheduledAt) ? AbortSignal.timeout(20_000) : undefined;
+  const [cryptoPrices, iranPrices] = await Promise.all([getCryptoPrices({ signal }), getIranMarketPrices({ signal })]);
   const cryptoFreshness = classifyPriceBatch(cryptoPrices, "crypto");
   const iranFreshness = classifyPriceBatch(iranPrices, "iran_market");
   const observedAt = new Date().toISOString();
   try {
-    await recordPriceSnapshots(
+    if (tick.snapshot) await recordPriceSnapshots(
       env,
       Object.values(ASSETS).flatMap((asset) => {
         const batch = asset.market === "crypto" ? cryptoPrices : iranPrices;
@@ -68,11 +84,12 @@ export async function runCronJob(env) {
     logError("price_history_write_failed", { worker_run_id: workerRunId, error_message: error?.message });
   }
 
+  const promotionEnabled = String(env.RELAUNCH_PROMOTION_ENABLED || 'false').toLowerCase() === 'true';
   // Marketing daily post — runs independently of alert count.
   // Idempotent: only fires at configured Tehran hour, only once per Tehran date.
   try {
     const now = new Date();
-    if (await shouldPostDailyMarketing(env, now)) {
+    if (tick.hourly && promotionEnabled && await shouldPostDailyMarketing(env, now)) {
       const posted = await sendDailyMarketingPost(env, now);
       if (posted) {
         logEvent("marketing_daily_post_completed", { campaign_source: posted, worker_run_id: workerRunId });
@@ -86,7 +103,7 @@ export async function runCronJob(env) {
   try {
     const now = new Date();
     const { hour } = getTehranDateHour(now);
-    if (hour === 23) {
+    if (tick.hourly && hour === 23) {
       await sendDailySummary(env);
     }
   } catch (error) {
@@ -98,7 +115,7 @@ export async function runCronJob(env) {
   // Idempotent via KV: only once per (chat_id, date, hour).
   try {
     const now = new Date();
-    if (await shouldAutoPost(env, now)) {
+    if (tick.hourly && promotionEnabled && await shouldAutoPost(env, now)) {
       const posted = await sendAutoPost(env, now);
       if (posted) {
         logEvent("auto_post_completed", { worker_run_id: workerRunId });
