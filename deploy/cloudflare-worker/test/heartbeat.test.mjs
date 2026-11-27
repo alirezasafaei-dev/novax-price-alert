@@ -1,5 +1,6 @@
 import assert from "node:assert";
 import { recordCronHeartbeat, getCronStatus, EXPECTED_INTERVAL_SECONDS } from "../src/heartbeat.js";
+import { getTickPlan } from "../src/cron.js";
 
 class MockKV extends Map {
   async get(key, type) {
@@ -44,3 +45,16 @@ assert.equal(okWide.status, "ok");
 assert.equal(okWide.stale, false);
 
 console.log("cron heartbeat tests passed");
+
+// One-minute alert ticks must not multiply hourly jobs, snapshots or KV writes.
+const ticks = Array.from({ length: 60 }, (_, minute) => getTickPlan(Date.UTC(2026, 10, 28, 12, minute)));
+assert.equal(ticks.filter(t => t.hourly).length, 1);
+assert.equal(ticks.filter(t => t.snapshot).length, 6);
+assert.equal(ticks.filter(t => t.heartbeat).length, 12);
+assert.equal(EXPECTED_INTERVAL_SECONDS, 300);
+await recordCronHeartbeat(env, { checked: 0, success: false });
+const failed = await getCronStatus(env);
+assert.equal(failed.status, "error");
+assert.equal(failed.stale, true);
+await recordCronHeartbeat(env, { checked: 1 });
+assert.equal((await getCronStatus(env)).status, "ok");
