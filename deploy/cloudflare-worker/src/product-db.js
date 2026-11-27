@@ -457,10 +457,10 @@ export async function getPriceHistoryDb(env, canonicalAssetId, since, limit = 50
     SELECT canonical_asset_id, price, display_unit, provider, observed_at
     FROM price_snapshots
     WHERE canonical_asset_id = ? AND observed_at >= ?
-    ORDER BY observed_at ASC
+    ORDER BY observed_at DESC
     LIMIT ?
   `).bind(canonicalAssetId, since, limit).all();
-  return result.results || [];
+  return (result.results || []).reverse();
 }
 
 export async function createPaymentRequest(env, telegramUserId, reference) {
