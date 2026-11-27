@@ -41,28 +41,32 @@ export async function runCronJob(env) {
   const workerRunId = crypto.randomUUID();
   const alerts = await getAllActiveAlerts(env);
 
-  const cryptoPrices = await getCryptoPrices();
-  const iranPrices = await getIranMarketPrices();
+  const [cryptoPrices, iranPrices] = await Promise.all([getCryptoPrices(), getIranMarketPrices()]);
   const cryptoFreshness = classifyPriceBatch(cryptoPrices, "crypto");
   const iranFreshness = classifyPriceBatch(iranPrices, "iran_market");
   const observedAt = new Date().toISOString();
-  await recordPriceSnapshots(
-    env,
-    Object.values(ASSETS).flatMap((asset) => {
-      const batch = asset.market === "crypto" ? cryptoPrices : iranPrices;
-      const price = batch?.[asset.symbol];
-      if (!Number.isFinite(price)) return [];
-      return [{
-        canonical_asset_id: asset.canonical_asset_id,
-        price,
-        display_unit: asset.unit,
-        provider: asset.market === "crypto"
-          ? (cryptoPrices?._fallback ? "coingecko_fallback" : "binance")
-          : "tgju",
-        observed_at: observedAt,
-      }];
-    }),
-  );
+  try {
+    await recordPriceSnapshots(
+      env,
+      Object.values(ASSETS).flatMap((asset) => {
+        const batch = asset.market === "crypto" ? cryptoPrices : iranPrices;
+        const price = batch?.[asset.symbol];
+        const freshness = asset.market === "crypto" ? cryptoFreshness : iranFreshness;
+        if (freshness.freshness !== "fresh" || !Number.isFinite(price) || price <= 0) return [];
+        return [{
+          canonical_asset_id: asset.canonical_asset_id,
+          price,
+          display_unit: asset.unit,
+          provider: asset.market === "crypto"
+            ? (cryptoPrices?._fallback ? "coingecko_fallback" : "binance")
+            : "tgju",
+          observed_at: observedAt,
+        }];
+      }),
+    );
+  } catch (error) {
+    logError("price_history_write_failed", { worker_run_id: workerRunId, error_message: error?.message });
+  }
 
   // Marketing daily post — runs independently of alert count.
   // Idempotent: only fires at configured Tehran hour, only once per Tehran date.
@@ -145,7 +149,7 @@ export async function runCronJob(env) {
 
     const currentPrice = priceBatch?.[alert.symbol];
 
-    if (!currentPrice) {
+    if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
       logWarn("stale_data_detected", {
         alert_id: alert.id,
         user_id: String(alert.chat_id),
