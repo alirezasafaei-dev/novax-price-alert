@@ -203,7 +203,8 @@ export default function App() {
               type: (it.currency_code || it.display_unit || '').toUpperCase().includes('USDT') || (it.asset_code || '').toUpperCase().includes('USDT') ? 'crypto' : 'fiat',
               unit,
               change24h: 0,
-              history: [rawPrice],
+              change24hKnown: false,
+              history: [],
             };
           });
           const existingHistoryMap = new Map(assetsRef.current.map((asset) => [asset.symbol, asset.history]));
@@ -212,11 +213,11 @@ export default function App() {
             const historyResponses = await Promise.all(
               priceData.map(async (asset) => {
                 try {
-                  const range = asset.type === 'crypto' ? '7d' : '30d';
+                  const range = '1d';
                   const response = await fetch(`${backendBase}/api/v1/prices/history?asset_code=${encodeURIComponent(asset.symbol)}&limit=24&range=${range}`);
                   if (!response.ok) return [asset.symbol, null] as const;
                   const payload = await response.json();
-                  const history = (payload.items || []).slice().sort((a: any, b: any) => new Date(a.observed_at).getTime() - new Date(b.observed_at).getTime());
+                  const history = (payload.items || []).filter((item: any) => Number.isFinite(Number(item.price_value)) && Number(item.price_value) > 0 && Number.isFinite(Date.parse(item.observed_at))).slice().sort((a: any, b: any) => new Date(a.observed_at).getTime() - new Date(b.observed_at).getTime());
                   return [asset.symbol, history] as const;
                 } catch {
                   return [asset.symbol, null] as const;
@@ -229,28 +230,14 @@ export default function App() {
           priceData = priceData.map((asset) => {
             const historyItems = historyMap.get(asset.symbol);
             const existingHistory = existingHistoryMap.get(asset.symbol);
-            if (!historyItems && existingHistory?.length) {
-              const existingLabels = assetsRef.current.find(a => a.symbol === asset.symbol)?.historyLabels || [];
-              return {
-                ...asset,
-                history: [...existingHistory.slice(-23), asset.price],
-                historyLabels: [...existingLabels.slice(-23), new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })],
-              };
-            }
             if (!historyItems || historyItems.length === 0) {
-              return {
-                ...asset,
-                history: existingHistory?.length
-                  ? [...existingHistory.slice(-23), asset.price]
-                  : [asset.price],
-                historyLabels: existingHistory?.length
-                  ? [...(assetsRef.current.find(a => a.symbol === asset.symbol)?.historyLabels || []).slice(-23), new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })]
-                  : [new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })],
-              };
+              // Preserve only previously received snapshots; never fabricate timestamped history.
+              const existing = assetsRef.current.find(a => a.symbol === asset.symbol);
+              return { ...asset, history: existingHistory || [], historyLabels: existing?.historyLabels || [] };
             }
             return {
               ...asset,
-              history: historyItems.map((item: any) => Number(item.price_value || 0)),
+              history: historyItems.map((item: any) => Number(item.price_value)),
               historyLabels: historyItems.map((item: any) => {
                 const d = new Date(item.observed_at);
                 return d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
@@ -358,6 +345,7 @@ export default function App() {
   }, [useLiveData, tgInitData]);
 
   const toggleLiveData = () => {
+    if (!isLocalHost()) return; // Simulation is a local development feature only.
     if (!useLiveData && !tgInitData) {
       showToast(isFa ? 'برای هشدارهای واقعی، این مینی‌اپ را از داخل بات تلگرام باز کنید.' : 'Open this mini app from Telegram bot to use real alert APIs.', 'info');
     }
@@ -476,33 +464,8 @@ export default function App() {
   };
 
   const handleSelectAssetForAlert = (symbol: string) => { setSelectedAssetForAlert(symbol); setActiveTab('alerts'); };
-  const handleBuyPro = async () => {
-    if (!tgInitData) {
-      showToast(isFa ? 'برای خرید Pro، مینی‌اپ را از داخل تلگرام باز کنید.' : 'Open the mini app in Telegram to buy Pro.', 'info');
-      return;
-    }
-    const reference = window.prompt(
-      isFa
-        ? `${subscription?.payment_instructions || 'اطلاعات پرداخت را از بات دریافت کنید.'}\n\nپس از پرداخت ۹۹٬۰۰۰ تومان، کد پیگیری یا توضیح رسید را وارد کنید:`
-        : `${subscription?.payment_instructions || 'Get payment instructions from the bot.'}\n\nAfter paying 99,000 Toman, enter the payment reference:`,
-    );
-    if (!reference) return;
-    const response = await fetch(`${backendBase}/api/v1/subscription/payment-requests`, {
-      method: 'POST',
-      headers: liveHeaders(),
-      body: JSON.stringify({ reference }),
-    });
-    if (!response.ok) {
-      showToast(isFa ? 'ثبت درخواست پرداخت ناموفق بود.' : 'Payment request failed.', 'error');
-      return;
-    }
-    const payload = await response.json();
-    showToast(
-      isFa
-        ? `درخواست ${payload.id} ثبت شد و در انتظار بررسی است.`
-        : `Request ${payload.id} is pending review.`,
-      'success',
-    );
+  const handleBuyPro = () => {
+    showToast(isFa ? 'خرید جدید Pro موقتاً متوقف است. لطفاً وجهی واریز نکنید.' : 'New Pro purchases are temporarily unavailable. Please do not send payments.', 'info');
   };
 
 
@@ -692,7 +655,7 @@ export default function App() {
               >
                 {subscription.plan === 'pro'
                   ? `PRO • ${subscription.active_alert_count}/${subscription.alert_limit}`
-                  : `${isFa ? 'ارتقا به Pro' : 'Upgrade to Pro'} • ${subscription.active_alert_count}/${subscription.alert_limit}`}
+                  : `${isFa ? 'خرید Pro متوقف است' : 'Pro purchases paused'} • ${subscription.active_alert_count}/${subscription.alert_limit}`}
               </button>
             )}
             {useLiveData && !tgInitData && (
@@ -704,7 +667,7 @@ export default function App() {
               className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs px-3 py-2 rounded-xl transition-all font-semibold text-zinc-300 cursor-pointer">
               <Globe size={13} /> {isFa ? 'EN' : 'FA'}
             </button>
-            <button onClick={toggleLiveData}
+            <button disabled={!isLocalHost()} onClick={toggleLiveData}
               className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl transition-all font-semibold cursor-pointer border ${useLiveData ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300' : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-zinc-300'}`}>
               <Wifi size={13} /> {useLiveData ? (isFa ? 'واقعی' : 'LIVE') : (isFa ? 'شبیه‌سازی' : 'SIM')}
             </button>
