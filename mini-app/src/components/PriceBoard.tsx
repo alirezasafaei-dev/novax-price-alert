@@ -9,9 +9,10 @@ interface PriceBoardProps {
   onSelectAssetForAlert: (symbol: string) => void;
   onManualTriggerPrice: (symbol: string, newPrice: number) => void;
   mode?: 'board' | 'chart';
+  simulationEnabled?: boolean;
 }
 
-export default function PriceBoard({ assets, language, onSelectAssetForAlert, onManualTriggerPrice, mode = 'board' }: PriceBoardProps) {
+export default function PriceBoard({ assets, language, onSelectAssetForAlert, onManualTriggerPrice, mode = 'board', simulationEnabled = false }: PriceBoardProps) {
   const [filter, setFilter] = useState<'all' | 'crypto' | 'fiat' | 'gold'>('all');
   const [selectedSymbol, setSelectedSymbol] = useState<string>('BTC');
   const [sliderPrice, setSliderPrice] = useState<number>(68500);
@@ -123,7 +124,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
   );
   
   const chartSeries = useMemo(() => 
-    chartAssets.map(asset => ({
+    chartAssets.filter(asset => asset.history.length >= 2).map(asset => ({
       asset,
       points: getDisplayHistory(asset),
     })),
@@ -133,7 +134,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
   const legendColors = ['#22d3ee', '#34d399', '#f59e0b', '#f472b6', '#a78bfa'];
   
   const advancedLabels = useMemo(() => {
-    const firstAsset = chartAssets[0];
+    const firstAsset = chartSeries[0]?.asset;
     const customLabels = firstAsset?.historyLabels;
     if (customLabels && customLabels.length > 0) {
       return customLabels;
@@ -216,7 +217,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-bold text-white">{formatPrice(asset.price, asset.type, asset.unit)}</div>
-                      <div className={`text-[11px] font-semibold ${asset.change24h >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{formatPercent(asset.change24h)}</div>
+                      <div className={`text-[11px] font-semibold ${asset.change24h >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{asset.change24hKnown === false ? '—' : formatPercent(asset.change24h)}</div>
                     </div>
                   </div>
                 </button>
@@ -348,7 +349,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
             <div>
               <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
                 <Activity size={12} className="text-teal-400" />
-                {isFa ? 'نمودار آنلاین' : 'LIVE CHART'}
+                {isFa ? 'تاریخچه قیمت' : 'PRICE HISTORY'}
               </span>
               <h2 className="text-2xl font-bold tracking-tight text-white mt-1">
                 {isFa ? selectedAsset.nameFa : selectedAsset.name}
@@ -362,14 +363,15 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
               <div className={`text-xs font-bold mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${
                 selectedAsset.change24h >= 0 ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'
               }`}>
-                {selectedAsset.change24h >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                {formatPercent(selectedAsset.change24h)}
+                {selectedAsset.change24hKnown !== false && (selectedAsset.change24h >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />)}
+                {selectedAsset.change24hKnown === false ? (isFa ? 'تغییر ۲۴ساعته نامشخص' : '24h change unavailable') : formatPercent(selectedAsset.change24h)}
               </div>
             </div>
           </div>
 
           {/* SVG Chart */}
           <div className="h-56 mt-6 relative w-full">
+            {selectedAsset.history.length < 2 && <div role="status" className="absolute inset-0 flex items-center justify-center text-zinc-400 text-sm">{isFa ? 'داده کافی برای نمودار موجود نیست.' : 'Not enough price history.'}</div>}
             <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
@@ -386,10 +388,10 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
                 strokeWidth="2.5" strokeLinecap="round" className="transition-all duration-500" />
             </svg>
             <div className="absolute top-2 left-2 text-[10px] font-mono text-zinc-500 bg-slate-800/40 px-1.5 py-0.5 rounded">
-              High: {formatRawPrice(Math.max(...selectedAsset.history), selectedAsset.type, selectedAsset.unit)}
+              High: {selectedAsset.history.length >= 2 ? formatRawPrice(Math.max(...selectedAsset.history), selectedAsset.type, selectedAsset.unit) : '—'}
             </div>
             <div className="absolute bottom-2 left-2 text-[10px] font-mono text-zinc-500 bg-slate-800/40 px-1.5 py-0.5 rounded">
-              Low: {formatRawPrice(Math.min(...selectedAsset.history), selectedAsset.type, selectedAsset.unit)}
+              Low: {selectedAsset.history.length >= 2 ? formatRawPrice(Math.min(...selectedAsset.history), selectedAsset.type, selectedAsset.unit) : '—'}
             </div>
           </div>
 
@@ -406,7 +408,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
         </div>
 
         {/* Price Drift Playground */}
-        <div className="bg-gradient-to-br from-slate-900/40 to-slate-950/40 border border-slate-800/80 rounded-2xl p-6 relative overflow-hidden">
+        {simulationEnabled && <div className="bg-gradient-to-br from-slate-900/40 to-slate-950/40 border border-slate-800/80 rounded-2xl p-6 relative overflow-hidden">
           <div className="absolute top-2 right-2 flex gap-1.5 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full text-[10px] font-semibold text-indigo-400 uppercase tracking-wider">
             <Sliders size={10} className="self-center" />
             {isFa ? 'پلی‌گراند شبیه‌ساز' : 'PLAYGROUND MODE'}
@@ -432,7 +434,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
               <span>Max: {formatRawPrice(maxSliderVal, selectedAsset.type, selectedAsset.unit)}</span>
             </div>
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* RIGHT SIDEBAR: Asset List */}
@@ -483,7 +485,7 @@ export default function PriceBoard({ assets, language, onSelectAssetForAlert, on
                   <div>
                     <div className="font-semibold font-mono text-sm">{formatPrice(asset.price, asset.type, asset.unit)}</div>
                     <div className={`text-[11px] font-bold mt-0.5 font-mono ${priceUp ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {priceUp ? '+' : ''}{asset.change24h.toFixed(2)}%
+                      {asset.change24hKnown === false ? '—' : formatPercent(asset.change24h)}
                     </div>
                   </div>
                 </div>

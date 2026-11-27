@@ -100,42 +100,17 @@ export async function getCryptoPrices({ signal } = {}) {
       for (const item of data) {
         const symbol = pairToSymbol[item?.symbol];
         const price = Number(item?.price);
-        if (symbol && Number.isFinite(price)) {
+        if (symbol && Number.isFinite(price) && price > 0) {
           prices[symbol] = price;
         }
       }
     }
 
-    if (!Object.keys(prices).length && !signal?.aborted) {
-      try {
-        const response = await fetchWithRetry(
-          "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin&vs_currencies=usd",
-          {
-            headers: {
-              "User-Agent": "Novax-Price-Bot/1.0",
-            },
-            signal,
-          },
-        );
-        const fallback = await response.json();
-        const coinToSymbol = {
-          bitcoin: "BTC",
-          ethereum: "ETH",
-          solana: "SOL",
-          binancecoin: "BNB",
-        };
-        for (const [coin, symbol] of Object.entries(coinToSymbol)) {
-          const price = Number(fallback?.[coin]?.usd);
-          if (Number.isFinite(price)) {
-            prices[symbol] = price;
-          }
-        }
-        if (Object.keys(prices).length) {
-          prices._fallback = true;
-        }
-      } catch {
-        // fallback failed, prices stays empty
-      }
+    // CoinGecko's USD aggregate is not an exchange USDT quote.
+    // Until a same-pair, freshness-verified secondary provider is available,
+    // fail closed; never present a USD fallback as USDT or trigger on it.
+    if (!Object.keys(prices).length) {
+      logWarn("crypto_quotes_unavailable", { provider: "binance", currency: "USDT" });
     }
 
     prices._currency = "USDT";
@@ -186,7 +161,7 @@ export async function getIranMarketPrices({ signal } = {}) {
 
   const assign = (key, target) => {
     const rial = parseTgjuRial(table?.[key]?.p);
-    if (rial !== null) prices[target] = Math.round(rial / 10);
+    if (rial !== null && rial >= 10) prices[target] = Math.round(rial / 10);
   };
 
   assign("price_dollar_rl", "USD");

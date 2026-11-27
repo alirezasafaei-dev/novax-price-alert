@@ -53,6 +53,21 @@ describe('PriceBoard', () => {
     expect(screen.getByText(/در انتظار دریافت قیمت‌ها/i)).toBeInTheDocument();
   });
 
+  it('discloses missing data and hides production simulation controls', () => {
+    render(
+      <PriceBoard
+        assets={[{ ...mockAssets[0], change24h: 0, change24hKnown: false, history: [] }]}
+        language="fa"
+        onSelectAssetForAlert={jest.fn()}
+        onManualTriggerPrice={jest.fn()}
+      />
+    );
+    expect(screen.getByText('تغییر ۲۴ساعته نامشخص')).toBeInTheDocument();
+    expect(screen.getByText('داده کافی برای نمودار موجود نیست.')).toBeInTheDocument();
+    expect(screen.queryByText(/0\.00%/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/شبیه‌ساز و تست هشدارها/)).not.toBeInTheDocument();
+  });
+
   it('formats prices correctly', () => {
     render(
       <PriceBoard

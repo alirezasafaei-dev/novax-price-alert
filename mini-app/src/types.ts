@@ -7,6 +7,7 @@ export interface Asset {
   type: 'crypto' | 'fiat' | 'gold';
   unit?: string; // currency unit (e.g., 'USDT', 'IRT', 'TOMAN')
   change24h: number; // percentage change (e.g. 1.25 for +1.25%)
+  change24hKnown?: boolean; // false when the live API has no verified 24h change
   history: number[]; // 12-point recent history for sparkline
   historyLabels?: string[];
 }

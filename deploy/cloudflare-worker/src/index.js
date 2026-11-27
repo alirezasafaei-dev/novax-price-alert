@@ -2,7 +2,7 @@ import { FLOW_STATES } from "./alert-flow.js";
 import { handleStart, handleHelp, handlePricesMenu, handleMyAlerts, handleCreateAlertStart, handleUnknownMessage, handleFaq, handleMiniAppMenu, handleInlineQuery } from "./commands.js";
 import { handleCallback, handleTextInSession } from "./callbacks.js";
 import { isUpdateProcessed, markUpdateProcessed, setSession, clearSession, getSession } from "./sessions.js";
-import { runCronJob } from "./cron.js";
+import { getTickPlan, runCronJob } from "./cron.js";
 import { recordCronHeartbeat, getCronStatus } from "./heartbeat.js";
 import { sendMessage, telegramApi } from "./telegram.js";
 import { logEvent, logWarn, logError } from "./log.js";
@@ -591,13 +591,15 @@ export default {
   },
   
   async scheduled(event, env, ctx) {
+    const scheduledAt = event?.scheduledTime;
+    const tick = getTickPlan(scheduledAt);
     try {
-      const result = await runCronJob(env);
-      await recordCronHeartbeat(env, result);
+      const result = await runCronJob(env, { scheduledAt });
+      if (tick.heartbeat) await recordCronHeartbeat(env, result);
       logEvent("cron_invocation_completed", { checked: result.checked, triggered: result.triggered });
     } catch (error) {
       logError("cron_handler_error", { error_message: error?.message || "cron failed" });
-      await recordCronHeartbeat(env, { checked: 0, triggered: 0, error: error?.message }).catch(() => {});
+      if (tick.heartbeat) await recordCronHeartbeat(env, { checked: 0, triggered: 0, success: false }).catch(() => {});
     }
   }
 };

@@ -932,6 +932,7 @@ let testsPassed = 0;
     const env = {
       DB,
       MARKETING_POSTING_ENABLED: "true",
+      RELAUNCH_PROMOTION_ENABLED: "true",
       MARKETING_CHANNEL_ID: "-100123",
       BOT_USERNAME: "test_bot",
       MARKETING_POST_HOUR_TEHRAN: "10",
@@ -1041,6 +1042,7 @@ let testsPassed = 0;
     const env = {
       DB,
       MARKETING_POSTING_ENABLED: "true",
+      RELAUNCH_PROMOTION_ENABLED: "true",
       MARKETING_CHANNEL_ID: "-100123",
       BOT_USERNAME: "test_bot",
       MARKETING_POST_HOUR_TEHRAN: "10",
@@ -1092,6 +1094,7 @@ let testsPassed = 0;
     const env = {
       DB,
       MARKETING_POSTING_ENABLED: "true",
+      RELAUNCH_PROMOTION_ENABLED: "true",
       MARKETING_CHANNEL_ID: "-100123",
       BOT_USERNAME: "test_bot",
       MARKETING_POST_HOUR_TEHRAN: "10",

@@ -109,6 +109,15 @@ response = await worker.fetch(
 payload = await response.json();
 assert.equal(payload.plan, "free");
 assert.equal(payload.alert_limit, 3);
+assert.equal(payload.purchase_available, false);
+assert.equal(payload.payment_instructions, null);
+response = await worker.fetch(new Request("https://worker.example/api/v1/subscription/payment-requests", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": initData },
+  body: JSON.stringify({ reference: "test-reference" }),
+}), env, ctx);
+assert.equal(response.status, 503);
+assert.equal((await DB.prepare("SELECT COUNT(*) AS count FROM payment_requests").first()).count, 0);
 
 
 response = await worker.fetch(
@@ -239,4 +248,15 @@ assert.equal(payload.data_status, "real");
 assert.ok(payload.items.length >= 1);
 assert.ok(payload.items.every((item) => item.asset_code === "USDT_IRT"));
 
+// Explicit limit must return the latest snapshots in chronological order.
+for (const minutesAgo of [50, 40, 30, 20, 10]) {
+  const ts = new Date(Date.now() - minutesAgo * 60_000).toISOString();
+  await DB.prepare("INSERT INTO price_snapshots (canonical_asset_id, price, display_unit, provider, observed_at, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind("fiat:USDT", 170000 + minutesAgo, "تومان", "tgju", ts, ts).run();
+}
+response = await worker.fetch(new Request("https://worker.example/api/v1/prices/history?asset_code=USDT_IRT&range=1d&limit=2"), env, ctx);
+payload = await response.json();
+assert.equal(payload.items.length, 2);
+assert.ok(Date.parse(payload.items[0].observed_at) <= Date.parse(payload.items[1].observed_at));
+assert.equal(payload.items[0].price_value, 170010);
 await mf.dispose();
