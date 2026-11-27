@@ -10,7 +10,6 @@ import {
 } from "./alerts.js";
 import { getCryptoPrices, getIranMarketPrices, unitForMarket } from "./prices.js";
 import {
-  createPaymentRequest,
   getEntitlement,
   getPriceHistoryDb,
   getUserAlertCount,
@@ -380,23 +379,13 @@ export async function handleMiniAppApi(request, env) {
       ...entitlement,
       active_alert_count: activeAlertCount,
       pro_price_toman: PRO_PRICE_TOMAN,
-      payment_instructions: env.PAYMENT_INSTRUCTIONS || null,
+      payment_instructions: null,
+      purchase_available: false,
     });
   }
 
   if (path === "/api/v1/subscription/payment-requests" && request.method === "POST") {
-    if (!hasProductDb(env)) return error(request, env, "Subscription storage is unavailable", 503);
-    const payload = await request.json();
-    try {
-      const payment = await createPaymentRequest(env, chatId, payload.reference);
-      return json(request, env, {
-        ...payment,
-        status: "pending",
-        amount_toman: PRO_PRICE_TOMAN,
-      }, { status: payment.already_pending ? 200 : 201 });
-    } catch (paymentError) {
-      return error(request, env, String(paymentError?.message || paymentError), 422);
-    }
+    return error(request, env, "New Pro purchases are temporarily unavailable", 503);
   }
 
   if (path === "/api/v1/alerts" && request.method === "GET") {
