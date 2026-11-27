@@ -692,7 +692,7 @@ export default function App() {
           <AnimatePresence mode="wait">
             {activeTab === 'prices' && (
               <motion.div key="prices" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}>
-                <PriceBoard assets={assets} language={language} onSelectAssetForAlert={handleSelectAssetForAlert} onManualTriggerPrice={handleManualPriceChange} />
+                <PriceBoard simulationEnabled={isLocalHost() && !useLiveData} assets={assets} language={language} onSelectAssetForAlert={handleSelectAssetForAlert} onManualTriggerPrice={handleManualPriceChange} />
               </motion.div>
             )}
             {activeTab === 'alerts' && (
@@ -796,7 +796,7 @@ export default function App() {
             )}
             {activeTab === 'chart' && (
               <motion.div key="chart" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.2 }}>
-                <PriceBoard assets={assets} language={language} onSelectAssetForAlert={handleSelectAssetForAlert} onManualTriggerPrice={handleManualPriceChange} mode="chart" />
+                <PriceBoard simulationEnabled={isLocalHost() && !useLiveData} assets={assets} language={language} onSelectAssetForAlert={handleSelectAssetForAlert} onManualTriggerPrice={handleManualPriceChange} mode="chart" />
               </motion.div>
             )}
             {activeTab === 'ai' && (
